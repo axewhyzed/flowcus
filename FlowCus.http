@@ -1,0 +1,6 @@
+@FlowCus_HostAddress = http://localhost:5229
+
+GET {{FlowCus_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
