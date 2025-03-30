@@ -1,5 +1,14 @@
 var builder = WebApplication.CreateBuilder(args);
 
+string[] allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200" } : new[] {""};
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("GlobalPolicy", policy =>
+    {
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+    });
+});
 // Add services to the container.
 
 builder.Services.AddControllers();
@@ -9,6 +18,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+app.UseCors("GlobalPolicy");
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
