@@ -1,0 +1,31 @@
+# Node.js with Angular
+# Build a Node.js project that uses Angular.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+
+trigger: none  # Manual trigger only
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '20.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    cd Flowcus-frontend/flowcus
+    npm install
+  displayName: 'Install dependencies'
+  
+- script: |
+    cd Flowcus-frontend/flowcus
+    # Configure Git using pipeline variables
+    git config --global user.email "$(GITHUB_EMAIL)"
+    git config --global user.name "$(GITHUB_USERNAME)"
+    # Update the remote URL using the GitHub PAT for authentication
+    git remote set-url origin https://$(GITHUB_PAT)@github.com/$(GITHUB_USERNAME)/$(GITHUB_REPO).git
+    # Deploy to GitHub Pages
+    npx ng deploy --no-silent --access-token $(GITHUB_PAT)
+  displayName: 'Deploy Angular app to GitHub Pages'
