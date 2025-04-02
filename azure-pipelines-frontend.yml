@@ -13,13 +13,14 @@ steps:
   inputs:
     versionSpec: '20.x'
   displayName: 'Install Node.js'
+  
+- script: ls -R
+  displayName: 'Debug: List files in workspace'
 
 - script: npm install --legacy-peer-deps
   displayName: 'Install dependencies'
   workingDirectory: Flowcus-frontend/flowcus
-  
-- script: ls -R
-  displayName: 'Debug: List files in workspace'
+
   
 - script: |
     cd Flowcus-frontend/flowcus
