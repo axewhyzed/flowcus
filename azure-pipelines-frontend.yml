@@ -18,6 +18,9 @@ steps:
   displayName: 'Install dependencies'
   workingDirectory: Flowcus-frontend/flowcus
   
+- script: ls -R
+  displayName: 'Debug: List files in workspace'
+  
 - script: |
     cd Flowcus-frontend/flowcus
     # Configure Git using pipeline variables
