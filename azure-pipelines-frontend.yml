@@ -23,12 +23,12 @@ steps:
 
   
 - script: |
-    cd Flowcus-frontend/flowcus
+    cd FlowCus-frontend/flowcus
     # Configure Git using pipeline variables
     git config --global user.email "$(GITHUB_EMAIL)"
     git config --global user.name "$(GITHUB_USERNAME)"
     # Update the remote URL using the GitHub PAT for authentication
     git remote set-url origin https://$(GITHUB_PAT)@github.com/$(GITHUB_USERNAME)/$(GITHUB_REPO).git
     # Deploy to GitHub Pages
-    npx ng deploy --no-silent --access-token $(GITHUB_PAT)
+    ng deploy --no-silent --access-token $(GITHUB_PAT)
   displayName: 'Deploy Angular app to GitHub Pages'
