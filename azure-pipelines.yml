@@ -2,8 +2,9 @@
 # Build a Docker image
 # https://docs.microsoft.com/azure/devops/pipelines/languages/docker
 
-trigger:
-- Current
+# commenting trigger to prevent auto deploys
+# trigger:
+# - Current
 
 resources:
 - repo: self
