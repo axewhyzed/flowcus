@@ -1,0 +1,48 @@
+# Docker
+# Build a Docker image
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- Current
+
+resources:
+- repo: self
+
+variables:
+  tag: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: Docker@2
+      displayName: Build an image
+      inputs:
+        command: build
+        dockerfile: '$(Build.SourcesDirectory)/FlowCus-backend/DockerFile'
+        tags: |
+          $(tag)
+
+- stage: Deploy
+  displayName: Deploy Docker image
+  dependsOn: Build  # Ensure deployment happens after build
+  jobs:
+  - job: Deploy
+    displayName: Deploy
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        echo "Deploying Docker image to your deployment platform"
+        # Add deployment commands here (Render, AKS, etc.)
+        # For example, using curl to trigger Render deployment:
+        curl -X POST \
+        -H "Authorization: Bearer ${RENDER_API_KEY}" \
+        -d '{"branch":"main"}' \
+        "https://api.render.com/v1/services/${FLOWCUS_SERVICE_ID}/deploys"
+      displayName: 'Deploy to Render'
