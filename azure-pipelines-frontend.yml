@@ -14,10 +14,9 @@ steps:
     versionSpec: '20.x'
   displayName: 'Install Node.js'
 
-- script: |
-    cd Flowcus-frontend/flowcus
-    npm install
+- script: npm install --legacy-peer-deps
   displayName: 'Install dependencies'
+  workingDirectory: Flowcus-frontend/flowcus
   
 - script: |
     cd Flowcus-frontend/flowcus
