@@ -29,6 +29,7 @@ steps:
     git config --global user.name "$(GITHUB_USERNAME)"
     # Update the remote URL using the GitHub PAT for authentication
     git remote set-url origin https://$(GITHUB_PAT)@github.com/$(GITHUB_USERNAME)/$(GITHUB_REPO).git
-    # Deploy to GitHub Pages
-    npx ng deploy --no-silent --access-token $(GITHUB_PAT)
+    export GH_TOKEN=$(GITHUB_PAT)  # Set token as an environment variable
+    npx ng deploy --no-silent
   displayName: 'Deploy Angular app to GitHub Pages'
+  workingDirectory: FlowCus-frontend/flowcus  # Ensure correct path
