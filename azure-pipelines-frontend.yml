@@ -30,5 +30,5 @@ steps:
     # Update the remote URL using the GitHub PAT for authentication
     git remote set-url origin https://$(GITHUB_PAT)@github.com/$(GITHUB_USERNAME)/$(GITHUB_REPO).git
     # Deploy to GitHub Pages
-    ng deploy --no-silent --access-token $(GITHUB_PAT)
+    npx ng deploy --no-silent --access-token $(GITHUB_PAT)
   displayName: 'Deploy Angular app to GitHub Pages'
