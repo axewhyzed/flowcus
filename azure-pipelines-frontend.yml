@@ -19,7 +19,7 @@ steps:
 
 - script: npm install --legacy-peer-deps
   displayName: 'Install dependencies'
-  workingDirectory: Flowcus-frontend/flowcus
+  workingDirectory: FlowCus-frontend/flowcus
 
   
 - script: |
