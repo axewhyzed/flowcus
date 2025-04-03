@@ -1,0 +1,190 @@
+@font-face {
+    font-family: 'Inter';
+    src: url('/assets/fonts/Inter-bold.woff2') format('woff2'), url('/assets/fonts/Inter-bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('/assets/fonts/Inter-regular.woff2') format('woff2'), url('/assets/fonts/Inter-regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Global Styles */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif !important; /* Ensure Inter is applied globally */
+    background-color: #fdfdfd; /* Light background */
+    color: #333; /* Dark gray for better readability */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Wrapper */
+.wrapper {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Updated Sidebar */
+.sidebar {
+    width: 5%;
+    background-color: #ffffff; /* White background */
+    max-width: 300px; /* Prevent it from getting too big */
+    min-width: 80px; /* Ensure it doesn't become too small */
+    color: #333; /* Dark text for readability */
+    transition: width 0.3s ease-in-out;
+    height: 100vh;
+    padding: 0;
+    border-right: 1px solid #ddd; /* Light gray border for subtle separation */
+}
+
+    .sidebar.collapsed {
+        width: 70px;
+    }
+
+/* Sidebar Menu */
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    height: 100vh;
+    width: 100%;
+}
+
+    .sidebar-menu li {
+        text-align: center;
+        position: relative;
+        width: 100%;
+    }
+        .sidebar-menu li:hover .tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-50%) scale(1);
+        }
+
+        /* Sidebar Buttons */
+        .sidebar-menu li a {
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            width: 100%;
+            padding: 1rem;
+            color: #444;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+            .sidebar-menu li a:hover {
+                background: #f0f0f0; /* Soft hover effect */
+                border-radius: 6px;
+            }
+
+/* Content Wrapper */
+.content-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    height: 100vh;
+    width: 80%;
+    transition: margin-left 0.3s ease-in-out;
+    background: #ffffff; /* Ensure it blends well */
+}
+
+    .content-wrapper.expanded {
+        margin-left: 70px;
+    }
+
+/* Header */
+.header {
+    background-color: #ffffff; /* Keep it light */
+    color: #333;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid #ddd; /* Subtle separation */
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    position: relative;
+}
+
+/* Main Content */
+.master-content {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: #ffffff;
+}
+
+/* Footer */
+.footer {
+    background-color: #ffffff; /* Matches header & sidebar */
+    color: #666;
+    padding: 10px;
+    text-align: center;
+    font-size: 0.9rem;
+    border-top: 1px solid #ddd;
+    margin-top: auto;
+}
+
+/* Responsive */
+@media screen and (max-width: 768px) {
+    .sidebar {
+        height: 100vh;
+        z-index: 1000;
+    }
+
+        .sidebar.collapsed {
+            width: 0;
+            overflow: hidden;
+        }
+
+    .content-wrapper {
+        margin-left: 0;
+    }
+
+        .content-wrapper.expanded {
+            margin-left: 0;
+        }
+}
+
+.tooltip {
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%) scale(0.95);
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out, visibility 0.2s ease-out;
+    pointer-events: none;
+    margin-left: 12px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.master-header {
+    display: flex;
+    align-items: center;
+}

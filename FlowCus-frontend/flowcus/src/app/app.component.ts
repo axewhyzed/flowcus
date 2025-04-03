@@ -12,6 +12,7 @@ import { HttpClient } from '@angular/common/http';
 export class AppComponent {
   title = 'flowcus';
   apiUrl = environment.apiUrl;
+  currentYear: number = new Date().getFullYear();
 
   constructor(private http: HttpClient){
     console.log(environment.production);
