@@ -1,53 +1,103 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import colors from "../config/colors";
+import { useTheme } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import tw from 'twrnc';
 
 interface StatsCardProps {
     title: string;
     value: string;
     delta?: string;
+    icon?: string;
+    trend?: 'up' | 'down' | 'neutral';
 }
 
-const StatsCard: React.FC<StatsCardProps> = ({ title, value, delta }) => {
+const StatsCard: React.FC<StatsCardProps> = ({ 
+    title, 
+    value, 
+    delta, 
+    icon, 
+    trend 
+}) => {
+    const { colors } = useTheme();
+
+    const getTrendColor = () => {
+        switch (trend) {
+            case 'up': return '#10B981'; // Emerald-500
+            case 'down': return '#EF4444'; // Red-500
+            case 'neutral': return '#F59E0B'; // Amber-500
+            default: return colors.text;
+        }
+    };
+
+    const getTrendIcon = () => {
+        switch (trend) {
+            case 'up': return 'arrow-up';
+            case 'down': return 'arrow-down';
+            case 'neutral': return 'minus';
+            default: return '';
+        }
+    };
+
     return (
-        <View style={styles.card}>
-            <Text style={styles.value}>{value}</Text>
-            <Text style={styles.title}>{title}</Text>
-            {delta ? <Text style={styles.delta}>{delta}</Text> : null}
+        <View style={[
+            tw`p-4 rounded-xl mx-2 min-w-[120px] max-w-[140px] items-center justify-center`,
+            { 
+                backgroundColor: colors.card,
+                shadowColor: colors.text,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3
+            }
+        ]}>
+            {/* Icon and Value Row */}
+            <View style={tw`flex-row items-center`}>
+                {icon && (
+                    <Icon 
+                        name={icon} 
+                        size={20} 
+                        color={colors.primary} 
+                        style={tw`mr-2`}
+                    />
+                )}
+                <Text style={[
+                    tw`text-2xl font-bold`,
+                    { color: colors.text }
+                ]}>
+                    {value}
+                </Text>
+            </View>
+            
+            {/* Title */}
+            <Text style={[
+                tw`text-sm mt-1`,
+                { color: colors.text, opacity: 0.7 }
+            ]}>
+                {title}
+            </Text>
+            
+            {/* Delta with Trend Indicator */}
+            {(delta || trend) && (
+                <View style={tw`flex-row items-center mt-2`}>
+                    {trend && (
+                        <Icon 
+                            name={getTrendIcon()} 
+                            size={14} 
+                            color={getTrendColor()} 
+                            style={tw`mr-1`}
+                        />
+                    )}
+                    <Text style={[
+                        tw`text-xs font-medium`,
+                        { color: delta ? colors.primary : getTrendColor() }
+                    ]}>
+                        {delta || (trend === 'up' ? '+5.2%' : trend === 'down' ? '-2.1%' : '0%')}
+                    </Text>
+                </View>
+            )}
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    card: {
-        backgroundColor: 'white',
-        borderRadius: 12,
-        padding: 12,
-        elevation: 4,
-        // Add these new properties:
-        flex: 1,              // Makes cards expand equally
-        marginHorizontal: 8,   // Horizontal margin only
-        minWidth: 100,        // Minimum width
-        maxWidth: 120,        // Maximum width (adjust as needed)
-        alignItems: 'center', // Center content horizontally
-    },
-    value: {
-        color: colors.primary,
-        fontWeight: 'bold',
-        fontSize: 20,
-        textAlign: 'center',  // Center the text
-    },
-    title: {
-        color: colors.text,
-        marginVertical: 4,
-        opacity: 0.7,
-        textAlign: 'center',  // Center the text
-    },
-    delta: {
-        color: colors.secondary,
-        marginTop: 4,
-        textAlign: 'center',  // Center the text
-    },
-});
 
 export default StatsCard;

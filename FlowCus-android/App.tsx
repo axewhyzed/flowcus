@@ -8,6 +8,9 @@ import colors from './src/config/colors';
 import HomeScreen from './src/screens/HomeScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import ContactScreen from './src/screens/ContactScreen';
+import TasksScreen from './src/screens/TasksScreen';
+import AnalyticsScreen from './src/screens/AnalyticsScreen';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 // Placeholder screen
 const SettingsScreen = () => (
@@ -18,9 +21,9 @@ const SettingsScreen = () => (
 
 const Tab = createBottomTabNavigator();
 const Drawer = createDrawerNavigator();
+const Stack = createNativeStackNavigator();
 
-// Bottom Tabs Navigator
-const BottomTabs = () => (
+const Tabs = () => (
   <Tab.Navigator
     screenOptions={{
       tabBarActiveTintColor: colors.primary,
@@ -67,12 +70,23 @@ const BottomTabs = () => (
   </Tab.Navigator>
 );
 
+
+// Bottom Tabs Navigator
+const BottomTabs = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="Tabs" component={Tabs} />
+    <Stack.Screen name="Tasks" component={TasksScreen} />
+    <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+  </Stack.Navigator>
+);
+
 // Drawer Navigator
 const DrawerNavigator = () => (
   <Drawer.Navigator
     screenOptions={({ navigation }) => ({
       headerShown: true,  // Keep header visible
       headerTitle: 'Flowcus',    // Remove title text
+      animation: 'slide_from_right',
       headerStyle: {
         backgroundColor: 'transparent',
         elevation: 0,      // Remove shadow on Android
