@@ -1,25 +1,24 @@
 import React from 'react';
-import { StyleSheet, View, ScrollView } from "react-native";
-import { Text, FAB } from "react-native-paper";
+import { StyleSheet, View, ScrollView, Button, Text, TouchableOpacity, ToastAndroid, Alert } from 'react-native';
 import colors from "../config/colors";
 import StatsCard from "../components/StatsCard";
 
-const HomeScreen: React.FC = () => {
+const HomeScreen = ({ navigation }: any) => {
     return (
         <View style={styles.container}>
             <ScrollView>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text variant="headlineMedium" style={styles.greeting}>
+                    <Text style={styles.greeting}>
                         Good Morning, Mihir!
                     </Text>
-                    <Text variant="bodyMedium" style={styles.date}>
+                    <Text style={styles.date}>
                         Thursday, May 16
                     </Text>
                 </View>
 
                 {/* Stats Cards */}
-                <ScrollView horizontal contentContainerStyle={styles.statsRow}>
+                <ScrollView contentContainerStyle={styles.statsRow}>
                     <StatsCard title="Daily Avg" value="4.2h" />
                     <StatsCard title="Completion" value="78%" />
                     <StatsCard title="Sessions" value="22" />
@@ -27,20 +26,36 @@ const HomeScreen: React.FC = () => {
 
                 {/* Chart */}
                 <View style={styles.chartContainer}>
-                    <Text variant="titleMedium" style={styles.chartTitle}>
+                    <Text style={styles.chartTitle}>
                         Weekly Progress
                     </Text>
                 </View>
+
+                {/* Navigation Buttons */}
+                <Text style={styles.header}>🏠 Home Screen</Text>
+                <Button title="Go to About" onPress={() => navigation.navigate('About')} />
+                <Button title="Go to Contact" onPress={() => navigation.navigate('Contact')} />
             </ScrollView>
 
-            <FAB
-                icon="plus"
-                style={styles.fab}
-                onPress={() => console.log('Add pressed')}
-            />
+            {/* Floating Action Button */}
+            <View style={styles.fabContainer}>
+                <TouchableOpacity
+                    style={styles.fab}
+                    onPress={() => Alert.alert('Plus Pressed!')}
+                >
+                    <Text style={styles.fabText}>+</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.fab}
+                    onPress={() => ToastAndroid.show('Minus Pressed!', ToastAndroid.SHORT)}
+                >
+                    <Text style={styles.fabText}>-</Text>
+                </TouchableOpacity>
+            </View>
         </View>
-    )
-}
+    );
+};
 
 const styles = StyleSheet.create({
     container: {
@@ -55,6 +70,7 @@ const styles = StyleSheet.create({
     greeting: {
         color: colors.text,
         fontWeight: '600',
+        fontSize: 24,
     },
     date: {
         color: colors.text,
@@ -62,8 +78,12 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     statsRow: {
-        paddingLeft: 16,
+        flexDirection: 'row',
+        justifyContent: 'center', // Centers horizontally
+        alignItems: 'center',    // Centers vertically
+        paddingHorizontal: 16,   // Equal padding on both sides
         marginVertical: 8,
+        gap: 16,                 // Equal spacing between cards
     },
     chartContainer: {
         backgroundColor: colors.surface,
@@ -77,13 +97,24 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     fab: {
-        position: 'absolute',
-        margin: 16,
-        right: 0,
-        bottom: 0,
         backgroundColor: colors.secondary,
         borderRadius: 28,
-    }
+        width: 56,
+        height: 56,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    fabText: {
+        color: '#fff',
+        fontSize: 24,
+    },
+    fabContainer: {
+        position: 'absolute',
+        right: 16,
+        bottom: 16,
+        flexDirection: 'row',
+        gap: 16, // Space between buttons
+    },
 });
 
 export default HomeScreen;

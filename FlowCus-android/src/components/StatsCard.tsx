@@ -1,7 +1,6 @@
-import React, { useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import colors from "../config/colors";
-import { Surface, Text } from 'react-native-paper';
 
 interface StatsCardProps {
     title: string;
@@ -11,38 +10,44 @@ interface StatsCardProps {
 
 const StatsCard: React.FC<StatsCardProps> = ({ title, value, delta }) => {
     return (
-        <Surface style={styles.card}>
+        <View style={styles.card}>
             <Text style={styles.value}>{value}</Text>
             <Text style={styles.title}>{title}</Text>
-            {delta && <Text style={styles.delta}>{delta}</Text>}
-        </Surface>
+            {delta ? <Text style={styles.delta}>{delta}</Text> : null}
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     card: {
-        margin: 8,
-        width: 'auto',
-        maxWidth: 160,
-        elevation: 4, // Built-in shadow effect
-        borderRadius: 12,
         backgroundColor: 'white',
+        borderRadius: 12,
         padding: 12,
+        elevation: 4,
+        // Add these new properties:
+        flex: 1,              // Makes cards expand equally
+        marginHorizontal: 8,   // Horizontal margin only
+        minWidth: 100,        // Minimum width
+        maxWidth: 120,        // Maximum width (adjust as needed)
+        alignItems: 'center', // Center content horizontally
     },
     value: {
         color: colors.primary,
         fontWeight: 'bold',
         fontSize: 20,
+        textAlign: 'center',  // Center the text
     },
     title: {
         color: colors.text,
         marginVertical: 4,
         opacity: 0.7,
+        textAlign: 'center',  // Center the text
     },
     delta: {
         color: colors.secondary,
         marginTop: 4,
-    }
+        textAlign: 'center',  // Center the text
+    },
 });
 
 export default StatsCard;
