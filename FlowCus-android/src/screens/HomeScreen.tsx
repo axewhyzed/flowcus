@@ -184,7 +184,7 @@ const HomeScreen = ({ navigation }: any) => {
             {/* Floating Action Button */}
             <TouchableOpacity
                 style={[
-                    tw`absolute right-6 bottom-6 w-14 h-14 rounded-full justify-center items-center shadow-lg`,
+                    tw`absolute right-6 bottom-24 w-14 h-14 rounded-full justify-center items-center shadow-lg`,
                     {
                         backgroundColor: colors.primary,
                         shadowColor: colors.primary,

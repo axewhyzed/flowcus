@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Platform, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Platform, Alert, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import tw from 'twrnc';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { NativeModules } from 'react-native';
-
-const { ScreenTime } = NativeModules;
+import { requestUsagePermission, getTodayScreenTime, FormattedAppUsage } from '../native/ScreenTimeModule';
 
 const AnalyticsScreen = ({ navigation }: any) => {
   const { colors } = useTheme();
-  const [screenTimeData, setScreenTimeData] = useState<{ [key: string]: number }>({});
+  const [screenTimeData, setScreenTimeData] = useState<FormattedAppUsage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const stats = [
     { title: 'Total Focus Time', value: '28h 45m', icon: 'clock', trend: 'up' },
@@ -21,21 +20,45 @@ const AnalyticsScreen = ({ navigation }: any) => {
   useEffect(() => {
     if (Platform.OS === 'android') {
       requestAndFetchScreenTime();
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
   const requestAndFetchScreenTime = async () => {
     try {
-      const res = await ScreenTime.requestUsagePermission();
+      setIsLoading(true);
+      const res = await requestUsagePermission();
       console.log('Permission result:', res);
 
-      const usage = await ScreenTime.getScreenTime();
+      const usage = await getTodayScreenTime();
       setScreenTimeData(usage);
     } catch (error: any) {
       console.error('Error fetching screen time:', error.message);
       Alert.alert('Screen Time Error', error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  const renderAppUsageItem = (app: FormattedAppUsage) => (
+    <View key={app.packageName} style={[
+      { backgroundColor: colors.card },
+      tw`flex-row items-center mb-3 p-3 rounded-lg`
+    ]}>
+      <Image
+        source={{ uri: `data:image/png;base64,${app.icon}` }}
+        style={tw`w-10 h-10 rounded-lg mr-3`}
+      />
+      <View style={tw`flex-1`}>
+        <Text style={[tw`text-base`, { color: colors.text }]}>{app.appName}</Text>
+        <Text style={[tw`text-xs`, { color: colors.text, opacity: 0.6 }]}>
+          Last used: {app.lastUsed}
+        </Text>
+      </View>
+      <Text style={[tw`font-medium`, { color: colors.primary }]}>{app.screenTime}</Text>
+    </View>
+  );
 
   return (
     <ScrollView style={[tw`flex-1 p-4`, { backgroundColor: colors.background }]}>
@@ -43,6 +66,7 @@ const AnalyticsScreen = ({ navigation }: any) => {
         Analytics
       </Text>
 
+      {/* Stats Cards */}
       <View style={tw`flex-row flex-wrap justify-between`}>
         {stats.map((stat, index) => (
           <View
@@ -74,6 +98,7 @@ const AnalyticsScreen = ({ navigation }: any) => {
         ))}
       </View>
 
+      {/* Weekly Focus Trend */}
       <View style={[tw`mt-4 p-5 rounded-xl`, { backgroundColor: colors.card }]}>
         <Text style={[tw`text-lg font-semibold mb-3`, { color: colors.text }]}>
           Weekly Focus Trend
@@ -86,23 +111,27 @@ const AnalyticsScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      {/* 🔻 Screen Time Section */}
+      {/* Screen Time Section */}
       <View style={[tw`mt-6 p-5 rounded-xl`, { backgroundColor: colors.card }]}>
-        <Text style={[tw`text-lg font-semibold mb-3`, { color: colors.text }]}>
-          Screen Time (Last 24h)
-        </Text>
+        <View style={tw`flex-row justify-between items-center mb-3`}>
+          <Text style={[tw`text-lg font-semibold`, { color: colors.text }]}>
+            Today's App Usage
+          </Text>
+          <TouchableOpacity onPress={requestAndFetchScreenTime}>
+            <Icon name="refresh" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
 
-        {Object.keys(screenTimeData).length === 0 ? (
-          <Text style={{ color: colors.text, opacity: 0.6 }}>Loading or no data available</Text>
+        {isLoading ? (
+          <View style={tw`py-4 items-center`}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : screenTimeData.length === 0 ? (
+          <Text style={[tw`text-center py-4`, { color: colors.text, opacity: 0.6 }]}>
+            No screen time data available
+          </Text>
         ) : (
-          Object.entries(screenTimeData).map(([app, time], index) => (
-            <View key={index} style={tw`flex-row justify-between mb-2`}>
-              <Text style={{ color: colors.text }}>{app}</Text>
-              <Text style={{ color: colors.text }}>
-                {Math.round(time as number / 60)} min
-              </Text>
-            </View>
-          ))
+          screenTimeData.map(renderAppUsageItem)
         )}
       </View>
     </ScrollView>
