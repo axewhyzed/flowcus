@@ -25,10 +25,10 @@ export async function requestUsagePermission(): Promise<string> {
   return await ScreenTime.requestUsagePermission();
 }
 
-export async function getScreenTime(day: 'today' | 'yesterday' = 'today'): Promise<FormattedAppUsage[]> {
+export async function getScreenTime(): Promise<FormattedAppUsage[]> {
   try {
     const timezone = await getDeviceTimezone();
-    const rawData: AppUsageData[] = await ScreenTime.getScreenTime(day, timezone);
+    const rawData: AppUsageData[] = await ScreenTime.getScreenTime();
 
     return rawData.map((item: AppUsageData) => ({
       packageName: item.packageName,
@@ -37,7 +37,8 @@ export async function getScreenTime(day: 'today' | 'yesterday' = 'today'): Promi
       screenTime: formatTime(item.usageTime),
       lastUsed: formatLastUsed(item.lastUsed, timezone),
       usageSeconds: item.usageTime
-    }));
+    }))
+    .filter((entry): entry is FormattedAppUsage => entry.lastUsed !== ''); // <-- drop blanks
   } catch (error) {
     console.error('Error getting screen time:', error);
     return [];
@@ -57,11 +58,12 @@ function formatLastUsed(timestamp: number, timezone: string): string {
     return format(zonedDate, 'hh:mm a'); // e.g., "09:12 PM"
   }
 
-  if (isYesterday(zonedDate)) {
-    return 'Yesterday';
-  }
+  // if (isYesterday(zonedDate)) {
+  //   return 'Yesterday';
+  // }
 
-  return format(zonedDate, 'dd MMM yyyy'); // fallback
+  //return format(zonedDate, 'dd MMM yyyy'); // fallback
+  return ''; // fallback
 }
 
 export async function getDeviceTimezone(): Promise<string> {

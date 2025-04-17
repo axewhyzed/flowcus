@@ -9,8 +9,6 @@ const AnalyticsScreen = ({ navigation }: any) => {
   const { colors } = useTheme();
   const [screenTimeData, setScreenTimeData] = useState<FormattedAppUsage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDay, setSelectedDay] = useState<'today' | 'yesterday'>('today');
-  const [isDropdownVisible, setDropdownVisible] = useState(false);
 
   const stats = [
     { title: 'Total Focus Time', value: '28h 45m', icon: 'clock', trend: 'up' },
@@ -25,7 +23,7 @@ const AnalyticsScreen = ({ navigation }: any) => {
     } else {
       setIsLoading(false);
     }
-  }, [selectedDay]);
+  }, []);
 
   const requestAndFetchScreenTime = async () => {
     try {
@@ -33,7 +31,7 @@ const AnalyticsScreen = ({ navigation }: any) => {
       const res = await requestUsagePermission();
       console.log('Permission result:', res);
 
-      const usage = await getScreenTime(selectedDay);
+      const usage = await getScreenTime();
       setScreenTimeData(usage);
     } catch (error: any) {
       console.error('Error fetching screen time:', error.message);
@@ -117,51 +115,12 @@ const AnalyticsScreen = ({ navigation }: any) => {
       <View style={[tw`mt-6 p-5 rounded-xl`, { backgroundColor: colors.card }]}>
         <View style={tw`flex-row justify-between items-center mb-3`}>
           <Text style={[tw`text-lg font-semibold`, { color: colors.text }]}>
-            {selectedDay === 'today' ? "Today's App Usage" : "Yesterday's App Usage"}
+            Today's App Usage
           </Text>
           <TouchableOpacity onPress={requestAndFetchScreenTime}>
             <Icon name="refresh" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
-        <View style={tw`mb-4`}>
-          <TouchableOpacity
-            onPress={() => setDropdownVisible(true)}
-            style={[tw`p-3 rounded border`, { borderColor: colors.border }]}
-          >
-            <Text style={{ color: colors.text }}>{selectedDay === 'today' ? 'Today' : 'Yesterday'}</Text>
-          </TouchableOpacity>
-
-          <Modal
-            transparent={true}
-            visible={isDropdownVisible}
-            animationType="fade"
-            onRequestClose={() => setDropdownVisible(false)}
-          >
-            <TouchableOpacity
-              style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}
-              onPress={() => setDropdownVisible(false)}
-            >
-              <View style={[tw`bg-white p-4 rounded`, { width: 200 }]}>
-                <FlatList
-                  data={['today', 'yesterday']}
-                  keyExtractor={(item) => item}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setSelectedDay(item as 'today' | 'yesterday');
-                        setDropdownVisible(false);
-                      }}
-                      style={tw`p-2`}
-                    >
-                      <Text style={{ color: colors.text }}>{item === 'today' ? 'Today' : 'Yesterday'}</Text>
-                    </TouchableOpacity>
-                  )}
-                />
-              </View>
-            </TouchableOpacity>
-          </Modal>
-        </View>
-
         {isLoading ? (
           <View style={tw`py-4 items-center`}>
             <ActivityIndicator color={colors.primary} />

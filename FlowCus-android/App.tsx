@@ -6,6 +6,10 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { Text, TouchableOpacity, Animated, TouchableWithoutFeedback } from 'react-native';
 import colors from './src/config/colors';
 import tw from 'twrnc';
+import { Provider, useSelector } from 'react-redux';
+import { store, persistor } from './src/store';
+import { PersistGate } from 'redux-persist/integration/react';
+import { RootState } from './src/store';
 import HomeScreen from './src/screens/HomeScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import ContactScreen from './src/screens/ContactScreen';
@@ -15,6 +19,7 @@ import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import FocusSession from './src/screens/FocusSession';
+import LoginScreen from './src/screens/LoginScreen';
 
 const Tab = createBottomTabNavigator();
 const Drawer = createDrawerNavigator();
@@ -46,6 +51,20 @@ const AnimatedTabIcon: React.FC<TabIconProps> = ({ name, color, focused }) => {
     >
       <Icon name={name} size={22} color={color} />
     </Animated.View>
+  );
+};
+
+const RootNavigator = () => {
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {isAuthenticated ? (
+        <Stack.Screen name="MainApp" component={DrawerNavigator} />
+      ) : (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      )}
+    </Stack.Navigator>
   );
 };
 
@@ -125,10 +144,14 @@ const DrawerNavigator = () => (
   </Drawer.Navigator>
 );
 
-export default function App() {
-  return (
-    <NavigationContainer>
-      <DrawerNavigator />
-    </NavigationContainer>
-  );
-}
+const App = () => (
+  <Provider store={store}>
+    <PersistGate loading={null} persistor={persistor}>
+      <NavigationContainer>
+        <RootNavigator />
+      </NavigationContainer>
+    </PersistGate>
+  </Provider>
+);
+
+export default App;

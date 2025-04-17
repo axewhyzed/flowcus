@@ -60,7 +60,7 @@ class ScreenTimeModule(private val reactContext: ReactApplicationContext) : Reac
     }
 
     @ReactMethod
-fun getScreenTime(day: String, timezone: String, promise: Promise) {
+    fun getScreenTime(promise: Promise) {
     if (!hasUsageStatsPermission(reactContext)) {
         promise.reject("PERMISSION_DENIED", "Usage access permission not granted")
         return
@@ -70,32 +70,14 @@ fun getScreenTime(day: String, timezone: String, promise: Promise) {
         val usageStatsManager = reactContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val packageManager = reactContext.packageManager
 
-        val tz = TimeZone.getTimeZone(timezone)
-        val calendar = Calendar.getInstance(tz)
-
-        val startTime: Long
-        val endTime: Long
-
-        if (day.lowercase() == "yesterday") {
-            calendar.add(Calendar.DATE, -1)
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            startTime = calendar.timeInMillis
-
-            calendar.add(Calendar.DATE, 1)
-            endTime = calendar.timeInMillis
-        } else {
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            startTime = calendar.timeInMillis
-
-            calendar.add(Calendar.DATE, 1)
-            endTime = calendar.timeInMillis
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
         }
+        val startTime = calendar.timeInMillis
+        val endTime = System.currentTimeMillis()
 
         // Get aggregated usage stats
         val usageStatsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)

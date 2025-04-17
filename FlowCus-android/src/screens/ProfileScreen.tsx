@@ -2,8 +2,17 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView } from 'react-native';
 import tw from 'twrnc';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useDispatch } from 'react-redux';
+import { logout } from '../slices/auth';
 
 const ProfileScreen = ({ navigation }: any) => {
+  const dispatch = useDispatch();
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigation.replace('Login');
+  };
+
   return (
     <ScrollView style={tw`flex-1 bg-white p-6`}>
       <View style={tw`items-center mb-6`}>
@@ -30,7 +39,7 @@ const ProfileScreen = ({ navigation }: any) => {
         <Text style={tw`text-base text-gray-700`}>Account Settings</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={tw`flex-row items-center mt-6`}>
+      <TouchableOpacity style={tw`flex-row items-center mt-6`} onPress={handleLogout}>
         <Ionicons name="exit-outline" size={22} style={tw`mr-3`} color="red" />
         <Text style={tw`text-base text-red-500`}>Logout</Text>
       </TouchableOpacity>
