@@ -25,12 +25,10 @@ export async function requestUsagePermission(): Promise<string> {
   return await ScreenTime.requestUsagePermission();
 }
 
-export async function getTodayScreenTime(): Promise<FormattedAppUsage[]> {
+export async function getScreenTime(day: 'today' | 'yesterday' = 'today'): Promise<FormattedAppUsage[]> {
   try {
-    const [rawData, timezone]: [AppUsageData[], string] = await Promise.all([
-      ScreenTime.getTodayScreenTime(),
-      getDeviceTimezone()
-    ]);
+    const timezone = await getDeviceTimezone();
+    const rawData: AppUsageData[] = await ScreenTime.getScreenTime(day, timezone);
 
     return rawData.map((item: AppUsageData) => ({
       packageName: item.packageName,
