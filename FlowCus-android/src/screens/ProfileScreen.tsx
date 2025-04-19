@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, ScrollView } from 'react-native';
 import tw from 'twrnc';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
-import { logout } from '../slices/auth';
+import { logout } from '../redux/slices/auth';
 
 const ProfileScreen = ({ navigation }: any) => {
   const dispatch = useDispatch();

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import tw from 'twrnc';
 import { useDispatch } from 'react-redux';
-import { login } from '../slices/auth'; // Adjust the path as necessary
+import { login } from '../redux/slices/auth'; // Adjust the path as necessary
 
 const LoginScreen = () => {
     const dispatch = useDispatch();

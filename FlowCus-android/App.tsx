@@ -7,9 +7,9 @@ import { Text, TouchableOpacity, Animated, TouchableWithoutFeedback } from 'reac
 import colors from './src/config/colors';
 import tw from 'twrnc';
 import { Provider, useSelector } from 'react-redux';
-import { store, persistor } from './src/store';
+import { store, persistor } from './src/redux/store';
 import { PersistGate } from 'redux-persist/integration/react';
-import { RootState } from './src/store';
+import { RootState } from './src/redux/store';
 import HomeScreen from './src/screens/HomeScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import ContactScreen from './src/screens/ContactScreen';
