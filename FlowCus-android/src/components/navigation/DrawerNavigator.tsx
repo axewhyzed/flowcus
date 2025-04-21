@@ -5,7 +5,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import BottomTabsNavigator from './StackNavigator';
 import SettingsScreen from '../../screens/SettingsScreen';
 import colors from '../../config/colors';
-import FcCard from '../design/FCCard';
+import FcCard from '../design/FcCard';
 import tw from 'twrnc';
 
 const Drawer = createDrawerNavigator();
