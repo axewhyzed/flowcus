@@ -1,3 +1,5 @@
+using FlowCus.Helpers;
+
 var builder = WebApplication.CreateBuilder(args);
 
 string[] allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200" } : new[] {""};
@@ -15,6 +17,8 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddSingleton<DbHelper>();
 
 var app = builder.Build();
 
