@@ -13,6 +13,7 @@ namespace FlowCus.Helpers
         public DbHelper(IConfiguration configuration)
         {
             var encryptedConnStr = "";
+            Console.WriteLine($"IsProd: {Environment.GetEnvironmentVariable("IsProd")}");
             if (Environment.GetEnvironmentVariable("IsProd") == "true"){
                 encryptedConnStr = Environment.GetEnvironmentVariable("DBProd");
             } else
@@ -21,12 +22,17 @@ namespace FlowCus.Helpers
             }
             // Decrypt using environment variable key
             _connectionString = DecryptHelper.Decrypt(encryptedConnStr!);
+            Console.WriteLine($"Decrypted string starts with: {_connectionString.Substring(0, 20)}");
+
+            Console.WriteLine("Environment: " + Environment.GetEnvironmentVariable("IsProd"));
+            Console.WriteLine("Encrypted Connection String: " + Environment.GetEnvironmentVariable("DBProd"));
 
             //_connection = new NpgsqlConnection(_connectionString);
         }
 
         private async Task<NpgsqlConnection> GetOpenConnectionAsync()
         {
+            Console.WriteLine($"Using connection string: {_connectionString}");
             var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
             return conn;
