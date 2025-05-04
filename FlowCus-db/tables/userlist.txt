@@ -1,0 +1,9 @@
+CREATE TABLE userlist (
+    id INT,
+    username VARCHAR(50) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    createdon TIMESTAMP NOT NULL,
+    createdby VARCHAR(50) NOT NULL,
+    updatedon TIMESTAMP,
+    updatedby VARCHAR(50)
+);

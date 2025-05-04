@@ -1,0 +1,14 @@
+CREATE TABLE tasks (
+    task_id SERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    priority INTEGER, -- e.g., 3-Low, 2-Normal, 1-High
+    created_on TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by INTEGER NOT NULL, -- User ID who created
+    updated_on TIMESTAMP,
+    updated_by INTEGER,          -- User ID who last updated
+    start_time TIMESTAMP,
+    end_time TIMESTAMP,
+    duration_seconds INTEGER,    -- Store duration in seconds
+    is_deleted BOOLEAN DEFAULT FALSE
+);
