@@ -18,7 +18,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddSingleton<DbHelper>();
+builder.Services.AddSingleton<DBHelper>();
 
 var app = builder.Build();
 

@@ -13,9 +13,9 @@ namespace FlowCus.Controllers
         };
 
         private readonly ILogger<WeatherForecastController> _logger;
-        private readonly DbHelper _dbHelper;
+        private readonly DBHelper _dbHelper;
 
-        public WeatherForecastController(ILogger<WeatherForecastController> logger, DbHelper dbHelper)
+        public WeatherForecastController(ILogger<WeatherForecastController> logger, DBHelper dbHelper)
         {
             _logger = logger;
             _dbHelper = dbHelper;
