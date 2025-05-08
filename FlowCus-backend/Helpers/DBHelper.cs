@@ -62,7 +62,7 @@ namespace FlowCus.Helpers
         /// <summary>
         /// Executes a SQL query and returns the value received.
         /// </summary>
-        public async Task<object?> GetValue(string query, params NpgsqlParameter[] parameters)
+        public async Task<object?> GetValueAsync(string query, params NpgsqlParameter[] parameters)
         {
             try
             {
@@ -85,7 +85,7 @@ namespace FlowCus.Helpers
         /// <summary>
         /// Executes a SQL query and returns a DataTable.
         /// </summary>
-        public async Task<DataTable> GetTable(string query, params NpgsqlParameter[] parameters)
+        public async Task<DataTable> GetTableAsync(string query, params NpgsqlParameter[] parameters)
         {
             try
             {
@@ -110,7 +110,7 @@ namespace FlowCus.Helpers
         /// <summary>
         /// Executes a SQL query and returns a Dataset.
         /// </summary>
-        public async Task<DataSet> GetDataSet(string query, params NpgsqlParameter[] parameters)
+        public async Task<DataSet> GetDataSetAsync(string query, params NpgsqlParameter[] parameters)
         {
             try
             {
@@ -135,7 +135,7 @@ namespace FlowCus.Helpers
         /// <summary>
         /// Executes a SQL command and returns the number of affected rows.
         /// </summary>
-        public async Task<int> ExecuteQuery(string query, params NpgsqlParameter[] parameters)
+        public async Task<int> ExecuteQueryAsync(string query, params NpgsqlParameter[] parameters)
         {
             try
             {
