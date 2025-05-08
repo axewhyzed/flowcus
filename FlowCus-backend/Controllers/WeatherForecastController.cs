@@ -37,7 +37,7 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> TestDb()
         {
             bool isConnected = await _dbHelper.TestConnectionAsync();
-            object? result = await _dbHelper.GetValue("select username from userlist");
+            object? result = await _dbHelper.GetValueAsync("select username from userlist");
             string username = result?.ToString() ?? string.Empty;
             if (isConnected)
                 return Ok("Database connection successful!" + " username is: " + username);
