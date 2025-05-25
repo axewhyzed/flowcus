@@ -2,7 +2,7 @@ using FlowCus.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
-string[] allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200" } : new[] {""};
+string[] allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200" } : new[] { "https://axewhyzed.github.io" };
 
 builder.Services.AddCors(options =>
 {
