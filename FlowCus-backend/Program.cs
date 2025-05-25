@@ -2,7 +2,11 @@ using FlowCus.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
-string[] allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200" } : new[] { "https://axewhyzed.github.io" };
+string[] allowedOrigins = new[]
+{
+    "http://localhost:4200",
+    "https://axewhyzed.github.io"
+};
 
 builder.Services.AddCors(options =>
 {
@@ -22,7 +26,6 @@ builder.Services.AddSingleton<DBHelper>();
 
 var app = builder.Build();
 
-app.UseCors("GlobalPolicy");
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -31,6 +34,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("GlobalPolicy");
 
 app.UseAuthorization();
 
