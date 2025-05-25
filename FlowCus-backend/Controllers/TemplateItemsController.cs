@@ -29,12 +29,12 @@ namespace FlowCus.Controllers
             try
             {
                 const string query = @"
-                    SELECT Id, TemplateId, DayOfWeek, StartTime, EndTime, 
-                           TaskTitle, TaskDescription, IsDeleted
-                    FROM TemplateItems
-                    WHERE TemplateId = @templateId AND IsDeleted = false";
+                    SELECT id, template_id, day_of_week, start_time, end_time, 
+                task_title, task_description, is_deleted
+                    FROM template_items
+                    WHERE template_id = @template_id AND is_deleted = false";
 
-                var parameters = new NpgsqlParameter[] { new("@templateId", templateId) };
+                var parameters = new NpgsqlParameter[] { new("@template_id", templateId) };
                 var dt = await _dbHelper.GetTableAsync(query, parameters);
                 return Ok(DataTableToTemplateItemList(dt));
             }
@@ -54,10 +54,10 @@ namespace FlowCus.Controllers
             try
             {
                 const string query = @"
-                    SELECT Id, TemplateId, DayOfWeek, StartTime, EndTime, 
-                           TaskTitle, TaskDescription, IsDeleted
-                    FROM TemplateItems
-                    WHERE Id = @id AND IsDeleted = false";
+                    SELECT id, template_id, day_of_week, start_time, end_time, 
+                task_title, task_description, is_deleted
+                    FROM template_items
+                    WHERE id = @id AND is_deleted = false";
 
                 var parameters = new NpgsqlParameter[] { new("@id", id) };
                 var dt = await _dbHelper.GetTableAsync(query, parameters);
@@ -79,25 +79,25 @@ namespace FlowCus.Controllers
             try
             {
                 const string query = @"
-                    INSERT INTO TemplateItems (
-                        TemplateId, DayOfWeek, StartTime, EndTime, 
-                        TaskTitle, TaskDescription, IsDeleted
+                    INSERT INTO template_items (
+                        template_id, day_of_week, start_time, end_time, 
+                    task_title, task_description, is_deleted
                     )
                     VALUES (
-                        @templateId, @dayOfWeek, @startTime, @endTime,
-                        @taskTitle, @taskDescription, @isDeleted
+                        @template_id, @day_of_week, @start_time, @end_time,
+                        @task_title, @task_description, @is_deleted
                     )
-                    RETURNING Id";
+                    RETURNING id";
 
                 var parameters = new NpgsqlParameter[]
                 {
-                    new("@templateId", item.TemplateId),
-                    new("@dayOfWeek", item.DayOfWeek),
-                    new("@startTime", item.StartTime),
-                    new("@endTime", item.EndTime),
-                    new("@taskTitle", item.TaskTitle),
-                    new("@taskDescription", item.TaskDescription ?? string.Empty),
-                    new("@isDeleted", false)
+                    new("@template_id", item.TemplateId),
+                    new("@day_of_week", item.DayOfWeek),
+                    new("@start_time", item.StartTime),
+                    new("@end_time", item.EndTime),
+                    new("@task_title", item.TaskTitle),
+                    new("@task_description", item.TaskDescription ?? string.Empty),
+                    new("@is_deleted", false)
                 };
 
                 var newId = await _dbHelper.GetValueAsync(query, parameters);
@@ -123,21 +123,21 @@ namespace FlowCus.Controllers
                 if (existing == null) return NotFound();
 
                 const string query = @"
-                    UPDATE TemplateItems SET
-                        DayOfWeek = @dayOfWeek,
-                        StartTime = @startTime,
-                        EndTime = @endTime,
-                        TaskTitle = @taskTitle,
-                        TaskDescription = @taskDescription
+                    UPDATE template_items SET
+                        day_of_week = @day_of_week,
+                        start_time = @start_time,
+                        end_time = @end_time,
+                        task_title = @task_title,
+                        task_description = @task_description
                     WHERE Id = @id AND IsDeleted = false";
 
                 var parameters = new NpgsqlParameter[]
                 {
-                    new("@dayOfWeek", item.DayOfWeek),
-                    new("@startTime", item.StartTime),
-                    new("@endTime", item.EndTime),
-                    new("@taskTitle", item.TaskTitle),
-                    new("@taskDescription", item.TaskDescription ?? string.Empty),
+                    new("@day_of_week", item.DayOfWeek),
+                    new("@start_time", item.StartTime),
+                    new("@end_time", item.EndTime),
+                    new("@task_title", item.TaskTitle),
+                    new("@task_description", item.TaskDescription ?? string.Empty),
                     new("@id", id)
                 };
 
@@ -160,9 +160,9 @@ namespace FlowCus.Controllers
             try
             {
                 const string query = @"
-                    UPDATE TemplateItems 
-                    SET IsDeleted = true 
-                    WHERE Id = @id";
+                    UPDATE template_items 
+                    SET is_deleted = true 
+                    WHERE id = @id";
 
                 var parameters = new NpgsqlParameter[] { new("@id", id) };
                 int affected = await _dbHelper.ExecuteQueryAsync(query, parameters);
@@ -171,6 +171,52 @@ namespace FlowCus.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error deleting template item {id}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        // In TemplateItemsController.cs
+        /// <summary>
+        /// Adds multiple items to a template in a single request
+        /// </summary>
+        [HttpPost("batch")]
+        public async Task<IActionResult> PostTemplateItemsBatch([FromBody] List<TemplateItem> items)
+        {
+            try
+            {
+                // Validate all items belong to the same template
+                if (items.GroupBy(i => i.TemplateId).Count() > 1)
+                    return BadRequest("All items must belong to the same template");
+
+                var valueRows = new List<string>();
+                var parameters = new List<NpgsqlParameter>();
+                for (var i = 0; i < items.Count; i++)
+                {
+                    valueRows.Add($"(@template_id{i}, @day_of_week{i}, @start_time{i}, @end_time{i}, @task_title{i}, @task_description{i}, false)");
+                    parameters.AddRange(new[]
+                    {
+                new NpgsqlParameter($"@template_id{i}", items[i].TemplateId),
+                new NpgsqlParameter($"@day_of_week{i}", items[i].DayOfWeek),
+                new NpgsqlParameter($"@start_time{i}", items[i].StartTime),
+                new NpgsqlParameter($"@end_time{i}", items[i].EndTime),
+                new NpgsqlParameter($"@task_title{i}", items[i].TaskTitle),
+                new NpgsqlParameter($"@task_description{i}", items[i].TaskDescription ?? string.Empty)
+            });
+                }
+
+                string query = $@"
+            INSERT INTO template_items (
+                template_id, day_of_week, , end_time, 
+                task_title, task_description, is_deleted
+            )
+            VALUES {string.Join(", ", valueRows)}";
+
+                await _dbHelper.ExecuteQueryAsync(query, parameters.ToArray());
+                return Ok(new { Message = $"{items.Count} items added successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating batch template items");
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -185,14 +231,14 @@ namespace FlowCus.Controllers
         {
             return new TemplateItem
             {
-                Id = Convert.ToInt32(row["Id"]),
-                TemplateId = Convert.ToInt32(row["TemplateId"]),
-                DayOfWeek = Convert.ToInt16(row["DayOfWeek"]),
-                StartTime = (TimeSpan)row["StartTime"],
-                EndTime = (TimeSpan)row["EndTime"],
-                TaskTitle = row["TaskTitle"].ToString(),
-                TaskDescription = row["TaskDescription"].ToString(),
-                IsDeleted = Convert.ToBoolean(row["IsDeleted"])
+                Id = Convert.ToInt32(row["id"]),
+                TemplateId = Convert.ToInt32(row["template_id"]),
+                DayOfWeek = Convert.ToInt16(row["day_of_week"]),
+                StartTime = (TimeSpan)row["start_time"],
+                EndTime = (TimeSpan)row["end_time"],
+                TaskTitle = row["task_title"].ToString(),
+                TaskDescription = row["task_description"].ToString(),
+                IsDeleted = Convert.ToBoolean(row["is_deleted"])
             };
         }
         #endregion

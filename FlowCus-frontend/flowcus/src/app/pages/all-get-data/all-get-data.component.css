@@ -1,0 +1,11 @@
+/* Simple styling for lists */
+ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  li {
+    padding: 4px 0;
+    border-bottom: 1px solid #ccc;
+  }
+  

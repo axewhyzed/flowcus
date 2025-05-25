@@ -1,0 +1,38 @@
+<div>
+    <h2>Tasks</h2>
+    <ul>
+        <li *ngFor="let task of tasks">
+            {{ task.title }} - {{ task.description }}
+        </li>
+    </ul>
+
+    <h2>Timetables</h2>
+    <div *ngFor="let template of templateLists">
+        <h3>{{ template.templateName }} (Template ID: {{ template.id }})</h3>
+        <table border="1" style="width:100%; margin-bottom: 2rem;">
+            <tr>
+                <th *ngFor="let day of daysOfWeek()">{{ dayName(day) }}</th>
+            </tr>
+            <tr>
+                <td *ngFor="let day of daysOfWeek()">
+                    <div *ngIf="groupedTemplateItems[template.id ?? 0] && groupedTemplateItems[template.id ?? 0][day]">
+                        <div *ngFor="let item of groupedTemplateItems[template.id ?? 0][day] | orderByStartTime">
+                            <strong>{{ item.taskTitle }}</strong><br>
+                            <small>{{ item.startTime }} - {{ item.endTime }}</small><br>
+                            <span *ngIf="item.taskDescription">{{ item.taskDescription }}</span>
+                            <hr>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+
+    <h2>Template Lists (User ID: {{userId}})</h2>
+    <ul>
+        <li *ngFor="let list of templateLists">
+            {{ list.templateName }} (Created: {{ list.createdAt | date }})
+        </li>
+    </ul>
+</div>

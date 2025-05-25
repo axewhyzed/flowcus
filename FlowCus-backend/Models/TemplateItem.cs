@@ -39,7 +39,7 @@ namespace FlowCus.Models
         [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters")]
         [DataType(DataType.MultilineText)]
         [DisplayName("Task Description")]
-        public string TaskDescription { get; set; }
+        public string? TaskDescription { get; set; }
 
         [DefaultValue(false)]
         [DisplayName("Deleted?")]
