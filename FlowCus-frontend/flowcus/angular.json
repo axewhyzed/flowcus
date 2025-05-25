@@ -108,6 +108,12 @@
           "builder": "angular-cli-ghpages:deploy",
           "options": {
             "remote": "github"
+          },
+          "configurations": {
+            "production": {
+              "dir": "dist/flowcus/browser",
+              "baseHref": "/flowcus/"
+            }
           }
         }
       }
