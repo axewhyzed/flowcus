@@ -1,5 +1,4 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import https from 'https';
 import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 
@@ -18,12 +17,7 @@ export class ApiService {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      },
-      ...(isServer && {
-        httpsAgent: new https.Agent({
-          rejectUnauthorized: false,
-        }),
-      }),
+      }
     });
 
     this.setupInterceptors();
