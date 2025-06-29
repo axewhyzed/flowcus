@@ -1,0 +1,35 @@
+.form-container {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-field {
+  transition: all 0.2s ease-in-out;
+}
+
+.form-field:focus-within {
+  transform: translateY(-1px);
+}
+
+.submit-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.submit-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.info-box {
+  backdrop-filter: blur(10px);
+}

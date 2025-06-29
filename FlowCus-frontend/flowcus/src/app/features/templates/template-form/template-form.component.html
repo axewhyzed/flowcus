@@ -1,0 +1,99 @@
+<div class="max-w-2xl mx-auto">
+  <!-- Page Header -->
+  <div class="mb-8">
+    <div class="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+      <a routerLink="/templates" class="hover:text-gray-700">Templates</a>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+      <span>{{ isEditMode ? 'Edit' : 'Create' }}</span>
+    </div>
+    <h1 class="text-3xl font-bold text-gray-900">{{ formTitle }}</h1>
+    <p class="text-gray-600 mt-2">
+      {{ isEditMode ? 'Update your template details below.' : 'Create a new template to organize your recurring tasks.' }}
+    </p>
+  </div>
+
+  <!-- Loading State -->
+  <app-loading-spinner *ngIf="isLoading" message="Loading template..."></app-loading-spinner>
+
+  <!-- Form -->
+  <div *ngIf="!isLoading" class="bg-white rounded-lg shadow border p-6">
+    <!-- Error Message -->
+    <app-error-message *ngIf="error" 
+                       [message]="error" 
+                       (dismissed)="error = null"
+                       class="mb-6">
+    </app-error-message>
+
+    <form [formGroup]="templateForm" (ngSubmit)="onSubmit()">
+      <div class="space-y-6">
+        <!-- Template Name -->
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+            Template Name <span class="text-red-500">*</span>
+          </label>
+          <input type="text" 
+                 id="name"
+                 formControlName="name"
+                 class="form-input"
+                 [class.border-red-300]="isFieldInvalid('name')"
+                 [class.focus:ring-red-500]="isFieldInvalid('name')"
+                 [class.focus:border-red-500]="isFieldInvalid('name')"
+                 placeholder="Enter template name (e.g., Daily Routine, Weekly Planning)">
+          <p *ngIf="getFieldError('name')" class="mt-1 text-sm text-red-600">
+            {{ getFieldError('name') }}
+          </p>
+          <p class="mt-1 text-sm text-gray-500">
+            Choose a descriptive name that clearly identifies this template's purpose.
+          </p>
+        </div>
+
+        <!-- Template Description (Optional) -->
+        <div>
+          <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+            Description <span class="text-gray-400">(Optional)</span>
+          </label>
+          <textarea id="description"
+                    formControlName="description"
+                    rows="4"
+                    class="form-input"
+                    placeholder="Describe what this template is for and when to use it..."></textarea>
+          <p class="mt-1 text-sm text-gray-500">
+            Add a brief description to help you remember the purpose of this template.
+          </p>
+        </div>
+
+        <!-- Template Usage Info -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div class="flex">
+            <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div>
+              <h4 class="text-sm font-medium text-blue-900 mb-1">About Templates</h4>
+              <p class="text-sm text-blue-800">
+                Templates allow you to create reusable task structures. After creating a template, 
+                you can add template items that define specific tasks with scheduled times and days of the week.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="mt-8 flex flex-col sm:flex-row sm:justify-end sm:space-x-3 space-y-3 space-y-reverse sm:space-y-0">
+        <button type="button" 
+                (click)="onCancel()"
+                class="w-full sm:w-auto px-6 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          Cancel
+        </button>
+        <button type="submit" 
+                [disabled]="templateForm.invalid || isSubmitting"
+                class="w-full sm:w-auto px-6 py-3 border border-transparent rounded-lg shadow-sm bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          {{ submitButtonText }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

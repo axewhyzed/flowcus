@@ -1,0 +1,82 @@
+<div class="space-y-6">
+  <!-- Page Header -->
+  <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Templates</h1>
+      <p class="text-gray-600 mt-1">Create and manage reusable task templates.</p>
+    </div>
+    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            (click)="showCreateForm = true">
+      + Create Template
+    </button>
+  </div>
+
+  <!-- Create Template Form -->
+  <div *ngIf="showCreateForm" class="bg-white p-6 rounded-lg shadow border">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Create New Template</h3>
+    <div class="flex gap-4">
+      <input type="text" 
+             [(ngModel)]="newTemplateName"
+             placeholder="Template name..."
+             class="flex-1 form-input"
+             (keyup.enter)="createTemplate()">
+      <button (click)="createTemplate()" 
+              [disabled]="!newTemplateName.trim()"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+        Create
+      </button>
+      <button (click)="cancelCreate()" 
+              class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <app-loading-spinner *ngIf="isLoading" message="Loading templates..."></app-loading-spinner>
+
+  <!-- Error State -->
+  <app-error-message *ngIf="error" 
+                     [message]="error" 
+                     (dismissed)="error = null">
+  </app-error-message>
+
+  <!-- Template List -->
+  <div *ngIf="!isLoading && !error">
+    <div *ngIf="templates.length === 0" class="text-center py-12">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <h3 class="mt-2 text-sm font-medium text-gray-900">No templates found</h3>
+      <p class="mt-1 text-sm text-gray-500">Get started by creating your first template.</p>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3" *ngIf="templates.length > 0">
+      <div *ngFor="let template of templates" 
+           class="bg-white p-6 rounded-lg shadow border hover:shadow-lg transition-shadow">
+        <div class="flex justify-between items-start mb-4">
+          <h3 class="text-lg font-semibold text-gray-900">{{ template.templateName }}</h3>
+          <button (click)="deleteTemplate(template)"
+                  class="text-red-600 hover:text-red-800 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="text-sm text-gray-500 mb-4">
+          Created: {{ template.createdAt | date:'short' }}
+        </div>
+        
+        <div class="flex gap-2">
+          <button class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
+            Edit Items
+          </button>
+          <button class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors">
+            Use Template
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

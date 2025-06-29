@@ -1,4 +1,5 @@
 export const environment = {
     production: false,
-    apiUrl: 'https://localhost:7176/api'
+    apiUrl: 'https://localhost:7176/api',
+    appName: 'FlowCus'
 }

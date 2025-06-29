@@ -1,0 +1,118 @@
+/* Not Found Component Styles */
+.not-found-container {
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-number {
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.illustration-container {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.action-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.quick-nav-link {
+  transition: all 0.2s ease-in-out;
+}
+
+.quick-nav-link:hover {
+  transform: translateY(-1px);
+}
+
+.background-decoration {
+  animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .error-number {
+    font-size: 6rem;
+  }
+  
+  .illustration-container {
+    width: 6rem;
+    height: 6rem;
+  }
+}
+
+/* Focus states for accessibility */
+.action-button:focus,
+.quick-nav-link:focus {
+  outline: none;
+  ring: 2px;
+  ring-offset: 2px;
+}
+
+/* Loading animation for page transition */
+.page-enter {
+  animation: slideInUp 0.4s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hover effects for interactive elements */
+.interactive-element {
+  cursor: pointer;
+  user-select: none;
+}
+
+.interactive-element:active {
+  transform: scale(0.98);
+}

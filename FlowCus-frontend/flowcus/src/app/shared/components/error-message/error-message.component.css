@@ -1,0 +1,22 @@
+.alert-animation {
+  animation: slideInDown 0.3s ease-out;
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.dismiss-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.dismiss-button:hover {
+  transform: scale(1.1);
+}

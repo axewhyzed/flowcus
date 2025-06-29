@@ -53,7 +53,7 @@ namespace FlowCus.Controllers
             try
             {
                 const string query = @"
-                    SELECT task_id, title, description, priority, created_on, created_by,
+                    SELECT task_id, title, description, priority, created_on, created_by, updated_on, updated_by,
                         start_time, end_time, duration_seconds, is_deleted
                     FROM tasks
                     WHERE task_id = @id AND is_deleted = false";
