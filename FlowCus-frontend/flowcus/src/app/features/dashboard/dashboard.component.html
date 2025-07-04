@@ -1,11 +1,71 @@
 <div class="space-y-6">
+  <!-- Add Task Modal -->
+  <app-modal *ngIf="showAddTaskModal" (closed)="showAddTaskModal = false">
+    <h2 class="text-lg font-bold mb-4">Add New Task</h2>
+
+    <form #taskForm="ngForm" (ngSubmit)="createTask()" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Title</label>
+        <input type="text" [(ngModel)]="newTask.title" name="title" required
+          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Description</label>
+        <textarea [(ngModel)]="newTask.description" name="description" rows="3"
+          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea>
+      </div>
+
+      <!-- Start Time -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Start Time</label>
+        <input type="datetime-local" [(ngModel)]="newTask.startTime" (ngModelChange)="calculateDuration()"
+          name="startTime" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+      </div>
+
+      <!-- End Time -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700">End Time</label>
+        <input type="datetime-local" [(ngModel)]="newTask.endTime" (ngModelChange)="calculateDuration()" name="endTime"
+          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+      </div>
+
+      <!-- Duration -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Duration</label>
+        <input type="text" [value]="formattedDuration" readonly
+          class="mt-1 block w-full border-gray-300 rounded-md bg-gray-100 text-gray-700 cursor-not-allowed" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Priority</label>
+        <select [(ngModel)]="newTask.priority" name="priority"
+          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+          <option [ngValue]="1">High</option>
+          <option [ngValue]="2">Normal</option>
+          <option [ngValue]="3">Low</option>
+        </select>
+      </div>
+
+      <div class="flex justify-end space-x-2">
+        <button type="button" (click)="showAddTaskModal = false" class="text-gray-600 hover:text-gray-800">
+          Cancel
+        </button>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          Save
+        </button>
+      </div>
+    </form>
+  </app-modal>
+
   <!-- Page Header -->
   <div class="flex justify-between items-center">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
       <p class="text-gray-600 mt-1">Welcome back! Here's your task overview.</p>
     </div>
-    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+      (click)="showAddTaskModal = true">
       + Add Task
     </button>
   </div>
@@ -28,7 +88,9 @@
         <div class="flex items-center">
           <div class="p-2 bg-blue-100 rounded-lg">
             <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
+              </path>
             </svg>
           </div>
           <div class="ml-4">
@@ -56,7 +118,8 @@
         <div class="flex items-center">
           <div class="p-2 bg-yellow-100 rounded-lg">
             <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
           </div>
           <div class="ml-4">
@@ -70,7 +133,9 @@
         <div class="flex items-center">
           <div class="p-2 bg-red-100 rounded-lg">
             <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.732 15.5c-.77.833.192 2.5 1.732 2.5z">
+              </path>
             </svg>
           </div>
           <div class="ml-4">
@@ -83,31 +148,53 @@
 
     <!-- Recent Tasks -->
     <div class="bg-white rounded-lg shadow border">
-      <div class="px-6 py-4 border-b border-gray-200">
+      <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
         <h2 class="text-lg font-semibold text-gray-900">Recent Tasks</h2>
+        <div class="flex items-center ml-auto">
+          <span class="mr-3 text-sm text-gray-600">
+            {{ showDetailedView ? 'Detailed Mode' : 'Compact Mode' }}
+          </span>
+
+          <div (click)="showDetailedView = !showDetailedView" [class.on]="showDetailedView" class="toggle-btn">
+            <div class="circle"></div>
+          </div>
+        </div>
       </div>
       <div class="p-6">
         <div *ngIf="recentTasks.length === 0" class="text-center py-8 text-gray-500">
           No tasks found. Create your first task to get started!
         </div>
-        <div *ngFor="let task of recentTasks" class="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+        <div *ngFor="let task of recentTasks"
+          class="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
           <div class="flex items-center space-x-3">
             <div class="flex-shrink-0">
-              <div class="w-2 h-2 rounded-full" 
-                   [class]="task.isCompleted ? 'bg-green-500' : 'bg-gray-300'">
+              <div class="w-2 h-2 rounded-full" [class]="task.isCompleted ? 'bg-green-500' : 'bg-gray-300'">
               </div>
             </div>
             <div>
-              <h3 class="text-sm font-medium text-gray-900" 
-                  [class.line-through]="task.isCompleted">
+              <h3 class="text-sm font-medium text-gray-900" [class.line-through]="task.isCompleted">
                 {{ task.title }}
               </h3>
               <p class="text-xs text-gray-500">{{ task.description }}</p>
+              <!-- Show detailed view if toggle is on -->
+              <div *ngIf="showDetailedView">
+                <p class="text-xs text-gray-500">
+                  Created on: {{ task.createdOn | date: 'dd/MM/yyyy, hh:mm a' }}
+                </p>
+                <p class="text-xs text-gray-500">
+                  Start Time: {{ task.startTime | date: 'dd/MM/yyyy, hh:mm a' }}
+                </p>
+                <p class="text-xs text-gray-500">
+                  End Time: {{ task.endTime | date: 'dd/MM/yyyy, hh:mm a' }}
+                </p>
+                <p class="text-xs text-gray-500">Priority: {{ getPriorityText(task.priority) }}</p>
+                <p class="text-xs text-gray-500">Duration: {{ task.durationSeconds }}</p>
+              </div>
             </div>
           </div>
           <div class="flex items-center space-x-2">
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                  [class]="getPriorityClass(task.priority)">
+              [class]="getPriorityClass(task.priority)">
               {{ getPriorityText(task.priority) }}
             </span>
           </div>

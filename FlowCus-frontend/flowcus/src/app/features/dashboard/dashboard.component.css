@@ -67,3 +67,36 @@
     transform: rotate(360deg);
   }
 }
+
+/* Button container (cylindrical toggle) */
+.toggle-btn {
+  width: 56px;
+  height: 28px;
+  border-radius: 9999px;
+  background-color: #d1d5db; /* grey */
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+/* Button circle inside the toggle */
+.toggle-btn .circle {
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  box-shadow: 0px 2px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+  margin-left: 2px;
+}
+
+/* When the toggle is turned on (detailed view is true) */
+.toggle-btn.on {
+  background-color: #3b82f6; /* blue */
+}
+
+.toggle-btn.on .circle {
+  transform: translateX(28px); /* Move the circle to the right */
+}

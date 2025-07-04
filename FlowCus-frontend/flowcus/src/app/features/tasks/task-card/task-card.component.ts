@@ -58,10 +58,10 @@ export class TaskCardComponent {
   }
 
   formatDuration(): string {
-    if (!this.task.duration) return '';
+    if (!this.task.durationSeconds) return '';
     
-    const hours = Math.floor(this.task.duration / 60);
-    const minutes = this.task.duration % 60;
+    const hours = Math.floor(this.task.durationSeconds / 60);
+    const minutes = this.task.durationSeconds % 60;
     
     if (hours > 0) {
       return `${hours}h ${minutes}m`;

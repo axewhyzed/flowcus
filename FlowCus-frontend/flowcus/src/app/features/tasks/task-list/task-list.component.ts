@@ -80,7 +80,7 @@ export class TaskListComponent implements OnInit {
   }
 
   trackByTaskId(index: number, task: Task): number {
-    return task.id;
+    return task.taskId;
   }
 
   editTask(task: Task) {
@@ -89,7 +89,7 @@ export class TaskListComponent implements OnInit {
 
   async toggleTaskCompletion(task: Task) {
     try {
-      await this.taskService.toggleTaskCompletion(task.id, !task.isCompleted);
+      await this.taskService.toggleTaskCompletion(task.taskId, !task.isCompleted);
       await this.loadTasks();
     } catch (error) {
       console.error('Error toggling task completion:', error);
@@ -104,7 +104,7 @@ export class TaskListComponent implements OnInit {
   async confirmDelete() {
     if (this.taskToDelete) {
       try {
-        await this.taskService.deleteTask(this.taskToDelete.id);
+        await this.taskService.deleteTask(this.taskToDelete.taskId);
         await this.loadTasks();
       } catch (error) {
         console.error('Error deleting task:', error);

@@ -14,7 +14,7 @@ import { TaskService } from '../../../core/services/task.service';
 export class TaskFormComponent implements OnInit {
   @Input() task: Task | null = null;
   @Input() isOpen = false;
-  
+
   @Output() saved = new EventEmitter<Task>();
   @Output() cancelled = new EventEmitter<void>();
 
@@ -65,7 +65,7 @@ export class TaskFormComponent implements OnInit {
     const day = String(date.getDate()).padStart(2, '0');
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
-    
+
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   }
 
@@ -76,21 +76,22 @@ export class TaskFormComponent implements OnInit {
 
       try {
         const formValue = this.taskForm.value;
-        
+
         if (this.task) {
+          debugger
           // Update existing task
           const updateRequest: UpdateTaskRequest = {
-            id: this.task.id,
+            taskId: this.task.taskId,
             title: formValue.title,
             description: formValue.description,
             priority: formValue.priority,
             startTime: formValue.startTime ? new Date(formValue.startTime) : undefined,
             endTime: formValue.endTime ? new Date(formValue.endTime) : undefined,
             isCompleted: formValue.isCompleted,
-            userId: this.task.userId
+            userId: this.task.userId || "1"
           };
-          
-          const updatedTask = await this.taskService.updateTask(this.task.id, updateRequest);
+
+          const updatedTask = await this.taskService.updateTask(this.task.taskId, updateRequest);
           this.saved.emit(updatedTask);
         } else {
           // Create new task
@@ -102,11 +103,11 @@ export class TaskFormComponent implements OnInit {
             endTime: formValue.endTime ? new Date(formValue.endTime) : undefined,
             userId: '1' // TODO: Get from auth service
           };
-          
+
           const newTask = await this.taskService.createTask(createRequest);
           this.saved.emit(newTask);
         }
-        
+
         this.resetForm();
       } catch (error) {
         this.error = 'Failed to save task. Please try again.';
@@ -141,7 +142,7 @@ export class TaskFormComponent implements OnInit {
 
   getFieldError(fieldName: string): string | null {
     const field = this.taskForm.get(fieldName);
-    
+
     if (field && field.touched && field.errors) {
       if (field.errors['required']) {
         return `${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} is required`;
@@ -150,7 +151,7 @@ export class TaskFormComponent implements OnInit {
         return `${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} is too long`;
       }
     }
-    
+
     return null;
   }
 
@@ -173,4 +174,18 @@ export class TaskFormComponent implements OnInit {
     }
     return this.isEditMode ? 'Update Task' : 'Create Task';
   }
+
+  formatDuration(seconds: number): string {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    const parts = [];
+
+    if (hrs > 0) parts.push(`${hrs}h`);
+    if (mins > 0 || hrs > 0) parts.push(`${mins}m`);
+    parts.push(`${secs}s`);
+
+    return parts.join(' ');
+  }
+
 }

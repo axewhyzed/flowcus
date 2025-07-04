@@ -14,17 +14,17 @@
 //   }
   
 export interface Task {
-  id: number;
+  taskId: number;
   title: string;
   description: string;
   isCompleted: boolean;
   priority: TaskPriority;
   startTime?: Date;
   endTime?: Date;
-  duration?: number;
+  durationSeconds?: number;
   userId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdOn: Date;
+  updatedOn: Date;
   isDeleted: boolean;
 }
 
@@ -40,10 +40,11 @@ export interface CreateTaskRequest {
   priority: TaskPriority;
   startTime?: Date;
   endTime?: Date;
+  durationSeconds? : number;
   userId: string;
 }
 
 export interface UpdateTaskRequest extends CreateTaskRequest {
-  id: number;
+  taskId: number;
   isCompleted?: boolean;
 }
