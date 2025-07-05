@@ -12,7 +12,7 @@ import { PriorityPipe } from '../../../shared/pipes/priority.pipe';
 })
 export class TaskCardComponent {
   @Input() task!: Task;
-  
+
   @Output() edit = new EventEmitter<Task>();
   @Output() toggle = new EventEmitter<Task>();
   @Output() delete = new EventEmitter<Task>();
@@ -59,10 +59,10 @@ export class TaskCardComponent {
 
   formatDuration(): string {
     if (!this.task.durationSeconds) return '';
-    
-    const hours = Math.floor(this.task.durationSeconds / 60);
-    const minutes = this.task.durationSeconds % 60;
-    
+
+    const hours = Math.floor(this.task.durationSeconds / 3600); // 3600 seconds in an hour
+    const minutes = Math.floor((this.task.durationSeconds % 3600) / 60); // Remaining minutes
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
@@ -71,9 +71,9 @@ export class TaskCardComponent {
 
   formatTime(date: Date | undefined): string {
     if (!date) return '';
-    return new Date(date).toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(date).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   }
 }

@@ -10,5 +10,6 @@ CREATE TABLE tasks (
     start_time TIMESTAMP,
     end_time TIMESTAMP,
     duration_seconds INTEGER,    -- Store duration in seconds
-    is_deleted BOOLEAN DEFAULT FALSE
+    is_deleted BOOLEAN DEFAULT FALSE,
+    isCompleted BOOLEAN DEFAULT FALSE
 );

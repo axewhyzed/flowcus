@@ -6,7 +6,7 @@
       <p class="text-gray-600 mt-1">Manage your tasks and track progress.</p>
     </div>
     <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            (click)="showCreateForm = true">
+      (click)="showCreateForm = true">
       + Add Task
     </button>
   </div>
@@ -16,17 +16,12 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
-        <input type="text" 
-               [(ngModel)]="searchTerm"
-               (ngModelChange)="applyFilters()"
-               placeholder="Search tasks..."
-               class="form-input">
+        <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()" placeholder="Search tasks..."
+          class="form-input">
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-        <select [(ngModel)]="selectedPriority" 
-                (ngModelChange)="applyFilters()"
-                class="form-select">
+        <select [(ngModel)]="selectedPriority" (ngModelChange)="applyFilters()" class="form-select">
           <option value="">All Priorities</option>
           <option [value]="TaskPriority.High">High</option>
           <option [value]="TaskPriority.Normal">Normal</option>
@@ -35,9 +30,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-        <select [(ngModel)]="selectedStatus" 
-                (ngModelChange)="applyFilters()"
-                class="form-select">
+        <select [(ngModel)]="selectedStatus" (ngModelChange)="applyFilters()" class="form-select">
           <option value="all">All Tasks</option>
           <option value="pending">Pending</option>
           <option value="completed">Completed</option>
@@ -50,46 +43,34 @@
   <app-loading-spinner *ngIf="isLoading" message="Loading tasks..."></app-loading-spinner>
 
   <!-- Error State -->
-  <app-error-message *ngIf="error" 
-                     [message]="error" 
-                     (dismissed)="error = null">
+  <app-error-message *ngIf="error" [message]="error" (dismissed)="error = null">
   </app-error-message>
 
   <!-- Task List -->
   <div *ngIf="!isLoading && !error">
     <div *ngIf="filteredTasks.length === 0" class="text-center py-12">
       <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
       </svg>
       <h3 class="mt-2 text-sm font-medium text-gray-900">No tasks found</h3>
       <p class="mt-1 text-sm text-gray-500">Get started by creating a new task.</p>
     </div>
 
     <div class="grid gap-4" *ngIf="filteredTasks.length > 0">
-      <app-task-card *ngFor="let task of filteredTasks; trackBy: trackByTaskId"
-                     [task]="task"
-                     (edit)="editTask($event)"
-                     (toggle)="toggleTaskCompletion($event)"
-                     (delete)="deleteTask($event)">
+      <app-task-card *ngFor="let task of filteredTasks; trackBy: trackByTaskId" [task]="task" (edit)="editTask($event)"
+        (toggle)="toggleTaskCompletion($event)" (delete)="deleteTask($event)">
       </app-task-card>
     </div>
   </div>
 
   <!-- Task Form Modal -->
-  <app-task-form *ngIf="showCreateForm || editingTask"
-                 [task]="editingTask"
-                 [isOpen]="showCreateForm || !!editingTask"
-                 (saved)="onTaskSaved($event)"
-                 (cancelled)="onFormCancelled()">
+  <app-task-form *ngIf="showCreateForm || editingTask" [task]="editingTask" [isOpen]="showCreateForm || !!editingTask"
+    (saved)="onTaskSaved($event)" (cancelled)="onFormCancelled()">
   </app-task-form>
 
   <!-- Delete Confirmation Modal -->
-  <app-confirmation-modal [isOpen]="showDeleteConfirmation"
-                          title="Delete Task"
-                          [message]="deleteMessage"
-                          confirmText="Delete"
-                          cancelText="Cancel"
-                          (confirmed)="confirmDelete()"
-                          (cancelled)="cancelDelete()">
+  <app-confirmation-modal [isOpen]="showDeleteConfirmation" title="Delete Task" [message]="deleteMessage"
+    confirmText="Delete" cancelText="Cancel" (confirmed)="confirmDelete()" (cancelled)="cancelDelete()">
   </app-confirmation-modal>
 </div>

@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Task, TaskPriority, CreateTaskRequest, UpdateTaskRequest } from '../../../core/models/task.model';
+import { Task, TaskPriority } from '../../../core/models/task.model';
 import { TaskService } from '../../../core/services/task.service';
 
 @Component({
@@ -78,29 +78,37 @@ export class TaskFormComponent implements OnInit {
         const formValue = this.taskForm.value;
 
         if (this.task) {
-          debugger
           // Update existing task
-          const updateRequest: UpdateTaskRequest = {
-            taskId: this.task.taskId,
+          const taskToUpdate: Task = {
+            taskId: this.task.taskId,  // We already have the task object
             title: formValue.title,
             description: formValue.description,
             priority: formValue.priority,
-            startTime: formValue.startTime ? new Date(formValue.startTime) : undefined,
-            endTime: formValue.endTime ? new Date(formValue.endTime) : undefined,
+            startTime: formValue.startTime ? formValue.startTime : null,
+            endTime: formValue.endTime ? formValue.endTime : null,
             isCompleted: formValue.isCompleted,
-            userId: this.task.userId || "1"
+            updatedBy: "1",
+            userId: this.task.userId || "1",  // Assuming '1' if userId is undefined
+            createdOn: this.task.createdOn,  // Keeping original createdOn
+            isDeleted: this.task.isDeleted || false,  // Keep existing delete state
+            durationSeconds: this.task.durationSeconds || 0,  // Keep existing duration if needed
           };
 
-          const updatedTask = await this.taskService.updateTask(this.task.taskId, updateRequest);
+          const updatedTask = await this.taskService.updateTask(this.task.taskId, taskToUpdate);
           this.saved.emit(updatedTask);
         } else {
           // Create new task
-          const createRequest: CreateTaskRequest = {
+          const createRequest: Task = {
+            taskId: 0,
             title: formValue.title,
             description: formValue.description,
             priority: formValue.priority,
             startTime: formValue.startTime ? new Date(formValue.startTime) : undefined,
             endTime: formValue.endTime ? new Date(formValue.endTime) : undefined,
+            isCompleted: false ,
+            createdOn: new Date(),
+            isDeleted: false,
+            durationSeconds: formValue.durationSeconds || 0,
             userId: '1' // TODO: Get from auth service
           };
 

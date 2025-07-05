@@ -30,7 +30,7 @@ namespace FlowCus.Controllers
             {
                 const string query = @"
                     SELECT task_id, title, description, priority, created_on, created_by, updated_on, updated_by,
-                        start_time, end_time, duration_seconds, is_deleted
+                        start_time, end_time, duration_seconds, is_deleted, isCompleted
                     FROM tasks
                     WHERE is_deleted = false";
 
@@ -54,7 +54,7 @@ namespace FlowCus.Controllers
             {
                 const string query = @"
                     SELECT task_id, title, description, priority, created_on, created_by, updated_on, updated_by,
-                        start_time, end_time, duration_seconds, is_deleted
+                        start_time, end_time, duration_seconds, is_deleted, isCompleted
                     FROM tasks
                     WHERE task_id = @id AND is_deleted = false";
 
@@ -91,11 +91,11 @@ namespace FlowCus.Controllers
                 const string query = @"
                     INSERT INTO tasks (
                         title, description, priority, created_on, created_by,
-                        start_time, end_time, duration_seconds, is_deleted
+                        start_time, end_time, duration_seconds, is_deleted, isCompleted
                     )
                     VALUES (
                         @title, @description, @priority, @createdOn, @createdBy,
-                        @startTime, @endTime, @durationSeconds, @isDeleted
+                        @startTime, @endTime, @durationSeconds, @isDeleted, @isCompleted
                     )
                     RETURNING task_id";
 
@@ -109,7 +109,8 @@ namespace FlowCus.Controllers
                     new("@startTime", task.StartTime ?? (object)DBNull.Value),
                     new("@endTime", task.EndTime ?? (object)DBNull.Value),
                     new("@durationSeconds", task.DurationSeconds ?? (object)DBNull.Value),
-                    new("@isDeleted", false)
+                    new("@isDeleted", false),
+                    new("@isCompleted", false)
                 };
 
                 var newId = await _dbHelper.GetValueAsync(query, parameters);
@@ -127,7 +128,8 @@ namespace FlowCus.Controllers
                     task.StartTime,
                     task.EndTime,
                     task.DurationSeconds,
-                    IsDeleted = false
+                    IsDeleted = false,
+                    isCompleted = false
                 };
 
                 return CreatedAtAction(
@@ -166,7 +168,8 @@ namespace FlowCus.Controllers
                         updated_by = @updatedBy,
                         start_time = @startTime,
                         end_time = @endTime,
-                        duration_seconds = @durationSeconds
+                        duration_seconds = @durationSeconds,
+                        isCompleted = @isCompleted
                     WHERE task_id = @id";
 
                 var parameters = new NpgsqlParameter[]
@@ -179,6 +182,7 @@ namespace FlowCus.Controllers
                     new("@startTime", task.StartTime ?? (object)DBNull.Value),
                     new("@endTime", task.EndTime ?? (object)DBNull.Value),
                     new("@durationSeconds", task.DurationSeconds ?? (object)DBNull.Value),
+                    new("@isCompleted", task.isCompleted),
                     new("@id", id)
                 };
 
@@ -237,7 +241,8 @@ namespace FlowCus.Controllers
                 StartTime = row["start_time"] as DateTime?,
                 EndTime = row["end_time"] as DateTime?,
                 DurationSeconds = row["duration_seconds"] as int?,
-                IsDeleted = Convert.ToBoolean(row["is_deleted"])
+                IsDeleted = Convert.ToBoolean(row["is_deleted"]),
+                isCompleted = Convert.ToBoolean(row["isCompleted"])
             };
         }
         #endregion

@@ -24,27 +24,14 @@ export interface Task {
   durationSeconds?: number;
   userId: string;
   createdOn: Date;
-  updatedOn: Date;
-  isDeleted: boolean;
+  createdBy?: string;
+  updatedOn?: Date;
+  updatedBy? : string,
+  isDeleted?: boolean;
 }
 
 export enum TaskPriority {
   High = 1,
   Normal = 2,
   Low = 3
-}
-
-export interface CreateTaskRequest {
-  title: string;
-  description: string;
-  priority: TaskPriority;
-  startTime?: Date;
-  endTime?: Date;
-  durationSeconds? : number;
-  userId: string;
-}
-
-export interface UpdateTaskRequest extends CreateTaskRequest {
-  taskId: number;
-  isCompleted?: boolean;
 }

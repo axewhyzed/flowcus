@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TaskService } from '../../core/services/task.service';
-import { CreateTaskRequest, Task, TaskPriority } from '../../core/models/task.model';
+import { Task, TaskPriority } from '../../core/models/task.model';
 import { DatePipe } from '@angular/common';
 import { ErrorHandlingService } from '../../core/services/error-handling.service';
 import { FormsModule } from '@angular/forms';
@@ -30,11 +30,14 @@ export class DashboardComponent implements OnInit {
   formattedDuration: string = '';
   showAddTaskModal = false;
 
-  newTask: CreateTaskRequest = {
+  newTask: Task = {
+    taskId: 0,
     title: '',
     description: '',
     priority: TaskPriority.Normal,
+    createdOn: new Date(),
     userId: '',  // set this based on your auth logic
+    isCompleted: false
   };
 
 
@@ -104,7 +107,10 @@ export class DashboardComponent implements OnInit {
         title: '',
         description: '',
         priority: TaskPriority.Normal,
-        userId: '',
+        userId: '1',
+        taskId: 0,
+        createdOn: new Date(),
+        isCompleted: false
       };
 
     } catch (error) {

@@ -29,7 +29,6 @@ namespace FlowCus.Models
         [DisplayName("Priority Level")]
         public int Priority { get; set; }
 
-        [Required]
         [DataType(DataType.DateTime)]
         [DisplayName("Created On")]
         public DateTime CreatedOn { get; set; }
@@ -69,6 +68,7 @@ namespace FlowCus.Models
         [DisplayName("Deleted?")]
         public bool IsDeleted { get; set; } // BOOLEAN DEFAULT FALSE
 
+        public bool isCompleted { get; set; }
 
         // Optional constructor for easier instantiation (if needed)
         /// <summary>

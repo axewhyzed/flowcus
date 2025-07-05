@@ -27,4 +27,10 @@ export class ConfirmationModalComponent {
     this.cancelled.emit();
     this.isOpen = false;
   }
+
+  private closeModal(): void {
+    setTimeout(() => {
+      this.isOpen = false; // Close the modal after the animation finishes
+    }, 300); // This should match your animation duration
+  }
 }

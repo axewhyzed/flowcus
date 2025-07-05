@@ -41,7 +41,7 @@
 
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import { Task, CreateTaskRequest, UpdateTaskRequest } from '../models/task.model';
+import { Task} from '../models/task.model';
 
 @Injectable({
   providedIn: 'root',
@@ -57,11 +57,11 @@ export class TaskService {
     return this.apiService.get<Task>(`/tasks/${id}`);
   }
 
-  async createTask(task: CreateTaskRequest): Promise<Task> {
+  async createTask(task: Task): Promise<Task> {
     return this.apiService.post<Task>('/tasks', task);
   }
 
-  async updateTask(id: number, task: UpdateTaskRequest): Promise<Task> {
+  async updateTask(id: number, task: Task): Promise<Task> {
     return this.apiService.put<Task>(`/tasks/${id}`, task);
   }
 
