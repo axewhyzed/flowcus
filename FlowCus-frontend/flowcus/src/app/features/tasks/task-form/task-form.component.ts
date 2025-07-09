@@ -87,8 +87,8 @@ export class TaskFormComponent implements OnInit {
             startTime: formValue.startTime ? formValue.startTime : null,
             endTime: formValue.endTime ? formValue.endTime : null,
             isCompleted: formValue.isCompleted,
-            updatedBy: "1",
-            userId: this.task.userId || "1",  // Assuming '1' if userId is undefined
+            updatedBy: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0,
+            userId: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0,  // Assuming '1' if userId is undefined
             createdOn: this.task.createdOn,  // Keeping original createdOn
             isDeleted: this.task.isDeleted || false,  // Keep existing delete state
             durationSeconds: this.task.durationSeconds || 0,  // Keep existing duration if needed
@@ -104,13 +104,14 @@ export class TaskFormComponent implements OnInit {
             title: formValue.title,
             description: formValue.description,
             priority: formValue.priority,
+            createdBy: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0,
             startTime: formValue.startTime ? new Date(formValue.startTime) : undefined,
             endTime: formValue.endTime ? new Date(formValue.endTime) : undefined,
             isCompleted: false,
             createdOn: new Date(),
             isDeleted: false,
             durationSeconds: formValue.durationSeconds || 0,
-            userId: '1' // TODO: Get from auth service
+            userId: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0
           };
 
           const newTask = await this.taskService.createTask(createRequest);

@@ -115,7 +115,7 @@ export class TemplateItemFormComponent implements OnInit {
           dayOfWeek: item.dayOfWeek,
           startTime: item.startTime,
           endTime: item.endTime,
-          userId: '1' // TODO: Get from auth service
+          userId: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0 // TODO: Get from auth service
         }));
 
         const batchRequest: BatchCreateTemplateItemsRequest = {

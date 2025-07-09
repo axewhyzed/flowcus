@@ -18,7 +18,7 @@ export class TemplateService {
   constructor(private apiService: ApiService) {}
 
   // Template List operations
-  async getTemplatesByUser(userId: string): Promise<TemplateList[]> {
+  async getTemplatesByUser(userId: number): Promise<TemplateList[]> {
     return this.apiService.get<TemplateList[]>(`/templatelists?userId=${userId}`);
   }
 

@@ -22,11 +22,11 @@ export interface Task {
   startTime?: Date;
   endTime?: Date;
   durationSeconds?: number;
-  userId: string;
+  userId: number;
   createdOn: Date;
-  createdBy?: string;
+  createdBy?: number;
   updatedOn?: Date;
-  updatedBy? : string,
+  updatedBy? : number,
   isDeleted?: boolean;
 }
 

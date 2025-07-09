@@ -36,7 +36,7 @@ export class DashboardComponent implements OnInit {
     description: '',
     priority: TaskPriority.Normal,
     createdOn: new Date(),
-    userId: '',  // set this based on your auth logic
+    userId: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0,  // set this based on your auth logic
     isCompleted: false
   };
 
@@ -94,7 +94,7 @@ export class DashboardComponent implements OnInit {
   async createTask() {
     try {
       // Set userId dynamically if needed:
-      this.newTask.userId = localStorage.getItem('userId') || '';
+      this.newTask.userId = localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0;
 
       const createdTask = await this.taskService.createTask(this.newTask);
 
@@ -107,7 +107,7 @@ export class DashboardComponent implements OnInit {
         title: '',
         description: '',
         priority: TaskPriority.Normal,
-        userId: '1',
+        userId: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0,
         taskId: 0,
         createdOn: new Date(),
         isCompleted: false

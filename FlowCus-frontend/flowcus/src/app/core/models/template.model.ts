@@ -1,14 +1,14 @@
 export interface TemplateList {
   id: number;
   templateName: string;
-  userId: string;
+  userId: number;
   createdAt: Date;
   isDeleted: boolean;
 }
 
 export interface CreateTemplateRequest {
   name: string;
-  userId: string;
+  userId: number;
 }
 
 export interface UpdateTemplateRequest extends CreateTemplateRequest {

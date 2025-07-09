@@ -17,7 +17,7 @@ export interface TemplateItem {
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
-  userId: string;
+  userId: number;
   createdAt: Date;
   isDeleted: boolean;
 }
@@ -39,7 +39,7 @@ export interface CreateTemplateItemRequest {
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
-  userId: string;
+  userId: number;
 }
 
 export interface BatchCreateTemplateItemsRequest {

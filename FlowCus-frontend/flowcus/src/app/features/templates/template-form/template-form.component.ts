@@ -82,13 +82,13 @@ export class TemplateFormComponent implements OnInit {
           const updateRequest: UpdateTemplateRequest = {
             id: this.templateId,
             name: formValue.name,
-            userId: '1' // TODO: Get from auth service
+            userId: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0 // TODO: Get from auth service
           };
           await this.templateService.updateTemplate(this.templateId, updateRequest);
         } else {
           const createRequest: CreateTemplateRequest = {
             name: formValue.name,
-            userId: '1' // TODO: Get from auth service
+            userId: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0 // TODO: Get from auth service
           };
           await this.templateService.createTemplate(createRequest);
         }

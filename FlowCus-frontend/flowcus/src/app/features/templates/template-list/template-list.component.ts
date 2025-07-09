@@ -29,7 +29,7 @@ export class TemplateListComponent implements OnInit {
   async loadTemplates() {
     try {
       this.isLoading = true;
-      const userId = '1'; // TODO: Get from auth service
+      const userId = localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0; // TODO: Get from auth service
       this.templates = await this.templateService.getTemplatesByUser(userId);
     } catch (error) {
       this.error = 'Failed to load templates';
@@ -44,7 +44,7 @@ export class TemplateListComponent implements OnInit {
       try {
         await this.templateService.createTemplate({
           name: this.newTemplateName.trim(),
-          userId: '1' // TODO: Get from auth service
+          userId: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0 // TODO: Get from auth service
         });
         this.newTemplateName = '';
         this.showCreateForm = false;

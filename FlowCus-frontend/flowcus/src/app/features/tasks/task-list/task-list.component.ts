@@ -92,7 +92,8 @@ export class TaskListComponent implements OnInit {
       await this.taskService.updateTask(task.taskId, {
         ...task,
         isCompleted: !task.isCompleted,
-        updatedOn: new Date()
+        updatedOn: new Date(),
+        updatedBy: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0
       });
       task.isCompleted = !task.isCompleted;
       this.applyFilters();

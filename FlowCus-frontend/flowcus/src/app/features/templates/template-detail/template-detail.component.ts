@@ -126,7 +126,7 @@ export class TemplateDetailComponent implements OnInit {
     try {
       const newTemplate = await this.templateService.createTemplate({
         name: `${this.template?.templateName} (Copy)`,
-        userId: '1' // TODO: Get from auth service
+        userId: localStorage.getItem("UserID") ? parseInt(localStorage.getItem("UserID")!) : 0 // TODO: Get from auth service
       });
 
       // TODO: Copy template items to new template
