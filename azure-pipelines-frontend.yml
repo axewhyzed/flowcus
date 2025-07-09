@@ -26,6 +26,14 @@ steps:
   displayName: 'Replace API URL'
   workingDirectory: FlowCus-frontend/flowcus
 
+- script: npm run build -- --configuration=production
+  displayName: 'Build Angular app'
+  workingDirectory: FlowCus-frontend/flowcus
+
+- publish: FlowCus-frontend/flowcus/dist
+  artifact: flowcus-dist
+  displayName: 'Publish build artifacts'
+
 - script: |
     # Configure Git using pipeline variables
     git config --global user.email "$(GITHUB_EMAIL)"
