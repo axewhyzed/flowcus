@@ -94,8 +94,9 @@ export class TaskFormComponent implements OnInit {
             durationSeconds: this.task.durationSeconds || 0,  // Keep existing duration if needed
           };
 
-          const updatedTask = await this.taskService.updateTask(this.task.taskId, taskToUpdate);
-          this.saved.emit(updatedTask);
+          const result = await this.taskService.updateTask(this.task.taskId, taskToUpdate);
+          const refreshedTask = await this.taskService.getTaskById(result.updatedTaskId);
+          this.saved.emit(refreshedTask);
         } else {
           // Create new task
           const createRequest: Task = {
@@ -105,7 +106,7 @@ export class TaskFormComponent implements OnInit {
             priority: formValue.priority,
             startTime: formValue.startTime ? new Date(formValue.startTime) : undefined,
             endTime: formValue.endTime ? new Date(formValue.endTime) : undefined,
-            isCompleted: false ,
+            isCompleted: false,
             createdOn: new Date(),
             isDeleted: false,
             durationSeconds: formValue.durationSeconds || 0,

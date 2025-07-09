@@ -72,4 +72,9 @@ export class ApiService {
     const response: AxiosResponse<T> = await this.axiosInstance.delete(url);
     return response.data;
   }
+
+  async patch<T>(url: string, data?: any): Promise<T> {
+    const response: AxiosResponse<T> = await this.axiosInstance.patch(url, data);
+    return response.data;
+  }
 }

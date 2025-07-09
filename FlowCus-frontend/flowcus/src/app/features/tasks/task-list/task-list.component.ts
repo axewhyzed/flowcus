@@ -13,9 +13,9 @@ import { ConfirmationModalComponent } from '../../../shared/components/confirmat
   selector: 'app-task-list',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    TaskCardComponent, 
+    CommonModule,
+    FormsModule,
+    TaskCardComponent,
     TaskFormComponent,
     LoadingSpinnerComponent,
     ErrorMessageComponent,
@@ -29,15 +29,15 @@ export class TaskListComponent implements OnInit {
   filteredTasks: Task[] = [];
   isLoading = true;
   error: string | null = null;
-  
+
   // Form state
   showCreateForm = false;
   editingTask: Task | null = null;
-  
+
   // Delete confirmation
   showDeleteConfirmation = false;
   taskToDelete: Task | null = null;
-  
+
   // Filters
   searchTerm = '';
   selectedPriority: TaskPriority | '' = '';
@@ -45,7 +45,7 @@ export class TaskListComponent implements OnInit {
 
   TaskPriority = TaskPriority;
 
-  constructor(private taskService: TaskService) {}
+  constructor(private taskService: TaskService) { }
 
   async ngOnInit() {
     await this.loadTasks();
@@ -67,13 +67,13 @@ export class TaskListComponent implements OnInit {
   applyFilters() {
     this.filteredTasks = this.tasks.filter(task => {
       const matchesSearch = task.title.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-                           task.description.toLowerCase().includes(this.searchTerm.toLowerCase());
-      
+        task.description.toLowerCase().includes(this.searchTerm.toLowerCase());
+
       const matchesPriority = this.selectedPriority === '' || task.priority === this.selectedPriority;
-      
-      const matchesStatus = this.selectedStatus === 'all' || 
-                           (this.selectedStatus === 'completed' && task.isCompleted) ||
-                           (this.selectedStatus === 'pending' && !task.isCompleted);
+
+      const matchesStatus = this.selectedStatus === 'all' ||
+        (this.selectedStatus === 'completed' && task.isCompleted) ||
+        (this.selectedStatus === 'pending' && !task.isCompleted);
 
       return matchesSearch && matchesPriority && matchesStatus;
     });
@@ -89,8 +89,13 @@ export class TaskListComponent implements OnInit {
 
   async toggleTaskCompletion(task: Task) {
     try {
-      await this.taskService.toggleTaskCompletion(task.taskId, !task.isCompleted);
-      await this.loadTasks();
+      await this.taskService.updateTask(task.taskId, {
+        ...task,
+        isCompleted: !task.isCompleted,
+        updatedOn: new Date()
+      });
+      task.isCompleted = !task.isCompleted;
+      this.applyFilters();
     } catch (error) {
       console.error('Error toggling task completion:', error);
     }
@@ -132,8 +137,8 @@ export class TaskListComponent implements OnInit {
   }
 
   get deleteMessage(): string {
-  return this.taskToDelete
-    ? `Are you sure you want to delete "${this.taskToDelete.title}"? This action cannot be undone.`
-    : '';
-}
+    return this.taskToDelete
+      ? `Are you sure you want to delete "${this.taskToDelete.title}"? This action cannot be undone.`
+      : '';
+  }
 }

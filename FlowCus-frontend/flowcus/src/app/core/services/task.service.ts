@@ -41,13 +41,13 @@
 
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import { Task} from '../models/task.model';
+import { Task } from '../models/task.model';
 
 @Injectable({
   providedIn: 'root',
 })
 export class TaskService {
-  constructor(private apiService: ApiService) {}
+  constructor(private apiService: ApiService) { }
 
   async getAllTasks(): Promise<Task[]> {
     return this.apiService.get<Task[]>('/tasks');
@@ -61,16 +61,16 @@ export class TaskService {
     return this.apiService.post<Task>('/tasks', task);
   }
 
-  async updateTask(id: number, task: Task): Promise<Task> {
-    return this.apiService.put<Task>(`/tasks/${id}`, task);
+  async updateTask(id: number, task: Partial<Task>): Promise<{ updatedTaskId: number }> {
+    return this.apiService.patch<{ updatedTaskId: number }>(`/tasks/${id}`, task);
   }
 
-  async deleteTask(id: number): Promise<void> {
-    return this.apiService.delete<void>(`/tasks/${id}`);
+  async deleteTask(id: number): Promise<{ updatedTaskId: number }> {
+    return this.apiService.patch<{ updatedTaskId: number }>(`/tasks/${id}`, { isDeleted: true });
   }
 
-  async toggleTaskCompletion(id: number, isCompleted: boolean): Promise<Task> {
-    return this.apiService.put<Task>(`/tasks/${id}`, { isCompleted });
+  async toggleTaskCompletion(id: number, isCompleted: boolean): Promise<{ updatedTaskId: number }> {
+    return this.apiService.patch<{ updatedTaskId: number }>(`/tasks/${id}`, { isCompleted });
   }
 }
 

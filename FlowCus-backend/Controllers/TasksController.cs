@@ -129,7 +129,7 @@ namespace FlowCus.Controllers
                     task.EndTime,
                     task.DurationSeconds,
                     IsDeleted = false,
-                    isCompleted = false
+                    IsCompleted = false
                 };
 
                 return CreatedAtAction(
@@ -146,48 +146,51 @@ namespace FlowCus.Controllers
         }
 
         /// <summary>
-        /// Updates an existing task
+        /// Updates an existing task. Supports partial updates for fields like title,
+        /// isCompleted, or soft deletion. Returns updated task ID.
         /// </summary>
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutTask(int id, [FromBody] Models.Task task)
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> UpdateTask(int id, [FromBody] FlowCus.Models.Task task)
         {
             try
             {
-                // Verify existence first
                 var existing = await GetTask(id) as OkObjectResult;
                 if (existing == null) return NotFound();
 
                 task.CalculateDuration();
 
                 const string query = @"
-                    UPDATE tasks SET
-                        title = @title,
-                        description = @description,
-                        priority = @priority,
-                        updated_on = @updatedOn,
-                        updated_by = @updatedBy,
-                        start_time = @startTime,
-                        end_time = @endTime,
-                        duration_seconds = @durationSeconds,
-                        isCompleted = @isCompleted
-                    WHERE task_id = @id";
+                    SELECT fn_update_task(
+                        @task_id,
+                        @title,
+                        @description,
+                        @priority,
+                        @updated_by,
+                        @start_time,
+                        @end_time,
+                        @duration_seconds,
+                        @is_completed,
+                        @is_deleted
+                    )";
 
-                var parameters = new NpgsqlParameter[]
+                var parameters = new[]
                 {
-                    new("@title", task.Title),
-                    new("@description", task.Description ?? string.Empty),
-                    new("@priority", task.Priority),
-                    new("@updatedOn", DateTime.UtcNow),
-                    new("@updatedBy", task.UpdatedBy),
-                    new("@startTime", task.StartTime ?? (object)DBNull.Value),
-                    new("@endTime", task.EndTime ?? (object)DBNull.Value),
-                    new("@durationSeconds", task.DurationSeconds ?? (object)DBNull.Value),
-                    new("@isCompleted", task.isCompleted),
-                    new("@id", id)
+                    new NpgsqlParameter("@task_id", id),
+                    new NpgsqlParameter("@title", (object?)task.Title ?? DBNull.Value),
+                    new NpgsqlParameter("@description", (object?)task.Description ?? DBNull.Value),
+                    new NpgsqlParameter("@priority", (object?)task.Priority ?? DBNull.Value),
+                    new NpgsqlParameter("@updated_by", (object?)task.UpdatedBy ?? DBNull.Value),
+                    new NpgsqlParameter("@start_time", (object?)task.StartTime ?? DBNull.Value),
+                    new NpgsqlParameter("@end_time", (object?)task.EndTime ?? DBNull.Value),
+                    new NpgsqlParameter("@duration_seconds", (object?)task.DurationSeconds ?? DBNull.Value),
+                    new NpgsqlParameter("@is_completed", (object?)task.IsCompleted ?? DBNull.Value),
+                    new NpgsqlParameter("@is_deleted", (object?)task.IsDeleted ?? DBNull.Value)
                 };
 
-                await _dbHelper.ExecuteQueryAsync(query, parameters);
-                return NoContent();
+                var result = await _dbHelper.GetValueAsync(query, parameters);
+                var updatedId = result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+
+                return Ok(new { UpdatedTaskId = updatedId });
             }
             catch (Exception ex)
             {
@@ -196,29 +199,6 @@ namespace FlowCus.Controllers
             }
         }
 
-        /// <summary>
-        /// Soft deletes a task
-        /// </summary>
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTask(int id)
-        {
-            try
-            {
-                const string query = @"
-                    UPDATE tasks 
-                    SET is_deleted = true 
-                    WHERE task_id = @id";
-
-                var parameters = new NpgsqlParameter[] { new("@id", id) };
-                int affected = await _dbHelper.ExecuteQueryAsync(query, parameters);
-                return affected == 0 ? NotFound() : NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error deleting task {id}");
-                return StatusCode(500, "Internal server error");
-            }
-        }
 
         #region Helpers
         private List<Models.Task> DataTableToTaskList(DataTable dt)
@@ -242,7 +222,7 @@ namespace FlowCus.Controllers
                 EndTime = row["end_time"] as DateTime?,
                 DurationSeconds = row["duration_seconds"] as int?,
                 IsDeleted = Convert.ToBoolean(row["is_deleted"]),
-                isCompleted = Convert.ToBoolean(row["isCompleted"])
+                IsCompleted = Convert.ToBoolean(row["isCompleted"])
             };
         }
         #endregion
