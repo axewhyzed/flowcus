@@ -1,14 +1,16 @@
-﻿// TasksController.cs
-using FlowCus.Helpers;
+﻿using FlowCus.Helpers;
 using FlowCus.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using System.Data;
+using System.Security.Claims;
 
 namespace FlowCus.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class TasksController : ControllerBase
     {
         private readonly DBHelper _dbHelper;
@@ -20,21 +22,36 @@ namespace FlowCus.Controllers
             _logger = logger;
         }
 
+        private int GetCurrentUserId()
+        {
+            return int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        }
+
         /// <summary>
-        /// Retrieves all active tasks
+        /// Get all tasks for current user
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetTasks()
         {
             try
             {
+                int userId = GetCurrentUserId();
                 const string query = @"
-                    SELECT task_id, title, description, priority, created_on, created_by, updated_on, updated_by,
-                        start_time, end_time, duration_seconds, is_deleted, isCompleted
-                    FROM tasks
-                    WHERE is_deleted = false";
+                    SELECT t.task_id, t.task_master_id, t.title, t.description, t.priority,
+                           t.created_on, t.created_by, t.updated_on, t.updated_by,
+                           t.start_time, t.end_time, t.duration_seconds, t.is_deleted,
+                           tm.title as template_title
+                    FROM tasks t
+                    LEFT JOIN task_master tm ON t.task_master_id = tm.id
+                    WHERE t.created_by = @userId AND t.is_deleted = false
+                    ORDER BY t.created_on DESC";
 
-                var dt = await _dbHelper.GetTableAsync(query);
+                var parameters = new NpgsqlParameter[]
+                {
+                    new("@userId", userId)
+                };
+
+                var dt = await _dbHelper.GetTableAsync(query, parameters);
                 return Ok(DataTableToTaskList(dt));
             }
             catch (Exception ex)
@@ -45,22 +62,27 @@ namespace FlowCus.Controllers
         }
 
         /// <summary>
-        /// Gets a specific task by ID
+        /// Get specific task by ID
         /// </summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetTask(int id)
         {
             try
             {
+                int userId = GetCurrentUserId();
                 const string query = @"
-                    SELECT task_id, title, description, priority, created_on, created_by, updated_on, updated_by,
-                        start_time, end_time, duration_seconds, is_deleted, isCompleted
-                    FROM tasks
-                    WHERE task_id = @id AND is_deleted = false";
+                    SELECT t.task_id, t.task_master_id, t.title, t.description, t.priority,
+                           t.created_on, t.created_by, t.updated_on, t.updated_by,
+                           t.start_time, t.end_time, t.duration_seconds, t.is_deleted,
+                           tm.title as template_title
+                    FROM tasks t
+                    LEFT JOIN task_master tm ON t.task_master_id = tm.id
+                    WHERE t.task_id = @id AND t.created_by = @userId AND t.is_deleted = false";
 
                 var parameters = new NpgsqlParameter[]
                 {
-                    new NpgsqlParameter("@id", id)
+                    new("@id", id),
+                    new("@userId", userId)
                 };
 
                 var dt = await _dbHelper.GetTableAsync(query, parameters);
@@ -74,68 +96,48 @@ namespace FlowCus.Controllers
         }
 
         /// <summary>
-        /// Creates a new task
+        /// Create new task
         /// </summary>
         [HttpPost]
-        public async Task<IActionResult> PostTask([FromBody] Models.Task task)
+        public async Task<IActionResult> CreateTask([FromBody] TaskEntity task)
         {
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
 
             try
             {
-                task.CalculateDuration();
-
+                int userId = GetCurrentUserId();
                 const string query = @"
                     INSERT INTO tasks (
-                        title, description, priority, created_on, created_by,
-                        start_time, end_time, duration_seconds, is_deleted, isCompleted
+                        task_master_id, title, description, priority, created_on, created_by,
+                        start_time, end_time, duration_seconds
                     )
                     VALUES (
-                        @title, @description, @priority, @createdOn, @createdBy,
-                        @startTime, @endTime, @durationSeconds, @isDeleted, @isCompleted
+                        @taskMasterId, @title, @description, @priority, @createdOn, @createdBy,
+                        @startTime, @endTime, @durationSeconds
                     )
                     RETURNING task_id";
 
                 var parameters = new NpgsqlParameter[]
                 {
+                    new("@taskMasterId", task.TaskTemplateId),
                     new("@title", task.Title),
                     new("@description", task.Description ?? string.Empty),
-                    new("@priority", task.Priority),
+                    new("@priority", task.Priority ?? (object)DBNull.Value),
                     new("@createdOn", DateTime.UtcNow),
-                    new("@createdBy", task.CreatedBy),
+                    new("@createdBy", userId),
                     new("@startTime", task.StartTime ?? (object)DBNull.Value),
                     new("@endTime", task.EndTime ?? (object)DBNull.Value),
-                    new("@durationSeconds", task.DurationSeconds ?? (object)DBNull.Value),
-                    new("@isDeleted", false),
-                    new("@isCompleted", false)
+                    new("@durationSeconds", task.DurationSeconds ?? (object)DBNull.Value)
                 };
 
                 var newId = await _dbHelper.GetValueAsync(query, parameters);
                 int taskId = Convert.ToInt32(newId);
 
-                // Return the full object in response
-                var createdTask = new
-                {
-                    TaskId = taskId,
-                    task.Title,
-                    task.Description,
-                    task.Priority,
-                    CreatedOn = DateTime.UtcNow,
-                    task.CreatedBy,
-                    task.StartTime,
-                    task.EndTime,
-                    task.DurationSeconds,
-                    IsDeleted = false,
-                    IsCompleted = false
-                };
-
                 return CreatedAtAction(
                     actionName: nameof(GetTask),
                     routeValues: new { id = taskId },
-                    value: createdTask
+                    value: new { TaskId = taskId }
                 );
             }
             catch (Exception ex)
@@ -146,51 +148,40 @@ namespace FlowCus.Controllers
         }
 
         /// <summary>
-        /// Updates an existing task. Supports partial updates for fields like title,
-        /// isCompleted, or soft deletion. Returns updated task ID.
+        /// Update existing task
         /// </summary>
-        [HttpPatch("{id}")]
-        public async Task<IActionResult> UpdateTask(int id, [FromBody] FlowCus.Models.Task task)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateTask(int id, [FromBody] TaskEntity task)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
-                var existing = await GetTask(id) as OkObjectResult;
-                if (existing == null) return NotFound();
-
-                task.CalculateDuration();
-
+                int userId = GetCurrentUserId();
                 const string query = @"
-                    SELECT fn_update_task(
-                        @task_id,
-                        @title,
-                        @description,
-                        @priority,
-                        @updated_by,
-                        @start_time,
-                        @end_time,
-                        @duration_seconds,
-                        @is_completed,
-                        @is_deleted
-                    )";
+                    UPDATE tasks
+                    SET title = @title, description = @description, priority = @priority,
+                        updated_on = @updatedOn, updated_by = @updatedBy,
+                        start_time = @startTime, end_time = @endTime, duration_seconds = @durationSeconds
+                    WHERE task_id = @id AND created_by = @userId AND is_deleted = false";
 
-                var parameters = new[]
+                var parameters = new NpgsqlParameter[]
                 {
-                    new NpgsqlParameter("@task_id", id),
-                    new NpgsqlParameter("@title", (object?)task.Title ?? DBNull.Value),
-                    new NpgsqlParameter("@description", (object?)task.Description ?? DBNull.Value),
-                    new NpgsqlParameter("@priority", (object?)task.Priority ?? DBNull.Value),
-                    new NpgsqlParameter("@updated_by", (object?)task.UpdatedBy ?? DBNull.Value),
-                    new NpgsqlParameter("@start_time", (object?)task.StartTime ?? DBNull.Value),
-                    new NpgsqlParameter("@end_time", (object?)task.EndTime ?? DBNull.Value),
-                    new NpgsqlParameter("@duration_seconds", (object?)task.DurationSeconds ?? DBNull.Value),
-                    new NpgsqlParameter("@is_completed", (object?)task.IsCompleted ?? DBNull.Value),
-                    new NpgsqlParameter("@is_deleted", (object?)task.IsDeleted ?? DBNull.Value)
+                    new("@id", id),
+                    new("@userId", userId),
+                    new("@title", task.Title),
+                    new("@description", task.Description ?? string.Empty),
+                    new("@priority", task.Priority ?? (object)DBNull.Value),
+                    new("@updatedOn", DateTime.UtcNow),
+                    new("@updatedBy", userId),
+                    new("@startTime", task.StartTime ?? (object)DBNull.Value),
+                    new("@endTime", task.EndTime ?? (object)DBNull.Value),
+                    new("@durationSeconds", task.DurationSeconds ?? (object)DBNull.Value)
                 };
 
-                var result = await _dbHelper.GetValueAsync(query, parameters);
-                var updatedId = result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
-
-                return Ok(new { UpdatedTaskId = updatedId });
+                int affectedRows = await _dbHelper.ExecuteQueryAsync(query, parameters);
+                return affectedRows == 0 ? NotFound() : Ok(new { UpdatedTaskId = id });
             }
             catch (Exception ex)
             {
@@ -199,21 +190,53 @@ namespace FlowCus.Controllers
             }
         }
 
+        /// <summary>
+        /// Soft delete task
+        /// </summary>
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteTask(int id)
+        {
+            try
+            {
+                int userId = GetCurrentUserId();
+                const string query = @"
+                    UPDATE tasks
+                    SET is_deleted = true, updated_on = @updatedOn, updated_by = @updatedBy
+                    WHERE task_id = @id AND created_by = @userId AND is_deleted = false";
+
+                var parameters = new NpgsqlParameter[]
+                {
+                    new("@id", id),
+                    new("@userId", userId),
+                    new("@updatedOn", DateTime.UtcNow),
+                    new("@updatedBy", userId)
+                };
+
+                int affectedRows = await _dbHelper.ExecuteQueryAsync(query, parameters);
+                return affectedRows == 0 ? NotFound() : Ok(new { DeletedTaskId = id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting task {id}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
 
         #region Helpers
-        private List<Models.Task> DataTableToTaskList(DataTable dt)
+        private List<TaskEntity> DataTableToTaskList(DataTable dt)
         {
             return dt.AsEnumerable().Select(DataRowToTask).ToList();
         }
 
-        private Models.Task DataRowToTask(DataRow row)
+        private TaskEntity DataRowToTask(DataRow row)
         {
-            return new Models.Task
+            return new TaskEntity
             {
                 TaskId = Convert.ToInt32(row["task_id"]),
+                TaskTemplateId = Convert.ToInt32(row["task_master_id"]),
                 Title = row["title"].ToString(),
                 Description = row["description"].ToString(),
-                Priority = Convert.ToInt32(row["priority"]),
+                Priority = row["priority"] as int?,
                 CreatedOn = Convert.ToDateTime(row["created_on"]),
                 CreatedBy = Convert.ToInt32(row["created_by"]),
                 UpdatedOn = row["updated_on"] as DateTime?,
@@ -221,8 +244,7 @@ namespace FlowCus.Controllers
                 StartTime = row["start_time"] as DateTime?,
                 EndTime = row["end_time"] as DateTime?,
                 DurationSeconds = row["duration_seconds"] as int?,
-                IsDeleted = Convert.ToBoolean(row["is_deleted"]),
-                IsCompleted = Convert.ToBoolean(row["isCompleted"])
+                IsDeleted = Convert.ToBoolean(row["is_deleted"])
             };
         }
         #endregion

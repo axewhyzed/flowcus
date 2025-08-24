@@ -1,8 +1,0 @@
-CREATE TABLE template_list (
-  id SERIAL PRIMARY KEY,
-  user_id INT NOT NULL,
-  template_name VARCHAR(100) NOT NULL,
-  is_deleted BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES userlist(id)
-);

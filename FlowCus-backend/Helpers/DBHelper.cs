@@ -47,7 +47,7 @@ namespace FlowCus.Helpers
                 throw new InvalidOperationException("Connection string cannot be null or empty.");
             }
 
-            _connectionString = DecryptHelper.Decrypt(encryptedConnStr, _logger);
+            _connectionString = CryptoHelper.Decrypt(encryptedConnStr, _logger);
             _logger.LogDebug("Connection string decrypted successfully.");
         }
 

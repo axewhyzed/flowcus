@@ -1,0 +1,7 @@
+CREATE TABLE timetables (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES userlist(id),
+  name VARCHAR(100) NOT NULL, -- e.g. "Morning Routine", "Workday Schedule"
+  is_deleted BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

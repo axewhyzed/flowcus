@@ -1,15 +1,15 @@
 CREATE TABLE tasks (
     task_id SERIAL PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
+    task_master_id INT REFERENCES task_master(id),
+    title VARCHAR(200),
     description TEXT,
-    priority INTEGER, -- e.g., 3-Low, 2-Normal, 1-High
+    priority INTEGER,
     created_on TIMESTAMP NOT NULL DEFAULT NOW(),
-    created_by INTEGER NOT NULL, -- User ID who created
+    created_by INT NOT NULL REFERENCES userlist(id),
     updated_on TIMESTAMP,
-    updated_by INTEGER,          -- User ID who last updated
+    updated_by INT REFERENCES userlist(id),
     start_time TIMESTAMP,
     end_time TIMESTAMP,
-    duration_seconds INTEGER,    -- Store duration in seconds
-    is_deleted BOOLEAN DEFAULT FALSE,
-    isCompleted BOOLEAN DEFAULT FALSE
+    duration_seconds INTEGER,
+    is_deleted BOOLEAN DEFAULT FALSE
 );
