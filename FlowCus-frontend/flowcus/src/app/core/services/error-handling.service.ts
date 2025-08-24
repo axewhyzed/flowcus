@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
@@ -15,9 +16,21 @@ export class ErrorHandlingService {
   private errorSubject = new BehaviorSubject<AppError | null>(null);
   public error$ = this.errorSubject.asObservable();
 
-  constructor() {}
+  constructor() { }
 
   handleError(error: any): void {
+    let message: string;
+
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 0) {
+        message = 'Network error or CORS issue. Please check your connection.';
+      } else {
+        message = this.getErrorMessage(error);
+      }
+    } else {
+      message = 'An unexpected client-side error occurred.';
+    }
+
     const appError: AppError = {
       message: this.getErrorMessage(error),
       code: error.code || error.status?.toString(),
@@ -40,7 +53,7 @@ export class ErrorHandlingService {
     if (error.response?.data?.message) {
       return error.response.data.message;
     }
-    
+
     if (error.message) {
       return error.message;
     }
