@@ -1,8 +1,0 @@
-CREATE TABLE task_master (
-    id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL REFERENCES userlist(id), -- each user has their own library
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    is_deleted BOOLEAN DEFAULT FALSE,
-    created_on TIMESTAMP DEFAULT NOW()
-);
