@@ -4,7 +4,8 @@
 -- =========================
 CREATE TABLE tasks (
   task_id SERIAL PRIMARY KEY,
-  task_subtype_id INT REFERENCES task_subtypes(id) ON DELETE SET NULL,
+  task_category_id INT NOT NULL REFERENCES task_category(id),   -- always required
+  task_subtype_id INT REFERENCES task_subtypes(id) DEFAULT NULL, -- optional
   title VARCHAR(200),
   description TEXT,
   priority INTEGER,
