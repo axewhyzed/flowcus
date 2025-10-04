@@ -1,43 +1,32 @@
 <header class="bg-white shadow-sm border-b border-gray-200">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between items-center h-16">
-      <!-- Logo and Brand -->
+      <!-- Logo -->
       <div class="flex items-center">
-        <div class="flex-shrink-0">
-          <h1 class="text-2xl font-bold text-blue-600">FlowCus</h1>
-        </div>
-        
+        <h1 class="text-2xl font-bold text-blue-600">FlowCus</h1>
+
         <!-- Desktop Navigation -->
         <nav class="hidden md:ml-8 md:flex md:space-x-8">
-          <a routerLink="/dashboard" 
-             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
-             class="text-gray-500 hover:text-gray-700 px-3 py-2 text-sm font-medium transition-colors">
-            Dashboard
-          </a>
-          <a routerLink="/tasks" 
-             routerLinkActive="text-blue-600 border-b-2 border-blue-600"
-             class="text-gray-500 hover:text-gray-700 px-3 py-2 text-sm font-medium transition-colors">
-            Tasks
-          </a>
-          <a routerLink="/templates" 
-             routerLinkActive="text-blue-600 border-b-2 border-blue-600"
-             class="text-gray-500 hover:text-gray-700 px-3 py-2 text-sm font-medium transition-colors">
-            Templates
-          </a>
+          <a routerLink="/dashboard" routerLinkActive="active-link" class="nav-link">Dashboard</a>
+          <a routerLink="/tasks" routerLinkActive="active-link" class="nav-link">Tasks</a>
+          <a routerLink="/task-categories" routerLinkActive="active-link" class="nav-link">Categories</a>
+          <a routerLink="/task-subtypes" routerLinkActive="active-link" class="nav-link">Subtypes</a>
+          <a routerLink="/templates" routerLinkActive="active-link" class="nav-link">Templates</a>
+          <a routerLink="/timetables" routerLinkActive="active-link" class="nav-link">Timetables</a>
+          <a routerLink="/timetable-items" routerLinkActive="active-link" class="nav-link">Timetable Items</a>
+          <a routerLink="/user" routerLinkActive="active-link" class="nav-link">Profile</a>
         </nav>
       </div>
 
       <!-- User Menu -->
       <div class="hidden md:flex md:items-center md:space-x-4">
-        <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-          Settings
-        </button>
+        <span *ngIf="username" class="text-gray-700">Hello, {{ username }}</span>
+        <button (click)="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
       </div>
 
-      <!-- Mobile menu button -->
+      <!-- Mobile Menu Button -->
       <div class="md:hidden">
-        <button (click)="toggleMenu()" 
-                class="text-gray-400 hover:text-gray-500 focus:outline-none focus:text-gray-500">
+        <button (click)="toggleMenu()" class="text-gray-400 hover:text-gray-500">
           <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path *ngIf="!isMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
             <path *ngIf="isMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -49,24 +38,14 @@
     <!-- Mobile Navigation -->
     <div *ngIf="isMenuOpen" class="md:hidden border-t border-gray-200 pt-4 pb-4">
       <nav class="space-y-1">
-        <a routerLink="/dashboard" 
-           routerLinkActive="bg-blue-50 border-blue-500 text-blue-700"
-           (click)="closeMenu()"
-           class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors">
-          Dashboard
-        </a>
-        <a routerLink="/tasks" 
-           routerLinkActive="bg-blue-50 border-blue-500 text-blue-700"
-           (click)="closeMenu()"
-           class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors">
-          Tasks
-        </a>
-        <a routerLink="/templates" 
-           routerLinkActive="bg-blue-50 border-blue-500 text-blue-700"
-           (click)="closeMenu()"
-           class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors">
-          Templates
-        </a>
+        <a routerLink="/dashboard" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Dashboard</a>
+        <a routerLink="/tasks" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Tasks</a>
+        <a routerLink="/task-categories" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Categories</a>
+        <a routerLink="/task-subtypes" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Subtypes</a>
+        <a routerLink="/templates" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Templates</a>
+        <a routerLink="/timetables" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Timetables</a>
+        <a routerLink="/timetable-items" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Timetable Items</a>
+        <a routerLink="/user" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Profile</a>
       </nav>
     </div>
   </div>

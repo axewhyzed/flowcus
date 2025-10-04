@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { TemplateService } from '../../../core/services/template.service';
 import { TemplateList } from '../../../core/models/template.model';
-import { TemplateItem } from '../../../core/models/template-item.model';
+import { TemplateItem } from '../../../core/models/timetable-item.model';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
 import { ErrorMessageComponent } from '../../../shared/components/error-message/error-message.component';
 import { ConfirmationModalComponent } from '../../../shared/components/confirmation-modal/confirmation-modal.component';

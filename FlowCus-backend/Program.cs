@@ -22,6 +22,12 @@ var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
+// FAIL FAST if Jwt:Key is missing
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new InvalidOperationException("Configuration error: Jwt:Key is missing. Please set it in appsettings or environment.");
+}
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -45,8 +51,9 @@ builder.Services.AddAuthentication(options =>
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-builder.Services.AddSingleton<DBHelper>();
+builder.Services.AddMemoryCache();
+builder.Services.AddLogging();
+builder.Services.AddScoped<DBHelper>();
 
 var app = builder.Build();
 

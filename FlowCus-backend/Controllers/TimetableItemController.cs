@@ -2,14 +2,19 @@
 using FlowCus.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Npgsql;
+using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Security.Claims;
+using System.Threading.Tasks;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace FlowCus.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
     [Authorize]
     public class TimetableItemController : ControllerBase
     {
@@ -24,310 +29,198 @@ namespace FlowCus.Controllers
 
         private int GetCurrentUserId()
         {
-            return int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+            return int.TryParse(idClaim, out int userId) ? userId : throw new UnauthorizedAccessException("Invalid user ID");
         }
 
-        /// <summary>
-        /// Get all timetable items for a specific timetable
-        /// </summary>
-        [HttpGet("timetable/{timetableId}")]
-        public async Task<IActionResult> GetTimetableItems(int timetableId)
+        // GET api/timetableitems/{timetableId}
+        [HttpGet("{timetableId}")]
+        public async Task<IActionResult> GetAll(int timetableId)
         {
             try
             {
                 int userId = GetCurrentUserId();
-                const string query = @"
-                    SELECT ti.id, ti.timetable_id, ti.task_master_id, ti.day_of_week,
-                           ti.start_time, ti.end_time, ti.is_deleted,
-                           tm.title as task_title, tm.description as task_description
+
+                string sql = @"
+                    SELECT ti.id, ti.task_category_id, ti.task_subtype_id, ti.day_of_week, ti.start_time, ti.end_time,
+                           tc.name AS category_name, ts.name AS subtype_name
                     FROM timetable_items ti
-                    JOIN task_master tm ON ti.task_master_id = tm.id
                     JOIN timetables t ON ti.timetable_id = t.id
-                    WHERE ti.timetable_id = @timetableId 
-                      AND t.user_id = @userId 
-                      AND ti.is_deleted = false 
-                      AND t.is_deleted = false
+                    JOIN task_category tc ON ti.task_category_id = tc.id
+                    LEFT JOIN task_subtypes ts ON ti.task_subtype_id = ts.id
+                    WHERE ti.timetable_id = @timetableId AND t.user_id = @userId AND ti.is_deleted = FALSE
                     ORDER BY ti.day_of_week, ti.start_time";
 
-                var parameters = new NpgsqlParameter[]
-                {
-                    new("@timetableId", timetableId),
-                    new("@userId", userId)
-                };
+                var p1 = new NpgsqlParameter("@timetableId", timetableId);
+                var p2 = new NpgsqlParameter("@userId", userId);
 
-                var dt = await _dbHelper.GetTableAsync(query, parameters);
-                return Ok(DataTableToTimetableItemList(dt));
+                var dt = await _dbHelper.GetTableAsync(sql, p1, p2);
+                var list = new List<object>();
+                foreach (DataRow row in dt.Rows)
+                {
+                    list.Add(new
+                    {
+                        Id = row["id"],
+                        TaskCategoryId = row["task_category_id"],
+                        CategoryName = row["category_name"],
+                        TaskSubtypeId = row["task_subtype_id"],
+                        SubtypeName = row["subtype_name"],
+                        DayOfWeek = row["day_of_week"],
+                        StartTime = row["start_time"],
+                        EndTime = row["end_time"]
+                    });
+                }
+
+                return Ok(list);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error retrieving timetable items for timetable {timetableId}");
-                return StatusCode(500, "Internal server error");
+                _logger.LogError(ex, "Error fetching timetable items for timetable {TimetableId}", timetableId);
+                return StatusCode(500, new { error = "Internal server error" });
             }
         }
 
-        /// <summary>
-        /// Get specific timetable item by ID
-        /// </summary>
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetTimetableItem(int id)
-        {
-            try
-            {
-                int userId = GetCurrentUserId();
-                const string query = @"
-                    SELECT ti.id, ti.timetable_id, ti.task_master_id, ti.day_of_week,
-                           ti.start_time, ti.end_time, ti.is_deleted,
-                           tm.title as task_title, tm.description as task_description
-                    FROM timetable_items ti
-                    JOIN task_master tm ON ti.task_master_id = tm.id
-                    JOIN timetables t ON ti.timetable_id = t.id
-                    WHERE ti.id = @id 
-                      AND t.user_id = @userId 
-                      AND ti.is_deleted = false 
-                      AND t.is_deleted = false";
-
-                var parameters = new NpgsqlParameter[]
-                {
-                    new("@id", id),
-                    new("@userId", userId)
-                };
-
-                var dt = await _dbHelper.GetTableAsync(query, parameters);
-                return dt.Rows.Count == 0 ? NotFound() : Ok(DataRowToTimetableItem(dt.Rows[0]));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error retrieving timetable item {id}");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-        /// <summary>
-        /// Create new timetable item
-        /// </summary>
+        // POST api/timetableitems
         [HttpPost]
-        public async Task<IActionResult> CreateTimetableItem([FromBody] TimetableItem item)
+        public async Task<IActionResult> Create([FromBody] TimetableItemRequest request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            if (request.DayOfWeek < 0 || request.DayOfWeek > 6)
+                return BadRequest(new { error = "Invalid day_of_week. Must be 0 (Sunday) to 6 (Saturday)." });
 
             try
             {
                 int userId = GetCurrentUserId();
 
-                // Validate that user owns the timetable
-                const string validateQuery = @"
-                    SELECT COUNT(*) FROM timetables 
-                    WHERE id = @timetableId AND user_id = @userId AND is_deleted = false";
+                // Ensure timetable belongs to user
+                string checkSql = "SELECT COUNT(1) FROM timetables WHERE id = @timetableId AND user_id = @userId AND is_deleted = FALSE";
+                var check = await _dbHelper.GetValueAsync(checkSql,
+                    new NpgsqlParameter("@timetableId", request.TimetableId),
+                    new NpgsqlParameter("@userId", userId));
+                if (Convert.ToInt32(check) == 0)
+                    return NotFound(new { error = "Timetable not found or not owned by user" });
 
-                var validateParams = new NpgsqlParameter[]
-                {
-                    new("@timetableId", item.TimetableId),
-                    new("@userId", userId)
-                };
-
-                var count = await _dbHelper.GetValueAsync(validateQuery, validateParams);
-                if (Convert.ToInt32(count) == 0)
-                    return BadRequest("Invalid timetable or access denied");
-
-                // Validate that user owns the task template
-                const string validateTaskQuery = @"
-                    SELECT COUNT(*) FROM task_master 
-                    WHERE id = @taskTemplateId AND user_id = @userId AND is_deleted = false";
-
-                var validateTaskParams = new NpgsqlParameter[]
-                {
-                    new("@taskTemplateId", item.TaskTemplateId),
-                    new("@userId", userId)
-                };
-
-                var taskCount = await _dbHelper.GetValueAsync(validateTaskQuery, validateTaskParams);
-                if (Convert.ToInt32(taskCount) == 0)
-                    return BadRequest("Invalid task template or access denied");
-
-                // Check for time conflicts
-                const string conflictQuery = @"
-                    SELECT COUNT(*) FROM timetable_items ti
-                    JOIN timetables t ON ti.timetable_id = t.id
-                    WHERE ti.timetable_id = @timetableId 
-                      AND ti.day_of_week = @dayOfWeek 
-                      AND ti.is_deleted = false
-                      AND t.user_id = @userId
-                      AND (
-                        (@startTime >= ti.start_time AND @startTime < ti.end_time) OR
-                        (@endTime > ti.start_time AND @endTime <= ti.end_time) OR
-                        (@startTime <= ti.start_time AND @endTime >= ti.end_time)
-                      )";
-
-                var conflictParams = new NpgsqlParameter[]
-                {
-                    new("@timetableId", item.TimetableId),
-                    new("@dayOfWeek", item.DayOfWeek),
-                    new("@startTime", item.StartTime),
-                    new("@endTime", item.EndTime),
-                    new("@userId", userId)
-                };
-
-                var conflicts = await _dbHelper.GetValueAsync(conflictQuery, conflictParams);
-                if (Convert.ToInt32(conflicts) > 0)
-                    return BadRequest("Time slot conflicts with existing timetable item");
-
-                // Create the item
-                const string query = @"
-                    INSERT INTO timetable_items (timetable_id, task_master_id, day_of_week, start_time, end_time)
-                    VALUES (@timetableId, @taskMasterId, @dayOfWeek, @startTime, @endTime)
+                string sql = @"
+                    INSERT INTO timetable_items
+                    (timetable_id, task_category_id, task_subtype_id, day_of_week, start_time, end_time)
+                    VALUES (@timetableId, @categoryId, @subtypeId, @dayOfWeek, @startTime, @endTime)
                     RETURNING id";
 
-                var parameters = new NpgsqlParameter[]
+                var p = new[]
                 {
-                    new("@timetableId", item.TimetableId),
-                    new("@taskMasterId", item.TaskTemplateId),
-                    new("@dayOfWeek", item.DayOfWeek),
-                    new("@startTime", item.StartTime),
-                    new("@endTime", item.EndTime)
+                    new NpgsqlParameter("@timetableId", request.TimetableId),
+                    new NpgsqlParameter("@categoryId", request.TaskCategoryId),
+                    new NpgsqlParameter("@subtypeId", request.TaskSubtypeId.HasValue ? (object)request.TaskSubtypeId.Value : DBNull.Value),
+                    new NpgsqlParameter("@dayOfWeek", request.DayOfWeek),
+                    new NpgsqlParameter("@startTime", request.StartTime),
+                    new NpgsqlParameter("@endTime", request.EndTime)
                 };
 
-                var newId = await _dbHelper.GetValueAsync(query, parameters);
-                int itemId = Convert.ToInt32(newId);
+                object? res = await _dbHelper.GetValueAsync(sql, p);
+                if (res == null)
+                    return StatusCode(500, new { error = "Could not create timetable item" });
 
-                return CreatedAtAction(
-                    actionName: nameof(GetTimetableItem),
-                    routeValues: new { id = itemId },
-                    value: new { Id = itemId }
-                );
+                return CreatedAtAction(nameof(GetAll), new { timetableId = request.TimetableId }, new { id = res });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating timetable item");
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { error = "Internal server error" });
             }
         }
 
-        /// <summary>
-        /// Update timetable item
-        /// </summary>
+        // PUT api/timetableitems/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTimetableItem(int id, [FromBody] TimetableItem item)
+        public async Task<IActionResult> Update(int id, [FromBody] TimetableItemRequest request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            if (request.DayOfWeek < 0 || request.DayOfWeek > 6)
+                return BadRequest(new { error = "Invalid day_of_week. Must be 0 (Sunday) to 6 (Saturday)." });
 
             try
             {
                 int userId = GetCurrentUserId();
 
-                // Check for time conflicts (excluding current item)
-                const string conflictQuery = @"
-                    SELECT COUNT(*) FROM timetable_items ti
+                // Verify ownership
+                string verifySql = @"
+                    SELECT COUNT(1)
+                    FROM timetable_items ti
                     JOIN timetables t ON ti.timetable_id = t.id
-                    WHERE ti.timetable_id = @timetableId 
-                      AND ti.day_of_week = @dayOfWeek 
-                      AND ti.id != @itemId
-                      AND ti.is_deleted = false
-                      AND t.user_id = @userId
-                      AND (
-                        (@startTime >= ti.start_time AND @startTime < ti.end_time) OR
-                        (@endTime > ti.start_time AND @endTime <= ti.end_time) OR
-                        (@startTime <= ti.start_time AND @endTime >= ti.end_time)
-                      )";
+                    WHERE ti.id = @id AND t.user_id = @userId AND ti.is_deleted = FALSE";
+                var verify = await _dbHelper.GetValueAsync(verifySql,
+                    new NpgsqlParameter("@id", id),
+                    new NpgsqlParameter("@userId", userId));
+                if (Convert.ToInt32(verify) == 0)
+                    return NotFound(new { error = "Timetable item not found or not owned by user" });
 
-                var conflictParams = new NpgsqlParameter[]
+                string sql = @"
+                    UPDATE timetable_items
+                    SET task_category_id = @categoryId,
+                        task_subtype_id = @subtypeId,
+                        day_of_week = @dayOfWeek,
+                        start_time = @startTime,
+                        end_time = @endTime
+                    WHERE id = @id";
+
+                var p = new[]
                 {
-                    new("@timetableId", item.TimetableId),
-                    new("@dayOfWeek", item.DayOfWeek),
-                    new("@startTime", item.StartTime),
-                    new("@endTime", item.EndTime),
-                    new("@itemId", id),
-                    new("@userId", userId)
+                    new NpgsqlParameter("@categoryId", request.TaskCategoryId),
+                    new NpgsqlParameter("@subtypeId", request.TaskSubtypeId.HasValue ? (object)request.TaskSubtypeId.Value : DBNull.Value),
+                    new NpgsqlParameter("@dayOfWeek", request.DayOfWeek),
+                    new NpgsqlParameter("@startTime", request.StartTime),
+                    new NpgsqlParameter("@endTime", request.EndTime),
+                    new NpgsqlParameter("@id", id)
                 };
 
-                var conflicts = await _dbHelper.GetValueAsync(conflictQuery, conflictParams);
-                if (Convert.ToInt32(conflicts) > 0)
-                    return BadRequest("Time slot conflicts with existing timetable item");
+                int rows = await _dbHelper.ExecuteQueryAsync(sql, p);
+                if (rows == 1)
+                    return Ok(new { message = "Timetable item updated successfully" });
 
-                const string query = @"
-                    UPDATE timetable_items 
-                    SET task_master_id = @taskMasterId, day_of_week = @dayOfWeek, 
-                        start_time = @startTime, end_time = @endTime
-                    FROM timetables t
-                    WHERE timetable_items.id = @id 
-                      AND timetable_items.timetable_id = t.id
-                      AND t.user_id = @userId 
-                      AND timetable_items.is_deleted = false";
-
-                var parameters = new NpgsqlParameter[]
-                {
-                    new("@id", id),
-                    new("@taskMasterId", item.TaskTemplateId),
-                    new("@dayOfWeek", item.DayOfWeek),
-                    new("@startTime", item.StartTime),
-                    new("@endTime", item.EndTime),
-                    new("@userId", userId)
-                };
-
-                int affectedRows = await _dbHelper.ExecuteQueryAsync(query, parameters);
-                return affectedRows == 0 ? NotFound() : Ok(new { UpdatedId = id });
+                return NotFound(new { error = "Timetable item not found" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error updating timetable item {id}");
-                return StatusCode(500, "Internal server error");
+                _logger.LogError(ex, "Error updating timetable item {Id}", id);
+                return StatusCode(500, new { error = "Internal server error" });
             }
         }
 
-        /// <summary>
-        /// Soft delete timetable item
-        /// </summary>
+        // DELETE api/timetableitems/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTimetableItem(int id)
+        public async Task<IActionResult> Delete(int id)
         {
             try
             {
                 int userId = GetCurrentUserId();
-                const string query = @"
-                    UPDATE timetable_items 
-                    SET is_deleted = true
-                    FROM timetables t
-                    WHERE timetable_items.id = @id 
-                      AND timetable_items.timetable_id = t.id
-                      AND t.user_id = @userId 
-                      AND timetable_items.is_deleted = false";
 
-                var parameters = new NpgsqlParameter[]
-                {
-                    new("@id", id),
-                    new("@userId", userId)
-                };
+                string sql = @"
+                    UPDATE timetable_items
+                    SET is_deleted = TRUE
+                    WHERE id = @id
+                    AND timetable_id IN (SELECT id FROM timetables WHERE user_id = @userId)";
 
-                int affectedRows = await _dbHelper.ExecuteQueryAsync(query, parameters);
-                return affectedRows == 0 ? NotFound() : Ok(new { DeletedId = id });
+                int rows = await _dbHelper.ExecuteQueryAsync(sql,
+                    new NpgsqlParameter("@id", id),
+                    new NpgsqlParameter("@userId", userId));
+
+                if (rows == 1)
+                    return Ok(new { message = "Timetable item deleted successfully" });
+
+                return NotFound(new { error = "Timetable item not found" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error deleting timetable item {id}");
-                return StatusCode(500, "Internal server error");
+                _logger.LogError(ex, "Error deleting timetable item {Id}", id);
+                return StatusCode(500, new { error = "Internal server error" });
             }
         }
+    }
 
-        #region Helpers
-        private List<TimetableItem> DataTableToTimetableItemList(DataTable dt)
-        {
-            return dt.AsEnumerable().Select(DataRowToTimetableItem).ToList();
-        }
-
-        private TimetableItem DataRowToTimetableItem(DataRow row)
-        {
-            return new TimetableItem
-            {
-                Id = Convert.ToInt32(row["id"]),
-                TimetableId = Convert.ToInt32(row["timetable_id"]),
-                TaskTemplateId = Convert.ToInt32(row["task_master_id"]),
-                DayOfWeek = Convert.ToInt32(row["day_of_week"]),
-                StartTime = (TimeSpan)row["start_time"],
-                EndTime = (TimeSpan)row["end_time"],
-                IsDeleted = Convert.ToBoolean(row["is_deleted"])
-            };
-        }
-        #endregion
+    public class TimetableItemRequest
+    {
+        public int TimetableId { get; set; }
+        public int TaskCategoryId { get; set; }
+        public int? TaskSubtypeId { get; set; }
+        public int DayOfWeek { get; set; }
+        public TimeSpan StartTime { get; set; }
+        public TimeSpan EndTime { get; set; }
     }
 }

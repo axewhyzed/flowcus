@@ -1,0 +1,14 @@
+@if (user) {
+  <div class="user-container">
+    <h1>User Profile</h1>
+    <label>
+      Username:
+      <input type="text" [value]="user.username" disabled />
+    </label>
+    <label>
+      Name:
+      <input [(ngModel)]="user.name" />
+    </label>
+    <button (click)="updateUser()">Update</button>
+  </div>
+}

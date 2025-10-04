@@ -1,0 +1,11 @@
+<div class="timetable-item-container">
+  <h1>Timetable Items</h1>
+  <ul>
+    @for (item of items; track item.id) {
+      <li>{{ item.taskCategoryName }} ({{ item.startTime }} - {{ item.endTime }})</li>
+    }
+    @empty {
+      <li>No timetable items available.</li>
+    }
+  </ul>
+</div>

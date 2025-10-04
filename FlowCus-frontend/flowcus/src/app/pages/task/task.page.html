@@ -1,0 +1,11 @@
+<div class="task-container">
+  <h1>Tasks</h1>
+  <ul>
+    @for (task of tasks; track task.id) {
+      <li>{{ task.title || 'No Title' }} - {{ task.description }}</li>
+    }
+    @empty {
+      <li>No tasks available.</li>
+    }
+  </ul>
+</div>

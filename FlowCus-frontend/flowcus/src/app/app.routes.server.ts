@@ -1,4 +1,14 @@
 import { RenderMode, ServerRoute } from '@angular/ssr';
+import { AuthGuard } from './core/guards/auth.guard';
+
+import { DashboardPage } from './pages/dashboard/dashboard.page';
+import { AuthPage } from './pages/auth/auth.page';
+import { UserPage } from './pages/user/user.page';
+import { TaskCategoryPage } from './pages/task-category/task-category.page';
+import { TaskSubtypePage } from './pages/task-subtype/task-subtype.page';
+import { TaskPage } from './pages/task/task.page';
+import { TimetablePage } from './pages/timetable/timetable.page';
+import { TimetableItemPage } from './pages/timetable-item/timetable-item.page';
 
 export const serverRoutes: ServerRoute[] = [
   {
@@ -10,15 +20,35 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Prerender
   },
   {
+    path: 'auth',
+    renderMode: RenderMode.Client
+  },
+  {
+    path: 'user',
+    renderMode: RenderMode.Prerender
+  },
+  {
+    path: 'task-categories',
+    renderMode: RenderMode.Prerender
+  },
+  {
+    path: 'task-subtypes',
+    renderMode: RenderMode.Prerender
+  },
+  {
     path: 'tasks',
     renderMode: RenderMode.Prerender
   },
   {
-    path: 'templates',
+    path: 'timetables',
+    renderMode: RenderMode.Prerender
+  },
+  {
+    path: 'timetable-items',
     renderMode: RenderMode.Prerender
   },
 
-  // dynamic routes should be client only:
+  // Dynamic routes that should be client only
   {
     path: 'tasks/edit/:id',
     renderMode: RenderMode.Client
@@ -36,7 +66,7 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Client
   },
 
-  // fallback
+  // Fallback
   {
     path: '**',
     renderMode: RenderMode.Prerender

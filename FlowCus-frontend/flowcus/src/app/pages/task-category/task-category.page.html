@@ -1,0 +1,11 @@
+<div class="task-category-container">
+  <h1>Task Categories</h1>
+  <ul>
+    @for (cat of categories; track cat) {
+      <li>{{ cat.name }}</li>
+    }
+    @empty {
+      <li>No categories available.</li>
+    }
+  </ul>
+</div>

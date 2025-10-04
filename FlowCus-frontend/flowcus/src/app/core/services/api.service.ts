@@ -1,6 +1,7 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { Injectable } from '@angular/core';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { environment } from '../../../environments/environment';
+import { ErrorHandlingService } from './error-handling.service';
 
 @Injectable({
   providedIn: 'root',
@@ -8,43 +9,29 @@ import { environment } from '../../../environments/environment';
 export class ApiService {
   private axiosInstance: AxiosInstance;
 
-  constructor() {
-    const isServer = typeof window === 'undefined';
-
+  constructor(private errorHandler: ErrorHandlingService) {
     this.axiosInstance = axios.create({
       baseURL: environment.apiUrl,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
+        Accept: 'application/json',
+      },
     });
 
-    this.setupInterceptors();
-  }
+    this.axiosInstance.interceptors.request.use((config) => {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
 
-  private setupInterceptors(): void {
-    // Request interceptor
-    this.axiosInstance.interceptors.request.use(
-      (config) => {
-        // Add auth token if available
-        if (typeof window !== 'undefined') {
-          const token = localStorage.getItem('auth_token');
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-          }
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // Response interceptor
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       (error) => {
+        this.errorHandler.handleError(error);
         if (error.response?.status === 401) {
-          // Handle unauthorized access
           localStorage.removeItem('auth_token');
           window.location.href = '/login';
         }
@@ -70,11 +57,6 @@ export class ApiService {
 
   async delete<T>(url: string): Promise<T> {
     const response: AxiosResponse<T> = await this.axiosInstance.delete(url);
-    return response.data;
-  }
-
-  async patch<T>(url: string, data?: any): Promise<T> {
-    const response: AxiosResponse<T> = await this.axiosInstance.patch(url, data);
     return response.data;
   }
 }

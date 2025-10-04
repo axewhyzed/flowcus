@@ -1,0 +1,11 @@
+<div class="timetable-container">
+  <h1>Timetables</h1>
+  <ul>
+    @for (tt of timetables; track tt) {
+      <li>{{ tt.name }}</li>
+    }
+    @empty {
+      <li>No timetables available.</li>
+    }
+  </ul>
+</div>

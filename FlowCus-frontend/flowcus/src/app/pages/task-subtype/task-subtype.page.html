@@ -1,0 +1,11 @@
+<div class="task-subtype-container">
+  <h1>Task Subtypes</h1>
+  <ul>
+    @for (sub of subtypes; track sub) {
+      <li>{{ sub.name }} ({{ sub.categoryName }})</li>
+    }
+    @empty {
+      <li>No subtypes available.</li>
+    }
+  </ul>
+</div>
