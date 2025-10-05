@@ -9,22 +9,22 @@ export class TimetableItemService {
   constructor(private api: ApiService) {}
 
   getAll() {
-    return this.api.get<TimetableItem[]>('timetable-items');
+    return this.api.get<TimetableItem[]>('timetableitem');
   }
 
   get(id: number) {
-    return this.api.get<TimetableItem>(`timetable-items/${id}`);
+    return this.api.get<TimetableItem>(`timetableitem/${id}`);
   }
 
   create(data: Partial<TimetableItem>) {
-    return this.api.post<TimetableItem>('timetable-items', data);
+    return this.api.post<TimetableItem>('timetableitem', data);
   }
 
   update(id: number, data: Partial<TimetableItem>) {
-    return this.api.put<TimetableItem>(`timetable-items/${id}`, data);
+    return this.api.put<TimetableItem>(`timetableitem/${id}`, data);
   }
 
   delete(id: number) {
-    return this.api.delete<any>(`timetable-items/${id}`);
+    return this.api.delete<any>(`timetableitem/${id}`);
   }
 }

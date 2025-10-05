@@ -73,7 +73,7 @@ namespace FlowCus.Controllers
             try
             {
                 string query = @"
-                    SELECT id, username, password_hash, name, failed_attempts, lockout_until
+                    SELECT id, username, password_hash, name, failed_attempts, lockout_until, is_admin
                     FROM userlist
                     WHERE username = @username
                     LIMIT 1";
@@ -95,6 +95,8 @@ namespace FlowCus.Controllers
                                      ? Convert.ToInt32(row["failed_attempts"]) : 0;
                 DateTime? lockoutUntil = row.Table.Columns.Contains("lockout_until") && row["lockout_until"] != DBNull.Value
                                          ? (DateTime?)Convert.ToDateTime(row["lockout_until"]) : null;
+                bool isAdmin = row.Table.Columns.Contains("is_admin") && row["is_admin"] != DBNull.Value
+                                ? Convert.ToBoolean(row["is_admin"]) : false;
 
                 // Check lockout
                 if (lockoutUntil.HasValue && lockoutUntil.Value > DateTime.UtcNow)
@@ -178,7 +180,7 @@ namespace FlowCus.Controllers
                 // Generate JWT
                 string token = GenerateJwtToken(userId, username);
 
-                var userDto = new UserDto { Id = userId, Username = username, Name = row.Table.Columns.Contains("name") ? row["name"]?.ToString() : null };
+                var userDto = new UserDto { Id = userId, Username = username, Name = row.Table.Columns.Contains("name") ? row["name"]?.ToString() : null, isAdmin = isAdmin };
 
                 _logger.LogInformation("User {UserId} logged in successfully (migratedToBcrypt={Migrated})", userId, migratedToBcrypt);
 
@@ -357,7 +359,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                string sql = "SELECT username, name FROM userlist WHERE id = @id LIMIT 1";
+                string sql = "SELECT username, name, is_admin FROM userlist WHERE id = @id LIMIT 1";
                 var p = new NpgsqlParameter("@id", userId);
                 var dt = await _dbHelper.GetTableAsync(sql, p);
 
@@ -369,7 +371,8 @@ namespace FlowCus.Controllers
                 {
                     Id = userId,
                     Username = row["username"]?.ToString() ?? "",
-                    Name = row["name"]?.ToString()
+                    Name = row["name"]?.ToString(),
+                    isAdmin = row["is_admin"] != DBNull.Value && Convert.ToBoolean(row["is_admin"])
                 };
 
                 return Ok(userDto);
@@ -400,7 +403,8 @@ namespace FlowCus.Controllers
                 issuer: _configuration["Jwt:Issuer"],
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddDays(7), // per your choice: long-lived
+                //expires: DateTime.UtcNow.AddDays(7), // per your choice: long-lived
+                expires: DateTime.UtcNow.AddDays(1),
                 signingCredentials: creds
             );
 
@@ -477,6 +481,7 @@ namespace FlowCus.Controllers
         public int Id { get; set; }
         public string Username { get; set; } = "";
         public string? Name { get; set; }
+        public bool isAdmin { get; set; }
     }
 
     public class ErrorResponse

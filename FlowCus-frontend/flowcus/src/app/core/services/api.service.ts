@@ -33,7 +33,7 @@ export class ApiService {
         this.errorHandler.handleError(error);
         if (error.response?.status === 401) {
           localStorage.removeItem('auth_token');
-          window.location.href = '/login';
+          window.location.href = '/flowcus/auth';
         }
         return Promise.reject(error);
       }

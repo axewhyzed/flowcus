@@ -33,7 +33,7 @@ namespace FlowCus.Controllers
             return int.TryParse(idClaim, out int userId) ? userId : throw new UnauthorizedAccessException("Invalid user ID");
         }
 
-        // GET api/tasksubtypes
+        // GET api/tasksubtype
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -73,7 +73,7 @@ namespace FlowCus.Controllers
             }
         }
 
-        // GET api/tasksubtypes/{id}
+        // GET api/tasksubtype/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> Get(int id)
         {
@@ -111,7 +111,7 @@ namespace FlowCus.Controllers
             }
         }
 
-        // POST api/tasksubtypes
+        // POST api/tasksubtype
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] TaskSubtypeRequest request)
         {
@@ -153,7 +153,7 @@ namespace FlowCus.Controllers
             }
         }
 
-        // PUT api/tasksubtypes/{id}
+        // PUT api/tasksubtype/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] TaskSubtypeRequest request)
         {
@@ -191,7 +191,7 @@ namespace FlowCus.Controllers
             }
         }
 
-        // DELETE api/tasksubtypes/{id}
+        // DELETE api/tasksubtype/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {

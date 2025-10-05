@@ -44,10 +44,13 @@ namespace FlowCus.Controllers
 
                 var result = new Dictionary<string, object>();
 
-                // 1. User Greeting
-                string nameSql = "SELECT name FROM userlist WHERE id = @userId";
-                var name = await _dbHelper.GetValueAsync(nameSql, new NpgsqlParameter("@userId", userId));
-                result["userName"] = name?.ToString() ?? "User";
+                string userSql = "SELECT name, is_admin FROM userlist WHERE id = @userId";
+                var userDt = await _dbHelper.GetTableAsync(userSql, new NpgsqlParameter("@userId", userId));
+
+                var userRow = userDt.Rows[0];
+                result["userName"] = userRow["name"]?.ToString() ?? "User";
+                result["isAdmin"] = userRow["is_admin"] != DBNull.Value ? Convert.ToBoolean(userRow["is_admin"]) : false;
+
 
                 // 2. Active timetable items for today
                 string timetableSql = @"

@@ -9,22 +9,22 @@ export class TaskSubtypeService {
   constructor(private api: ApiService) {}
 
   getAll() {
-    return this.api.get<TaskSubtype[]>('task-subtypes');
+    return this.api.get<TaskSubtype[]>('tasksubtype');
   }
 
   get(id: number) {
-    return this.api.get<TaskSubtype>(`task-subtypes/${id}`);
+    return this.api.get<TaskSubtype>(`tasksubtype/${id}`);
   }
 
   create(data: Partial<TaskSubtype>) {
-    return this.api.post<TaskSubtype>('task-subtypes', data);
+    return this.api.post<TaskSubtype>('tasksubtype', data);
   }
 
   update(id: number, data: Partial<TaskSubtype>) {
-    return this.api.put<TaskSubtype>(`task-subtypes/${id}`, data);
+    return this.api.put<TaskSubtype>(`tasksubtype/${id}`, data);
   }
 
   delete(id: number) {
-    return this.api.delete<any>(`task-subtypes/${id}`);
+    return this.api.delete<any>(`tasksubtype/${id}`);
   }
 }

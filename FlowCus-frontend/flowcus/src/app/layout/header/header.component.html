@@ -11,7 +11,6 @@
           <a routerLink="/tasks" routerLinkActive="active-link" class="nav-link">Tasks</a>
           <a routerLink="/task-categories" routerLinkActive="active-link" class="nav-link">Categories</a>
           <a routerLink="/task-subtypes" routerLinkActive="active-link" class="nav-link">Subtypes</a>
-          <a routerLink="/templates" routerLinkActive="active-link" class="nav-link">Templates</a>
           <a routerLink="/timetables" routerLinkActive="active-link" class="nav-link">Timetables</a>
           <a routerLink="/timetable-items" routerLinkActive="active-link" class="nav-link">Timetable Items</a>
           <a routerLink="/user" routerLinkActive="active-link" class="nav-link">Profile</a>
@@ -20,7 +19,9 @@
 
       <!-- User Menu -->
       <div class="hidden md:flex md:items-center md:space-x-4">
-        <span *ngIf="username" class="text-gray-700">Hello, {{ username }}</span>
+        @if (username) {
+          <span class="text-gray-700">Hello, {{ username }}</span>
+        }
         <button (click)="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
       </div>
 
@@ -28,25 +29,29 @@
       <div class="md:hidden">
         <button (click)="toggleMenu()" class="text-gray-400 hover:text-gray-500">
           <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path *ngIf="!isMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-            <path *ngIf="isMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            @if (!isMenuOpen) {
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            } @else {
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            }
           </svg>
         </button>
       </div>
     </div>
 
     <!-- Mobile Navigation -->
-    <div *ngIf="isMenuOpen" class="md:hidden border-t border-gray-200 pt-4 pb-4">
-      <nav class="space-y-1">
-        <a routerLink="/dashboard" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Dashboard</a>
-        <a routerLink="/tasks" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Tasks</a>
-        <a routerLink="/task-categories" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Categories</a>
-        <a routerLink="/task-subtypes" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Subtypes</a>
-        <a routerLink="/templates" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Templates</a>
-        <a routerLink="/timetables" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Timetables</a>
-        <a routerLink="/timetable-items" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Timetable Items</a>
-        <a routerLink="/user" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Profile</a>
-      </nav>
-    </div>
+    @if (isMenuOpen) {
+      <div class="md:hidden border-t border-gray-200 pt-4 pb-4">
+        <nav class="space-y-1">
+          <a routerLink="/dashboard" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Dashboard</a>
+          <a routerLink="/tasks" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Tasks</a>
+          <a routerLink="/task-categories" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Categories</a>
+          <a routerLink="/task-subtypes" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Subtypes</a>
+          <a routerLink="/timetables" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Timetables</a>
+          <a routerLink="/timetable-items" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Timetable Items</a>
+          <a routerLink="/user" routerLinkActive="active-link" (click)="closeMenu()" class="mobile-nav-link">Profile</a>
+        </nav>
+      </div>
+    }
   </div>
 </header>

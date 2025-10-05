@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-header',
+  imports: [RouterModule],
   templateUrl: './header.component.html'
 })
 export class HeaderComponent {

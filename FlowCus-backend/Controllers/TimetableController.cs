@@ -33,7 +33,7 @@ namespace FlowCus.Controllers
             return int.TryParse(idClaim, out int userId) ? userId : throw new UnauthorizedAccessException("Invalid user ID");
         }
 
-        // GET api/timetables
+        // GET api/timetable
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -65,7 +65,7 @@ namespace FlowCus.Controllers
             }
         }
 
-        // GET api/timetables/{id}
+        // GET api/timetable/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> Get(int id)
         {
@@ -96,7 +96,7 @@ namespace FlowCus.Controllers
             }
         }
 
-        // POST api/timetables
+        // POST api/timetable
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] TimetableRequest request)
         {
@@ -137,7 +137,7 @@ namespace FlowCus.Controllers
             }
         }
 
-        // PUT api/timetables/{id}
+        // PUT api/timetable/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] TimetableRequest request)
         {
@@ -182,7 +182,7 @@ namespace FlowCus.Controllers
             }
         }
 
-        // DELETE api/timetables/{id}
+        // DELETE api/timetable/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
