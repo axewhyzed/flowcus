@@ -3,4 +3,5 @@ export interface User {
   username: string;
   name?: string | null;
   createdOn?: string;
+  isAdmin: boolean;
 }

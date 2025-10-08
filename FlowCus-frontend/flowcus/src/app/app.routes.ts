@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
 
 import { DashboardPage } from './pages/dashboard/dashboard.page';
-import { AuthPage } from './pages/auth/auth.page';
+import { LoginPage } from './pages/auth/login.page';
 import { UserPage } from './pages/user/user.page';
 import { TaskCategoryPage } from './pages/task-category/task-category.page';
 import { TaskSubtypePage } from './pages/task-subtype/task-subtype.page';
@@ -14,7 +14,7 @@ export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
 
   { path: 'dashboard', component: DashboardPage, canActivate: [AuthGuard] },
-  { path: 'auth', component: AuthPage },
+  { path: 'login', component: LoginPage },
   { path: 'user', component: UserPage, canActivate: [AuthGuard] },
 
   { path: 'task-categories', component: TaskCategoryPage, canActivate: [AuthGuard] },

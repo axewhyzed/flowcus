@@ -1,4 +1,116 @@
-<div class="dashboard-container">
-  <h1>Dashboard</h1>
-  <pre>{{ dashboardData | json }}</pre>
+<div class="min-h-screen bg-white p-6 md:p-8 font-sans">
+  <div class="mx-auto w-full max-w-6xl space-y-6">
+
+    <!-- Header -->
+    @if (dashboardData) {
+      <header class="flex items-end justify-between">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-semibold text-blue-700">Hello, {{ dashboardData.userName }}</h1>
+          <p class="text-sm text-zinc-500">Here’s what’s on today</p>
+        </div>
+
+        @if (dashboardData.isAdmin) {
+          <span class="text-xs px-2 py-1 rounded-full border border-blue-200 text-blue-700 bg-blue-50">
+            Admin
+          </span>
+        }
+      </header>
+    } @else {
+      <!-- Lightweight header skeleton while loading -->
+      <header class="flex items-end justify-between">
+        <div class="h-8 w-48 rounded bg-zinc-100 animate-pulse"></div>
+        <div class="h-6 w-16 rounded bg-zinc-100 animate-pulse"></div>
+      </header>
+    }
+
+    <!-- Content -->
+    @if (dashboardData) {
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Today's Timetable -->
+        <div class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-base font-semibold text-blue-700">Today’s Timetable</h2>
+          </div>
+
+          @if (dashboardData.todayTimetable?.length) {
+            <ul class="divide-y divide-zinc-200">
+              @for (slot of dashboardData.todayTimetable; track $index) {
+                <li class="py-3">
+                  <p class="text-sm font-medium text-zinc-900">
+                    {{ slot?.title ?? slot }}
+                  </p>
+                  @if (slot?.time || slot?.subtitle) {
+                    <p class="text-xs text-zinc-500">
+                      {{ slot?.time ?? slot?.subtitle }}
+                    </p>
+                  }
+                </li>
+              } @empty {
+                <li class="py-6 text-sm text-zinc-500">No timetable entries</li>
+              }
+            </ul>
+          } @else {
+            <div class="py-8 text-center text-sm text-zinc-500">No timetable entries</div>
+          }
+        </div>
+
+        <!-- Today's Tasks -->
+        <div class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-base font-semibold text-blue-700">Today’s Tasks</h2>
+          </div>
+
+          @if (dashboardData.todayTasks?.length) {
+            <ul class="divide-y divide-zinc-200">
+              @for (task of dashboardData.todayTasks; track $index) {
+                <li class="py-3 flex items-start justify-between">
+                  <div>
+                    <p class="text-sm font-medium text-zinc-900">
+                      {{ task?.title ?? task }}
+                    </p>
+                    @if (task?.subtitle) {
+                      <p class="text-xs text-zinc-500">
+                        {{ task.subtitle }}
+                      </p>
+                    }
+                  </div>
+                  @if (task?.status) {
+                    <span class="text-xs px-2 py-1 rounded-full border border-blue-200 text-blue-700 bg-blue-50">
+                      {{ task.status }}
+                    </span>
+                  }
+                </li>
+              } @empty {
+                <li class="py-6 text-sm text-zinc-500">No tasks for today</li>
+              }
+            </ul>
+          } @else {
+            <div class="py-8 text-center text-sm text-zinc-500">No tasks for today</div>
+          }
+        </div>
+
+      </section>
+    } @else {
+      <!-- Skeleton state -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div class="h-5 w-40 rounded bg-zinc-100 mb-4 animate-pulse"></div>
+          <div class="space-y-3">
+            <div class="h-5 w-full rounded bg-zinc-100 animate-pulse"></div>
+            <div class="h-5 w-5/6 rounded bg-zinc-100 animate-pulse"></div>
+            <div class="h-5 w-4/6 rounded bg-zinc-100 animate-pulse"></div>
+          </div>
+        </div>
+        <div class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div class="h-5 w-40 rounded bg-zinc-100 mb-4 animate-pulse"></div>
+          <div class="space-y-3">
+            <div class="h-5 w-full rounded bg-zinc-100 animate-pulse"></div>
+            <div class="h-5 w-5/6 rounded bg-zinc-100 animate-pulse"></div>
+            <div class="h-5 w-4/6 rounded bg-zinc-100 animate-pulse"></div>
+          </div>
+        </div>
+      </section>
+    }
+  </div>
 </div>

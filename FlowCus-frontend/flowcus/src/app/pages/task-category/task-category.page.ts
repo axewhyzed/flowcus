@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { TaskCategoryService } from '../../core/services/task-category.service';
+import { TaskCategory } from '../../core/models/task-category.model';
 
 @Component({
   selector: 'app-task-category',
@@ -7,7 +8,8 @@ import { TaskCategoryService } from '../../core/services/task-category.service';
   styleUrls: ['./task-category.page.css']
 })
 export class TaskCategoryPage implements OnInit {
-  categories: any[] = [];
+  // null = loading, [] = loaded but empty
+  categories: TaskCategory[] | null = null;
 
   constructor(private taskCategoryService: TaskCategoryService) {}
 

@@ -6,13 +6,14 @@ import { User } from '../models/user.model';
   providedIn: 'root'
 })
 export class UserService {
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService) { }
 
   getUser(id: number) {
-    return this.api.get<User>(`users/${id}`);
+    //return this.api.get<User>(`users/${id}`);
+    return this.api.get<User>(`auth/me`);
   }
 
-  updateUser(id: number, data: Partial<User>) {
-    return this.api.put<User>(`users/${id}`, data);
+  updateUser(data: Partial<User>) {
+    return this.api.put<User>('user', data);
   }
 }

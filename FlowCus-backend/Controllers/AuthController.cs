@@ -215,10 +215,31 @@ namespace FlowCus.Controllers
         }
 
         // Register: store bcrypt hash (no reversible encryption)
-        [AllowAnonymous]
+        [Authorize]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
+            // 1️⃣ Check if logged-in user is admin
+            var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(idClaim, out int currentUserId))
+                return Unauthorized(new ErrorResponse { Error = "Invalid token" });
+        
+            try
+            {
+                string checkAdminSql = "SELECT is_admin FROM userlist WHERE id = @id LIMIT 1";
+                var p = new NpgsqlParameter("@id", currentUserId);
+                var dt = await _dbHelper.GetTableAsync(checkAdminSql, p);
+        
+                if (dt.Rows.Count == 0 || !(dt.Rows[0]["is_admin"] != DBNull.Value && Convert.ToBoolean(dt.Rows[0]["is_admin"])))
+                    return Forbid(new ErrorResponse { Error = "Only admins can register new users." });
+        
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Register: error checking admin status for user {UserId}", currentUserId);
+                return StatusCode(500, new ErrorResponse { Error = "Internal server error." });
+            }
+
             if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest(new ErrorResponse { Error = "Username and password are required." });
 

@@ -2,7 +2,7 @@ import { RenderMode, ServerRoute } from '@angular/ssr';
 import { AuthGuard } from './core/guards/auth.guard';
 
 import { DashboardPage } from './pages/dashboard/dashboard.page';
-import { AuthPage } from './pages/auth/auth.page';
+import { LoginPage } from './pages/auth/login.page';
 import { UserPage } from './pages/user/user.page';
 import { TaskCategoryPage } from './pages/task-category/task-category.page';
 import { TaskSubtypePage } from './pages/task-subtype/task-subtype.page';
@@ -20,7 +20,7 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Prerender
   },
   {
-    path: 'auth',
+    path: 'login',
     renderMode: RenderMode.Client
   },
   {

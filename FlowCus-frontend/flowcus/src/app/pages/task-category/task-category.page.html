@@ -1,11 +1,42 @@
-<div class="task-category-container">
-  <h1>Task Categories</h1>
-  <ul>
-    @for (cat of categories; track cat) {
-      <li>{{ cat.name }}</li>
+<div class="min-h-screen bg-white p-6 md:p-8 font-sans">
+  <div class="mx-auto w-full max-w-5xl space-y-6">
+    <header>
+      <h1 class="text-2xl md:text-3xl font-semibold text-blue-700">Task Categories</h1>
+      <p class="text-sm text-zinc-500">Organize tasks by focus areas</p>
+    </header>
+
+    @if (categories === null) {
+      <!-- Loading skeleton -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="h-28 rounded-2xl border border-zinc-200 bg-white shadow-sm animate-pulse"></div>
+        <div class="h-28 rounded-2xl border border-zinc-200 bg-white shadow-sm animate-pulse"></div>
+        <div class="h-28 rounded-2xl border border-zinc-200 bg-white shadow-sm animate-pulse"></div>
+      </section>
+    } @else {
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        @for (cat of categories; track cat.id) {
+          <article class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm flex items-start gap-3">
+            <div class="h-10 w-10 rounded-xl flex items-center justify-center border border-zinc-200"
+                 [style.color]="cat?.colorHex || '#1f2937'">
+              <i [class]="cat?.iconName || 'fa-solid fa-tags'" class="text-lg"></i>
+            </div>
+            <div class="min-w-0">
+              <h3 class="text-sm font-semibold text-zinc-900">{{ cat.name }}</h3>
+              @if (cat.description) {
+                <p class="text-xs text-zinc-500">{{ cat.description }}</p>
+              }
+              <div class="mt-2 flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full" [style.backgroundColor]="cat?.colorHex || '#d1d5db'"></span>
+                <span class="text-[11px] text-blue-700">{{ cat?.colorHex || '#d1d5db' }}</span>
+              </div>
+            </div>
+          </article>
+        } @empty {
+          <div class="col-span-full rounded-2xl border border-zinc-200 bg-white p-8 text-center">
+            <p class="text-sm text-zinc-500">No categories available.</p>
+          </div>
+        }
+      </section>
     }
-    @empty {
-      <li>No categories available.</li>
-    }
-  </ul>
+  </div>
 </div>
