@@ -231,8 +231,8 @@ namespace FlowCus.Controllers
                 var dt = await _dbHelper.GetTableAsync(checkAdminSql, p);
         
                 if (dt.Rows.Count == 0 || !(dt.Rows[0]["is_admin"] != DBNull.Value && Convert.ToBoolean(dt.Rows[0]["is_admin"])))
-                    return Forbid(new ErrorResponse { Error = "Only admins can register new users." });
-        
+                    return StatusCode(403, new ErrorResponse { Error = "Only admins can register new users." });
+
             }
             catch (Exception ex)
             {
