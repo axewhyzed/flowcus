@@ -40,16 +40,17 @@ namespace FlowCus.Controllers
             try
             {
                 int userId = GetCurrentUserId();
-                var today = DateTime.UtcNow.DayOfWeek;
+                var todayLocal = DateTime.Now.DayOfWeek;
 
                 var result = new Dictionary<string, object>();
 
                 string userSql = "SELECT name, is_admin FROM userlist WHERE id = @userId";
-                var userDt = await _dbHelper.GetTableAsync(userSql, new NpgsqlParameter("@userId", userId));
 
+                var userDt = await _dbHelper.GetTableAsync(userSql, new NpgsqlParameter("@userId", userId));
+                if (userDt.Rows.Count == 0) return NotFound(new { error = "User not found" });
                 var userRow = userDt.Rows[0];
-                result["userName"] = userRow["name"]?.ToString() ?? "User";
-                result["isAdmin"] = userRow["is_admin"] != DBNull.Value ? Convert.ToBoolean(userRow["is_admin"]) : false;
+                result["userName"] = userRow["name"] == DBNull.Value ? "User" : userRow["name"]?.ToString();
+                result["isAdmin"] = userRow["is_admin"] == DBNull.Value ? false : Convert.ToBoolean(userRow["is_admin"]);
 
 
                 // 2. Active timetable items for today
@@ -66,10 +67,9 @@ namespace FlowCus.Controllers
                       AND ti.is_deleted = FALSE
                     ORDER BY ti.start_time";
 
-                var timetableParams = new[]
-                {
-                    new NpgsqlParameter("@userId", userId),
-                    new NpgsqlParameter("@dayOfWeek", (int)today)
+                var timetableParams = new[] {
+                  new NpgsqlParameter("@userId", userId),
+                  new NpgsqlParameter("@dayOfWeek", (int)todayLocal) // adjust +1 if DB uses 1–7
                 };
 
                 var timetableDt = await _dbHelper.GetTableAsync(timetableSql, timetableParams);
@@ -78,14 +78,14 @@ namespace FlowCus.Controllers
                 {
                     timetableItems.Add(new
                     {
-                        Id = row["id"],
-                        TaskCategoryId = row["task_category_id"],
-                        CategoryName = row["category_name"],
-                        TaskSubtypeId = row["task_subtype_id"],
-                        SubtypeName = row["subtype_name"],
-                        DayOfWeek = row["day_of_week"],
-                        StartTime = row["start_time"],
-                        EndTime = row["end_time"]
+                        Id = Convert.ToInt32(row["id"]),
+                        TaskCategoryId = Convert.ToInt32(row["task_category_id"]),
+                        CategoryName = row["category_name"] == DBNull.Value ? null : row["category_name"]?.ToString(),
+                        TaskSubtypeId = row["task_subtype_id"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["task_subtype_id"]),
+                        SubtypeName = row["subtype_name"] == DBNull.Value ? null : row["subtype_name"]?.ToString(),
+                        DayOfWeek = row["day_of_week"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["day_of_week"]),
+                        StartTime = row["start_time"] == DBNull.Value ? (TimeSpan?)null : (TimeSpan)row["start_time"],
+                        EndTime = row["end_time"] == DBNull.Value ? (TimeSpan?)null : (TimeSpan)row["end_time"]
                     });
                 }
                 result["todayTimetable"] = timetableItems;
@@ -108,14 +108,14 @@ namespace FlowCus.Controllers
                 {
                     tasks.Add(new
                     {
-                        TaskId = row["task_id"],
-                        Title = row["title"],
-                        Description = row["description"],
-                        StartTime = row["start_time"],
-                        EndTime = row["end_time"],
-                        DurationSeconds = row["duration_seconds"],
-                        CategoryName = row["category_name"],
-                        SubtypeName = row["subtype_name"]
+                        TaskId = Convert.ToInt32(row["task_id"]),
+                        Title = row["title"] == DBNull.Value ? null : row["title"]?.ToString(),
+                        Description = row["description"] == DBNull.Value ? null : row["description"]?.ToString(),
+                        StartTime = row["start_time"] == DBNull.Value ? (DateTime?)null : (DateTime)row["start_time"],
+                        EndTime = row["end_time"] == DBNull.Value ? (DateTime?)null : (DateTime)row["end_time"],
+                        DurationSeconds = row["duration_seconds"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["duration_seconds"]),
+                        CategoryName = row["category_name"] == DBNull.Value ? null : row["category_name"]?.ToString(),
+                        SubtypeName = row["subtype_name"] == DBNull.Value ? null : row["subtype_name"]?.ToString()
                     });
                 }
                 result["todayTasks"] = tasks;

@@ -302,7 +302,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                string sql = "SELECT COALESCE(password, password_hash) AS enc_pass FROM userlist WHERE id = @id LIMIT 1";
+                string sql = "SELECT COALESCE(password_hash, password) AS enc_pass FROM userlist WHERE id = @id LIMIT 1";
                 var p = new NpgsqlParameter("@id", userId);
                 var dt = await _dbHelper.GetTableAsync(sql, p);
 

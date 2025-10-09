@@ -54,13 +54,13 @@ namespace FlowCus.Controllers
                 {
                     list.Add(new
                     {
-                        Id = row["id"],
-                        Name = row["name"],
-                        ColorHex = row["color_hex"],
-                        IconName = row["icon_name"],
-                        CreatedOn = row["created_on"],
-                        CategoryId = row["category_id"],
-                        CategoryName = row["category_name"]
+                        Id = Convert.ToInt32(row["id"]),
+                        Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
+                        ColorHex = row["color_hex"] == DBNull.Value ? null : row["color_hex"]?.ToString(),
+                        IconName = row["icon_name"] == DBNull.Value ? null : row["icon_name"]?.ToString(),
+                        CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"],
+                        CategoryId = Convert.ToInt32(row["category_id"]),
+                        CategoryName = row["category_name"] == DBNull.Value ? null : row["category_name"]?.ToString()
                     });
                 }
 
@@ -95,13 +95,13 @@ namespace FlowCus.Controllers
                 var row = dt.Rows[0];
                 return Ok(new
                 {
-                    Id = row["id"],
-                    Name = row["name"],
-                    ColorHex = row["color_hex"],
-                    IconName = row["icon_name"],
-                    CreatedOn = row["created_on"],
-                    CategoryId = row["category_id"],
-                    CategoryName = row["category_name"]
+                    Id = Convert.ToInt32(row["id"]),
+                    Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
+                    ColorHex = row["color_hex"] == DBNull.Value ? null : row["color_hex"]?.ToString(),
+                    IconName = row["icon_name"] == DBNull.Value ? null : row["icon_name"]?.ToString(),
+                    CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"],
+                    CategoryId = Convert.ToInt32(row["category_id"]),
+                    CategoryName = row["category_name"] == DBNull.Value ? null : row["category_name"]?.ToString()
                 });
             }
             catch (Exception ex)
@@ -115,8 +115,8 @@ namespace FlowCus.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] TaskSubtypeRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Name))
-                return BadRequest(new { error = "Name is required" });
+            if (string.IsNullOrWhiteSpace(request.Name) || request.CategoryId <= 0)
+                return BadRequest(new { error = "Name and valid CategoryId are required" });
 
             try
             {
@@ -128,7 +128,7 @@ namespace FlowCus.Controllers
                     RETURNING id";
                 var p1 = new NpgsqlParameter("@userId", userId);
                 var p2 = new NpgsqlParameter("@catId", request.CategoryId);
-                var p3 = new NpgsqlParameter("@name", request.Name);
+                var p3 = new NpgsqlParameter("@name", request.Name.Trim());
                 var p4 = new NpgsqlParameter("@color", (object?)request.ColorHex ?? DBNull.Value);
                 var p5 = new NpgsqlParameter("@icon", (object?)request.IconName ?? DBNull.Value);
 
@@ -157,8 +157,8 @@ namespace FlowCus.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] TaskSubtypeRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Name))
-                return BadRequest(new { error = "Name is required" });
+            if (string.IsNullOrWhiteSpace(request.Name) || request.CategoryId <= 0)
+                return BadRequest(new { error = "Name and valid CategoryId are required" });
 
             try
             {
@@ -167,7 +167,7 @@ namespace FlowCus.Controllers
                     UPDATE task_subtypes
                     SET name = @name, category_id = @catId, color_hex = @color, icon_name = @icon
                     WHERE id = @id AND user_id = @userId AND is_deleted = FALSE";
-                var p1 = new NpgsqlParameter("@name", request.Name);
+                var p1 = new NpgsqlParameter("@name", request.Name.Trim());
                 var p2 = new NpgsqlParameter("@catId", request.CategoryId);
                 var p3 = new NpgsqlParameter("@color", (object?)request.ColorHex ?? DBNull.Value);
                 var p4 = new NpgsqlParameter("@icon", (object?)request.IconName ?? DBNull.Value);

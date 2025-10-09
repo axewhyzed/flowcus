@@ -60,14 +60,14 @@ namespace FlowCus.Controllers
                 {
                     list.Add(new
                     {
-                        Id = row["id"],
-                        TaskCategoryId = row["task_category_id"],
-                        CategoryName = row["category_name"],
-                        TaskSubtypeId = row["task_subtype_id"],
-                        SubtypeName = row["subtype_name"],
-                        DayOfWeek = row["day_of_week"],
-                        StartTime = row["start_time"],
-                        EndTime = row["end_time"]
+                        Id = Convert.ToInt32(row["id"]),
+                        TaskCategoryId = Convert.ToInt32(row["task_category_id"]),
+                        CategoryName = row["category_name"] == DBNull.Value ? null : row["category_name"]?.ToString(),
+                        TaskSubtypeId = row["task_subtype_id"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["task_subtype_id"]),
+                        SubtypeName = row["subtype_name"] == DBNull.Value ? null : row["subtype_name"]?.ToString(),
+                        DayOfWeek = row["day_of_week"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["day_of_week"]),
+                        StartTime = row["start_time"] == DBNull.Value ? (TimeSpan?)null : (TimeSpan)row["start_time"],
+                        EndTime = row["end_time"] == DBNull.Value ? (TimeSpan?)null : (TimeSpan)row["end_time"]
                     });
                 }
 
@@ -86,6 +86,8 @@ namespace FlowCus.Controllers
         {
             if (request.DayOfWeek < 0 || request.DayOfWeek > 6)
                 return BadRequest(new { error = "Invalid day_of_week. Must be 0 (Sunday) to 6 (Saturday)." });
+            if (request.StartTime >= request.EndTime)
+                return BadRequest(new { error = "start_time must be earlier than end_time" });
 
             try
             {
@@ -134,6 +136,8 @@ namespace FlowCus.Controllers
         {
             if (request.DayOfWeek < 0 || request.DayOfWeek > 6)
                 return BadRequest(new { error = "Invalid day_of_week. Must be 0 (Sunday) to 6 (Saturday)." });
+            if (request.StartTime >= request.EndTime)
+                return BadRequest(new { error = "start_time must be earlier than end_time" });
 
             try
             {

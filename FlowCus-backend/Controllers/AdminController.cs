@@ -39,10 +39,10 @@ namespace FlowCus.Controllers
                 {
                     users.Add(new
                     {
-                        Id = row["id"],
-                        Username = row["username"],
-                        Name = row["name"],
-                        CreatedOn = row["created_on"]
+                        Id = Convert.ToInt32(row["id"]),
+                        Username = row["username"] == DBNull.Value ? null : row["username"]?.ToString(),
+                        Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
+                        CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"]
                     });
                 }
                 return Ok(users);
@@ -68,12 +68,12 @@ namespace FlowCus.Controllers
                 {
                     categories.Add(new
                     {
-                        Id = row["id"],
-                        Name = row["name"],
-                        Description = row["description"],
-                        ColorHex = row["color_hex"],
-                        IconName = row["icon_name"],
-                        CreatedOn = row["created_on"]
+                        Id = Convert.ToInt32(row["id"]),
+                        Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
+                        Description = row["description"] == DBNull.Value ? null : row["description"]?.ToString(),
+                        ColorHex = row["color_hex"] == DBNull.Value ? null : row["color_hex"]?.ToString(),
+                        IconName = row["icon_name"] == DBNull.Value ? null : row["icon_name"]?.ToString(),
+                        CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"]
                     });
                 }
                 return Ok(categories);
@@ -111,7 +111,7 @@ namespace FlowCus.Controllers
         {
             try
             {
-                string sql = "UPDATE task_category SET is_deleted = TRUE WHERE id = @id";
+                string sql = "UPDATE task_category SET is_deleted = TRUE, updated_on = now() WHERE id = @id";
                 int rows = await _dbHelper.ExecuteQueryAsync(sql, new NpgsqlParameter("@id", id));
                 if (rows == 1) return Ok(new { message = "Category deleted successfully" });
                 return NotFound(new { error = "Category not found" });

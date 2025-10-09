@@ -58,19 +58,19 @@ namespace FlowCus.Controllers
                 {
                     list.Add(new
                     {
-                        TaskId = row["task_id"],
-                        Title = row["title"],
-                        Description = row["description"],
-                        Priority = row["priority"],
-                        CreatedOn = row["created_on"],
-                        UpdatedOn = row["updated_on"],
-                        StartTime = row["start_time"],
-                        EndTime = row["end_time"],
-                        DurationSeconds = row["duration_seconds"],
-                        TaskCategoryId = row["task_category_id"],
-                        CategoryName = row["category_name"],
+                        TaskId = Convert.ToInt32(row["task_id"]),
+                        Title = row["title"] == DBNull.Value ? null : row["title"]?.ToString(),
+                        Description = row["description"] == DBNull.Value ? null : row["description"]?.ToString(),
+                        Priority = row["priority"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["priority"]),
+                        CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"],
+                        UpdatedOn = row["updated_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["updated_on"],
+                        StartTime = row["start_time"] == DBNull.Value ? (DateTime?)null : (DateTime)row["start_time"],
+                        EndTime = row["end_time"] == DBNull.Value ? (DateTime?)null : (DateTime)row["end_time"],
+                        DurationSeconds = row["duration_seconds"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["duration_seconds"]),
+                        TaskCategoryId = Convert.ToInt32(row["task_category_id"]),
+                        CategoryName = row["category_name"] == DBNull.Value ? null : row["category_name"]?.ToString(),
                         TaskSubtypeId = row["task_subtype_id"] == DBNull.Value ? null : (int?)row["task_subtype_id"],
-                        SubtypeName = row["subtype_name"] == DBNull.Value ? null : row["subtype_name"].ToString()
+                        SubtypeName = row["subtype_name"] == DBNull.Value ? null : row["subtype_name"]?.ToString()
                     });
                 }
 
@@ -109,19 +109,19 @@ namespace FlowCus.Controllers
                 var row = dt.Rows[0];
                 return Ok(new
                 {
-                    TaskId = row["task_id"],
-                    Title = row["title"],
-                    Description = row["description"],
-                    Priority = row["priority"],
-                    CreatedOn = row["created_on"],
-                    UpdatedOn = row["updated_on"],
-                    StartTime = row["start_time"],
-                    EndTime = row["end_time"],
-                    DurationSeconds = row["duration_seconds"],
-                    TaskCategoryId = row["task_category_id"],
-                    CategoryName = row["category_name"],
+                    TaskId = Convert.ToInt32(row["task_id"]),
+                    Title = row["title"] == DBNull.Value ? null : row["title"]?.ToString(),
+                    Description = row["description"] == DBNull.Value ? null : row["description"]?.ToString(),
+                    Priority = row["priority"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["priority"]),
+                    CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"],
+                    UpdatedOn = row["updated_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["updated_on"],
+                    StartTime = row["start_time"] == DBNull.Value ? (DateTime?)null : (DateTime)row["start_time"],
+                    EndTime = row["end_time"] == DBNull.Value ? (DateTime?)null : (DateTime)row["end_time"],
+                    DurationSeconds = row["duration_seconds"] == DBNull.Value ? (int?)null : Convert.ToInt32(row["duration_seconds"]),
+                    TaskCategoryId = Convert.ToInt32(row["task_category_id"]),
+                    CategoryName = row["category_name"] == DBNull.Value ? null : row["category_name"]?.ToString(),
                     TaskSubtypeId = row["task_subtype_id"] == DBNull.Value ? null : (int?)row["task_subtype_id"],
-                    SubtypeName = row["subtype_name"] == DBNull.Value ? null : row["subtype_name"].ToString()
+                    SubtypeName = row["subtype_name"] == DBNull.Value ? null : row["subtype_name"]?.ToString()
                 });
             }
             catch (Exception ex)
@@ -135,7 +135,7 @@ namespace FlowCus.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] TaskEntityRequest request)
         {
-            if (request.TaskCategoryId <= 0 || string.IsNullOrWhiteSpace(request.Title))
+            if (!request.TaskCategoryId.HasValue || request.TaskCategoryId.Value <= 0 || string.IsNullOrWhiteSpace(request.Title))
                 return BadRequest(new { error = "Category and title are required" });
 
             try
@@ -151,7 +151,7 @@ namespace FlowCus.Controllers
 
                 var p = new[]
                 {
-                    new NpgsqlParameter("@catId", request.TaskCategoryId),
+                    new NpgsqlParameter("@catId", request.TaskCategoryId.Value),
                     new NpgsqlParameter("@subtypeId", (object?)request.TaskSubtypeId ?? DBNull.Value),
                     new NpgsqlParameter("@title", request.Title),
                     new NpgsqlParameter("@desc", (object?)request.Description ?? DBNull.Value),
@@ -179,8 +179,11 @@ namespace FlowCus.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] TaskEntityRequest request)
         {
-            if (request.TaskCategoryId <= 0 || string.IsNullOrWhiteSpace(request.Title))
-                return BadRequest(new { error = "Category and title are required" });
+            // Validate only if provided
+            if (request.TaskCategoryId.HasValue && request.TaskCategoryId.Value <= 0)
+                return BadRequest(new { error = "TaskCategoryId must be > 0" });
+           if (request.Title != null && string.IsNullOrWhiteSpace(request.Title))
+                return BadRequest(new { error = "Title cannot be empty" });
 
             try
             {
@@ -188,22 +191,22 @@ namespace FlowCus.Controllers
 
                 string sql = @"
                     UPDATE tasks
-                    SET task_category_id = @catId,
-                        task_subtype_id = @subtypeId,
-                        title = @title,
-                        description = @desc,
-                        priority = @priority,
+                    SET task_category_id = COALESCE(@catId, task_category_id),
+                        task_subtype_id = COALESCE(@subtypeId, task_subtype_id),
+                        title = COALESCE(@title, title),
+                        description = COALESCE(@desc, description),
+                        priority = COALESCE(@priority, priority),
                         updated_on = now(),
-                        start_time = @startTime,
-                        end_time = @endTime,
-                        duration_seconds = @durationSeconds
+                        start_time = COALESCE(@startTime, start_time),
+                        end_time = COALESCE(@endTime, end_time),
+                        duration_seconds = COALESCE(@durationSeconds, duration_seconds)
                     WHERE task_id = @id AND created_by = @userId AND is_deleted = FALSE";
 
                 var p = new[]
                 {
-                    new NpgsqlParameter("@catId", request.TaskCategoryId),
+                    new NpgsqlParameter("@catId", (object?)request.TaskCategoryId ?? DBNull.Value),
                     new NpgsqlParameter("@subtypeId", (object?)request.TaskSubtypeId ?? DBNull.Value),
-                    new NpgsqlParameter("@title", request.Title),
+                    new NpgsqlParameter("@title", (object?)request.Title ?? DBNull.Value),
                     new NpgsqlParameter("@desc", (object?)request.Description ?? DBNull.Value),
                     new NpgsqlParameter("@priority", (object?)request.Priority ?? DBNull.Value),
                     new NpgsqlParameter("@startTime", (object?)request.StartTime ?? DBNull.Value),
@@ -253,9 +256,9 @@ namespace FlowCus.Controllers
 
     public class TaskEntityRequest
     {
-        public int TaskCategoryId { get; set; }
+        public int? TaskCategoryId { get; set; }
         public int? TaskSubtypeId { get; set; }
-        public string Title { get; set; } = "";
+        public string? Title { get; set; }
         public string? Description { get; set; }
         public int? Priority { get; set; }
         public DateTime? StartTime { get; set; }

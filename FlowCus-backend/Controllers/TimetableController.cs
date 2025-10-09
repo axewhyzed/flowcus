@@ -49,10 +49,10 @@ namespace FlowCus.Controllers
                 {
                     list.Add(new
                     {
-                        Id = row["id"],
-                        Name = row["name"],
-                        IsActive = row["is_active"],
-                        CreatedAt = row["created_at"]
+                        Id = Convert.ToInt32(row["id"]),
+                        Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
+                        IsActive = row["is_active"] == DBNull.Value ? (bool?)null : Convert.ToBoolean(row["is_active"]),
+                        CreatedAt = row["created_at"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_at"]
                     });
                 }
 
@@ -83,10 +83,10 @@ namespace FlowCus.Controllers
                 var row = dt.Rows[0];
                 return Ok(new
                 {
-                    Id = row["id"],
-                    Name = row["name"],
-                    IsActive = row["is_active"],
-                    CreatedAt = row["created_at"]
+                    Id = Convert.ToInt32(row["id"]),
+                    Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
+                    IsActive = row["is_active"] == DBNull.Value ? (bool?)null : Convert.ToBoolean(row["is_active"]),
+                    CreatedAt = row["created_at"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_at"]
                 });
             }
             catch (Exception ex)
@@ -113,7 +113,7 @@ namespace FlowCus.Controllers
                 var p = new[]
                 {
                     new NpgsqlParameter("@userId", userId),
-                    new NpgsqlParameter("@name", request.Name),
+                    new NpgsqlParameter("@name", request.Name.Trim()),
                     new NpgsqlParameter("@isActive", request.IsActive)
                 };
 
@@ -163,7 +163,7 @@ namespace FlowCus.Controllers
 
                 var p = new[]
                 {
-                    new NpgsqlParameter("@name", request.Name),
+                    new NpgsqlParameter("@name", request.Name.Trim()),
                     new NpgsqlParameter("@isActive", request.IsActive),
                     new NpgsqlParameter("@id", id),
                     new NpgsqlParameter("@userId", userId)

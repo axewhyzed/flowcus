@@ -28,9 +28,7 @@ namespace FlowCus.Controllers
         [HttpGet("me")]
         public async Task<IActionResult> GetProfile()
         {
-            var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (!int.TryParse(idClaim, out int userId))
-                return Unauthorized(new { error = "Invalid token" });
+            int userId = GetCurrentUserId();
 
             try
             {
@@ -44,11 +42,11 @@ namespace FlowCus.Controllers
                 var row = dt.Rows[0];
                 return Ok(new
                 {
-                    Id = row["id"],
-                    Username = row["username"],
-                    Name = row["name"],
-                    CreatedOn = row["created_on"],
-                    UpdatedOn = row["updated_on"]
+                    Id = Convert.ToInt32(row["id"]),
+                    Username = row["username"] == DBNull.Value ? null : row["username"]?.ToString(),
+                    Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
+                    CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"],
+                    UpdatedOn = row["updated_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["updated_on"]
                 });
             }
             catch (Exception ex)
@@ -65,14 +63,12 @@ namespace FlowCus.Controllers
             if (string.IsNullOrWhiteSpace(request.Name))
                 return BadRequest(new { error = "Name cannot be empty" });
 
-            var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (!int.TryParse(idClaim, out int userId))
-                return Unauthorized(new { error = "Invalid token" });
+            int userId = GetCurrentUserId();
 
             try
             {
-                string sql = "UPDATE userlist SET name = @name, updated_on = now() WHERE id = @id";
-                var p1 = new NpgsqlParameter("@name", request.Name);
+                string sql = "UPDATE userlist SET name = @name, updated_on = now() WHERE id = @id AND is_deleted = FALSE";
+                var p1 = new NpgsqlParameter("@name", request.Name.Trim());
                 var p2 = new NpgsqlParameter("@id", userId);
 
                 int rows = await _dbHelper.ExecuteQueryAsync(sql, p1, p2);
@@ -86,6 +82,13 @@ namespace FlowCus.Controllers
                 _logger.LogError(ex, "Error updating profile for user {UserId}", userId);
                 return StatusCode(500, new { error = "Internal server error" });
             }
+        }
+
+        private int GetCurrentUserId()
+        {
+            var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                          ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+            return int.TryParse(idClaim, out int userId) ? userId : throw new UnauthorizedAccessException("Invalid token");
         }
     }
 

@@ -39,12 +39,12 @@ namespace FlowCus.Controllers
                 {
                     list.Add(new
                     {
-                        Id = row["id"],
-                        Name = row["name"],
-                        Description = row["description"],
-                        ColorHex = row["color_hex"],
-                        IconName = row["icon_name"],
-                        CreatedOn = row["created_on"]
+                        Id = Convert.ToInt32(row["id"]),
+                        Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
+                        Description = row["description"] == DBNull.Value ? null : row["description"]?.ToString(),
+                        ColorHex = row["color_hex"] == DBNull.Value ? null : row["color_hex"]?.ToString(),
+                        IconName = row["icon_name"] == DBNull.Value ? null : row["icon_name"]?.ToString(),
+                        CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"]
                     });
                 }
 
@@ -73,12 +73,12 @@ namespace FlowCus.Controllers
                 var row = dt.Rows[0];
                 return Ok(new
                 {
-                    Id = row["id"],
-                    Name = row["name"],
-                    Description = row["description"],
-                    ColorHex = row["color_hex"],
-                    IconName = row["icon_name"],
-                    CreatedOn = row["created_on"]
+                    Id = Convert.ToInt32(row["id"]),
+                    Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
+                    Description = row["description"] == DBNull.Value ? null : row["description"]?.ToString(),
+                    ColorHex = row["color_hex"] == DBNull.Value ? null : row["color_hex"]?.ToString(),
+                    IconName = row["icon_name"] == DBNull.Value ? null : row["icon_name"]?.ToString(),
+                    CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"]
                 });
             }
             catch (Exception ex)
@@ -101,7 +101,7 @@ namespace FlowCus.Controllers
                     INSERT INTO task_category (name, description, color_hex, icon_name, created_on)
                     VALUES (@name, @desc, @color, @icon, now())
                     RETURNING id";
-                var p1 = new NpgsqlParameter("@name", request.Name);
+                var p1 = new NpgsqlParameter("@name", request.Name.Trim());
                 var p2 = new NpgsqlParameter("@desc", (object?)request.Description ?? DBNull.Value);
                 var p3 = new NpgsqlParameter("@color", (object?)request.ColorHex ?? DBNull.Value);
                 var p4 = new NpgsqlParameter("@icon", (object?)request.IconName ?? DBNull.Value);
