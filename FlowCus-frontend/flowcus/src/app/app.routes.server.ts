@@ -40,6 +40,10 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Prerender
   },
   {
+    path: 'task-types',
+    renderMode: RenderMode.Prerender
+  },
+  {
     path: 'timetables',
     renderMode: RenderMode.Prerender
   },

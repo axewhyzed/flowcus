@@ -9,6 +9,7 @@ import { TaskSubtypePage } from './pages/task-subtype/task-subtype.page';
 import { TaskPage } from './pages/task/task.page';
 import { TimetablePage } from './pages/timetable/timetable.page';
 import { TimetableItemPage } from './pages/timetable-item/timetable-item.page';
+import { TaskTypesPage } from './pages/task-types/task-types.page';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -23,6 +24,7 @@ export const routes: Routes = [
 
   { path: 'timetables', component: TimetablePage, canActivate: [AuthGuard] },
   { path: 'timetable-items', component: TimetableItemPage, canActivate: [AuthGuard] },
+  { path: 'task-types', component: TaskTypesPage, canActivate: [AuthGuard] },
 
   { path: '**', redirectTo: '/dashboard' }
 ];
