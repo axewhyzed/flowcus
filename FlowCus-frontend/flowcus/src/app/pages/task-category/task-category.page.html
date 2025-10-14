@@ -1,42 +1,229 @@
-<div class="min-h-screen bg-white p-6 md:p-8 font-sans">
-  <div class="mx-auto w-full max-w-5xl space-y-6">
-    <header>
-      <h1 class="text-2xl md:text-3xl font-semibold text-blue-700">Task Categories</h1>
-      <p class="text-sm text-zinc-500">Organize tasks by focus areas</p>
-    </header>
+<div class="min-h-screen bg-gray-50 p-4 md:p-6">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">Task Categories</h1>
+          <p class="text-sm text-gray-500 mt-1">Organize tasks by focus areas</p>
+        </div>
+        <button
+          (click)="openCategoryForm()"
+          class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-sm"
+        >
+          <span>+</span>
+          <span>Add Category</span>
+        </button>
+      </div>
+    </div>
 
+    <!-- Loading State -->
     @if (categories === null) {
-      <!-- Loading skeleton -->
-      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="h-28 rounded-2xl border border-zinc-200 bg-white shadow-sm animate-pulse"></div>
-        <div class="h-28 rounded-2xl border border-zinc-200 bg-white shadow-sm animate-pulse"></div>
-        <div class="h-28 rounded-2xl border border-zinc-200 bg-white shadow-sm animate-pulse"></div>
-      </section>
-    } @else {
-      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div class="h-32 rounded-lg border border-gray-200 bg-white shadow-sm animate-pulse"></div>
+        <div class="h-32 rounded-lg border border-gray-200 bg-white shadow-sm animate-pulse"></div>
+        <div class="h-32 rounded-lg border border-gray-200 bg-white shadow-sm animate-pulse"></div>
+        <div class="h-32 rounded-lg border border-gray-200 bg-white shadow-sm animate-pulse"></div>
+      </div>
+    }
+
+    <!-- Empty State -->
+    @if (categories !== null && categories.length === 0) {
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+        <div class="text-gray-400 mb-4">
+          <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+          </svg>
+        </div>
+        <p class="text-gray-500 mb-4">No categories yet</p>
+        <button
+          (click)="openCategoryForm()"
+          class="text-blue-700 hover:text-blue-800 font-medium"
+        >
+          Create your first category
+        </button>
+      </div>
+    }
+
+    <!-- Categories Grid -->
+    @if (categories !== null && categories.length > 0) {
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         @for (cat of categories; track cat.id) {
-          <article class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm flex items-start gap-3">
-            <div class="h-10 w-10 rounded-xl flex items-center justify-center border border-zinc-200"
-                 [style.color]="cat?.colorHex || '#1f2937'">
-              <i [class]="cat?.iconName || 'fa-solid fa-tags'" class="text-lg"></i>
-            </div>
-            <div class="min-w-0">
-              <h3 class="text-sm font-semibold text-zinc-900">{{ cat.name }}</h3>
-              @if (cat.description) {
-                <p class="text-xs text-zinc-500">{{ cat.description }}</p>
-              }
-              <div class="mt-2 flex items-center gap-2">
-                <span class="h-2 w-2 rounded-full" [style.backgroundColor]="cat?.colorHex || '#d1d5db'"></span>
-                <span class="text-[11px] text-blue-700">{{ cat?.colorHex || '#d1d5db' }}</span>
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow">
+            <!-- Icon and Color -->
+            <div class="flex items-start gap-4 mb-3">
+              <div 
+                class="h-12 w-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                [style.backgroundColor]="(cat?.colorHex || '#3B82F6') + '20'"
+                [style.color]="cat?.colorHex || '#3B82F6'"
+              >
+                <i [class]="cat?.iconName || 'fa-solid fa-tag'" class="text-xl"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-base font-semibold text-gray-900 truncate">
+                  {{ cat.name }}
+                </h3>
+                @if (cat.description) {
+                  <p class="text-xs text-gray-600 mt-1 line-clamp-2">
+                    {{ cat.description }}
+                  </p>
+                }
               </div>
             </div>
-          </article>
-        } @empty {
-          <div class="col-span-full rounded-2xl border border-zinc-200 bg-white p-8 text-center">
-            <p class="text-sm text-zinc-500">No categories available.</p>
+
+            <!-- Color Display -->
+            <div class="flex items-center gap-2 mb-4 bg-gray-50 rounded-lg p-2">
+              <span 
+                class="h-4 w-4 rounded border border-gray-200 flex-shrink-0" 
+                [style.backgroundColor]="cat?.colorHex || '#3B82F6'"
+              ></span>
+              <span class="text-xs text-gray-600 font-mono">
+                {{ cat?.colorHex || '#3B82F6' }}
+              </span>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-2 pt-3 border-t border-gray-100">
+              <button
+                (click)="openCategoryForm(cat)"
+                class="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Edit
+              </button>
+              <button
+                (click)="deleteCategory(cat.id)"
+                class="flex-1 px-3 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         }
-      </section>
+      </div>
     }
   </div>
 </div>
+
+<!-- Category Form Modal -->
+@if (showCategoryForm) {
+  <div
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+    (click)="closeCategoryForm()"
+  >
+    <div 
+      class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Modal Header -->
+      <div class="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-lg z-10">
+        <h3 class="text-xl font-bold text-gray-900">
+          {{ editingCategory ? 'Edit Category' : 'Add Category' }}
+        </h3>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-4">
+        <!-- Name -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+          <input
+            type="text"
+            [(ngModel)]="categoryForm.name"
+            placeholder="Enter category name"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+          />
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <textarea
+            [(ngModel)]="categoryForm.description"
+            placeholder="Enter category description (optional)"
+            rows="3"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
+          ></textarea>
+        </div>
+
+        <!-- Color Picker -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Color</label>
+          <div class="flex items-center gap-3">
+            <input
+              type="color"
+              [(ngModel)]="categoryForm.colorHex"
+              class="h-10 w-20 rounded-lg border border-gray-300 cursor-pointer"
+            />
+            <input
+              type="text"
+              [(ngModel)]="categoryForm.colorHex"
+              placeholder="#3B82F6"
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-mono text-sm"
+            />
+          </div>
+        </div>
+
+        <!-- Icon Picker -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Icon</label>
+          <div class="grid grid-cols-4 gap-2">
+            @for (icon of commonIcons; track icon.name) {
+              <button
+                type="button"
+                (click)="categoryForm.iconName = icon.name"
+                class="flex flex-col items-center justify-center p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                [ngClass]="{
+                  'border-blue-700 bg-blue-50': categoryForm.iconName === icon.name,
+                  'border-gray-300': categoryForm.iconName !== icon.name
+                }"
+              >
+                <i [class]="icon.name" class="text-xl mb-1" [style.color]="categoryForm.colorHex || '#3B82F6'"></i>
+                <span class="text-xs text-gray-600">{{ icon.label }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Preview</label>
+          <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div class="flex items-center gap-3">
+              <div 
+                class="h-12 w-12 rounded-lg flex items-center justify-center"
+                [style.backgroundColor]="(categoryForm.colorHex || '#3B82F6') + '20'"
+                [style.color]="categoryForm.colorHex || '#3B82F6'"
+              >
+                <i [class]="categoryForm.iconName || 'fa-solid fa-tag'" class="text-xl"></i>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-900">
+                  {{ categoryForm.name || 'Category Name' }}
+                </p>
+                <p class="text-xs text-gray-600">
+                  {{ categoryForm.description || 'Category description' }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="sticky bottom-0 bg-white border-t border-gray-200 p-6 rounded-b-lg flex gap-3 justify-end">
+        <button
+          (click)="closeCategoryForm()"
+          class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          (click)="saveCategory()"
+          class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm"
+        >
+          {{ editingCategory ? 'Update' : 'Add Category' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

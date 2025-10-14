@@ -9,7 +9,10 @@ export class UserService {
   constructor(private api: ApiService) { }
 
   getUser(id: number) {
-    //return this.api.get<User>(`users/${id}`);
+    return this.api.get<User>(`users/${id}`);
+  }
+
+  getMyUser(){
     return this.api.get<User>(`auth/me`);
   }
 

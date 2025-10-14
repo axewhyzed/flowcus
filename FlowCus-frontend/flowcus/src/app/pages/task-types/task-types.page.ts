@@ -1,115 +1,130 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { TaskCategoryService } from '../../core/services/task-category.service';
 import { TaskSubtypeService } from '../../core/services/task-subtype.service';
-import { FormsModule } from '@angular/forms';
+import { TaskCategory } from '../../core/models/task-category.model';
+import { TaskSubtype } from '../../core/models/task-subtype.model';
 
 @Component({
-    selector: 'app-task-types',
-    templateUrl: './task-types.page.html',
-    imports: [FormsModule]
+  selector: 'app-task-types',
+  templateUrl: './task-types.page.html',
+  imports: [CommonModule, FormsModule]
 })
 export class TaskTypesPage implements OnInit {
-    categories: any[] | null = null;
-    subcategories: any[] = [];
-    selectedTab: 'categories' | 'subcategories' = 'categories';
+  categories: TaskCategory[] | null = null;
+  subcategories: TaskSubtype[] = [];
+  selectedTab: 'categories' | 'subcategories' = 'categories';
+  
+  showSubcategoryForm = false;
+  editingSubcategory: TaskSubtype | null = null;
+  subcategoryForm: Partial<TaskSubtype> = {
+    name: '',
+    categoryId: 0
+  };
 
-    // Crud state for subcategories
-    newSubcategoryName: Record<number, string> = {};
-    editSubcategoryId: number | null = null;
-    editSubcategoryName = '';
+  constructor(
+    private categoryService: TaskCategoryService,
+    private subtypeService: TaskSubtypeService
+  ) {}
 
-    editSubcategoryCategoryId: number | null = null;
-    newSubcategoryCategoryId: number | null = null;
+  ngOnInit() {
+    this.loadCategoriesAndSubcategories();
+  }
 
-    constructor(
-        private categoryService: TaskCategoryService,
-        private subtypeService: TaskSubtypeService
-    ) { }
+  selectTab(tab: 'categories' | 'subcategories') {
+    this.selectedTab = tab;
+  }
 
-    ngOnInit() {
-        this.loadCategoriesAndSubcategories();
+  async loadCategoriesAndSubcategories() {
+    try {
+      const [cats, subs] = await Promise.all([
+        this.categoryService.getAll(),
+        this.subtypeService.getAll()
+      ]);
+      this.categories = cats ?? [];
+      this.subcategories = subs ?? [];
+    } catch (error) {
+      console.error('Error loading data:', error);
+      this.categories = [];
+      this.subcategories = [];
+    }
+  }
+
+  getCategoryName(categoryId: number): string {
+    const cat = this.categories?.find(c => c.id === categoryId);
+    return cat ? cat.name : 'Unknown';
+  }
+
+  getCategoryColor(categoryId: number): string {
+    const cat = this.categories?.find(c => c.id === categoryId);
+    return cat?.colorHex || '#3B82F6';
+  }
+
+  getCategoryIcon(categoryId: number): string {
+    const cat = this.categories?.find(c => c.id === categoryId);
+    return cat?.iconName || 'fa-solid fa-tag';
+  }
+
+  openSubcategoryForm(subcategory?: TaskSubtype) {
+    if (subcategory) {
+      this.editingSubcategory = subcategory;
+      this.subcategoryForm = {
+        name: subcategory.name,
+        categoryId: subcategory.categoryId
+      };
+    } else {
+      this.editingSubcategory = null;
+      this.subcategoryForm = {
+        name: '',
+        categoryId: 0
+      };
+    }
+    this.showSubcategoryForm = true;
+  }
+
+  closeSubcategoryForm() {
+    this.showSubcategoryForm = false;
+    this.editingSubcategory = null;
+    this.subcategoryForm = {
+      name: '',
+      categoryId: 0
+    };
+  }
+
+  async saveSubcategory() {
+    if (!this.subcategoryForm.name?.trim() || !this.subcategoryForm.categoryId) {
+      alert('Please enter a name and select a category.');
+      return;
     }
 
-    selectTab(tab: 'categories' | 'subcategories') {
-        this.selectedTab = tab;
+    try {
+      if (this.editingSubcategory) {
+        await this.subtypeService.update(this.editingSubcategory.id, this.subcategoryForm);
+      } else {
+        await this.subtypeService.create(this.subcategoryForm);
+      }
+      await this.loadCategoriesAndSubcategories();
+      this.closeSubcategoryForm();
+    } catch (error) {
+      console.error('Error saving subcategory:', error);
+      alert('Failed to save subcategory. Please try again.');
     }
+  }
 
-    async loadCategoriesAndSubcategories() {
-        const [cats, subs] = await Promise.all([
-            this.categoryService.getAll(),
-            this.subtypeService.getAll()
-        ]);
-        this.categories = cats ?? [];
-        this.subcategories = subs ?? [];
+  async deleteSubcategory(id: number) {
+    if (!confirm('Are you sure you want to delete this subcategory? This may affect existing tasks.')) return;
+    
+    try {
+      await this.subtypeService.delete(id);
+      await this.loadCategoriesAndSubcategories();
+    } catch (error) {
+      console.error('Error deleting subcategory:', error);
+      alert('Failed to delete subcategory. Please try again.');
     }
+  }
 
-    groupedSubcategories() {
-        const groups: { categoryId: number; subs: any[] }[] = [];
-        if (!this.subcategories.length || !this.categories) return groups;
-        for (const cat of this.categories) {
-            groups.push({
-                categoryId: cat.id,
-                subs: this.subcategories.filter(s => s.categoryId === cat.id)
-            });
-        }
-        return groups;
-    }
-
-    getCategoryName(categoryId: number): string {
-        const cat = this.categories?.find(c => c.id === categoryId);
-        return cat ? cat.name : '';
-    }
-
-    // Add new subcategory under categoryId
-    async addSubcategory(categoryId: number) {
-        const name = (this.newSubcategoryName[categoryId] || '').trim();
-        if (!name) return;
-        const created = await this.subtypeService.create({ name, categoryId });
-        this.subcategories.push(created);
-        this.newSubcategoryName[categoryId] = '';
-    }
-
-    // Edit
-    startEditSubcategory(sub: any) {
-        this.editSubcategoryId = sub.id;
-        this.editSubcategoryName = sub.name;
-        this.editSubcategoryCategoryId = sub.categoryId;
-    }
-
-    // Cancel edit
-    cancelEdit() {
-        this.editSubcategoryId = null;
-        this.editSubcategoryName = '';
-        this.editSubcategoryCategoryId = null;
-    }
-
-    // Save edited subcategory name
-    async saveSubcategory(sub: any) {
-        const name = this.editSubcategoryName.trim();
-        const categoryId = this.editSubcategoryCategoryId;
-        if (!name || !categoryId) return;
-
-        const updated = await this.subtypeService.update(sub.id, { name, categoryId });
-
-        const index = this.subcategories.findIndex(s => s.id === sub.id);
-        if (index >= 0) {
-            this.subcategories[index] = { ...this.subcategories[index], name: updated.name, categoryId };
-        }
-
-        this.cancelEdit();
-    }
-
-    // Delete subcategory
-    async deleteSubcategory(sub: any) {
-        await this.subtypeService.delete(sub.id);
-        this.subcategories = this.subcategories.filter(s => s.id !== sub.id);
-    }
-
-    getSubcategoriesByCategory(categoryId: number) {
-        return this.subcategories?.filter(s => s.categoryId === categoryId) ?? [];
-    }
-
-    hasNoSubcategories(categoryId: number): boolean {
-        return this.getSubcategoriesByCategory(categoryId).length === 0;
-    }
+  getSubcategoriesByCategory(categoryId: number): TaskSubtype[] {
+    return this.subcategories.filter(s => s.categoryId === categoryId);
+  }
 }

@@ -25,6 +25,7 @@ export class TaskPage implements OnInit {
     endTime: null
   };
   editingTask: Task | null = null;
+  showTaskForm = false;
 
   categories: TaskCategory[] = [];
   subcategories: TaskSubtype[] = [];
@@ -60,15 +61,30 @@ export class TaskPage implements OnInit {
   // Filter subcategories by selected category
   getSubcategoriesByCategory(categoryId: number | null | undefined): TaskSubtype[] {
     if (!categoryId) return [];
-    return this.subcategories.filter(s => s.categoryId === categoryId);
+    return this.subcategories.filter(s => s.categoryId === Number(categoryId));
   }
 
-  async addTask() {
-    if (!this.newTask.title?.trim() || !this.newTask.taskCategoryId) {
-      alert('Please enter a title and select a category.');
-      return;
+  openTaskForm(task?: Task) {
+    if (task) {
+      this.editingTask = { ...task };
+      this.newTask = { ...task };
+    } else {
+      this.editingTask = null;
+      this.newTask = {
+        title: '',
+        description: '',
+        taskCategoryId: 0,
+        taskSubtypeId: null,
+        startTime: null,
+        endTime: null
+      };
     }
-    await this.taskService.create(this.newTask);
+    this.showTaskForm = true;
+  }
+
+  closeTaskForm() {
+    this.showTaskForm = false;
+    this.editingTask = null;
     this.newTask = {
       title: '',
       description: '',
@@ -77,28 +93,37 @@ export class TaskPage implements OnInit {
       startTime: null,
       endTime: null
     };
-    await this.loadTasks();
   }
 
-  editTask(task: Task) {
-    this.editingTask = { ...task };
-  }
+  async saveTask() {
+    if (!this.newTask.title?.trim() || !this.newTask.taskCategoryId) {
+      alert('Please enter a title and select a category.');
+      return;
+    }
 
-  async updateTask() {
-    if (!this.editingTask) return;
-    await this.taskService.update(this.editingTask.taskId, this.editingTask);
-    this.editingTask = null;
-    await this.loadTasks();
-  }
-
-  cancelEdit() {
-    this.editingTask = null;
+    try {
+      if (this.editingTask) {
+        await this.taskService.update(this.editingTask.taskId, this.newTask);
+      } else {
+        await this.taskService.create(this.newTask);
+      }
+      await this.loadTasks();
+      this.closeTaskForm();
+    } catch (error) {
+      console.error('Error saving task:', error);
+      alert('Failed to save task. Please try again.');
+    }
   }
 
   async deleteTask(id: number) {
-    if (!confirm('Delete this task?')) return;
-    await this.taskService.delete(id);
-    await this.loadTasks();
+    if (!confirm('Are you sure you want to delete this task?')) return;
+    try {
+      await this.taskService.delete(id);
+      await this.loadTasks();
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      alert('Failed to delete task. Please try again.');
+    }
   }
 
   categoryNameById(id: number | null | undefined): string {
@@ -124,4 +149,7 @@ export class TaskPage implements OnInit {
       minute: '2-digit'
     });
   }
+
+  // Helper for template
+  Object = Object;
 }

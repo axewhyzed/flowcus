@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { UserService } from '../../core/services/user.service';
 import { User } from '../../core/models/user.model';
-import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-user',
@@ -13,8 +13,10 @@ import { CommonModule } from '@angular/common';
 })
 export class UserPage implements OnInit {
   user: User | null = null;
+  showSuccessMessage = false;
+  errorMessage = '';
 
-  constructor(private userService: UserService) { }
+  constructor(private userService: UserService) {}
 
   ngOnInit(): void {
     this.loadUser();
@@ -23,20 +25,44 @@ export class UserPage implements OnInit {
   async loadUser() {
     try {
       console.log('Fetching current user (auth/me)...');
-      this.user = await this.userService.getUser(0); // ID ignored in service
+      this.user = await this.userService.getMyUser();
       console.log('User response:', this.user);
-    } catch (err) {
-      console.error('Error loading user:', err);
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('Error loading user:', error);
+      this.errorMessage = 'Failed to load user profile';
     }
   }
 
   async updateUser() {
-    if (!this.user) return;
+    if (!this.user || !this.user.name?.trim()) {
+      this.errorMessage = 'Name is required';
+      return;
+    }
+
     try {
       await this.userService.updateUser({ name: this.user.name });
-      alert('User updated successfully');
-    } catch (err) {
-      console.error('Error updating user:', err);
+      this.showSuccessNotification();
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('Error updating user:', error);
+      this.errorMessage = 'Failed to update profile. Please try again.';
+      setTimeout(() => {
+        this.errorMessage = '';
+      }, 3000);
     }
+  }
+
+  showSuccessNotification() {
+    this.showSuccessMessage = true;
+    this.errorMessage = '';
+    setTimeout(() => {
+      this.showSuccessMessage = false;
+    }, 3000);
+  }
+
+  dismissNotification() {
+    this.showSuccessMessage = false;
+    this.errorMessage = '';
   }
 }
