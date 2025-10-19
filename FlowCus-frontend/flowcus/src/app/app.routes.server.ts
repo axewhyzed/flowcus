@@ -52,6 +52,12 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Prerender
   },
 
+  // Admin page
+  {
+    path: 'admin/users',
+    renderMode: RenderMode.Client
+  },
+
   // Dynamic routes that should be client only
   {
     path: 'tasks/edit/:id',

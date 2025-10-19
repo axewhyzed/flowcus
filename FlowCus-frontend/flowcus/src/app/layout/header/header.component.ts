@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { filter, Subscription } from 'rxjs';
+import { AdminModeService } from '../../core/services/admin-mode.service';
 
 @Component({
   selector: 'app-header',
@@ -15,12 +16,18 @@ export class HeaderComponent implements OnInit, OnDestroy {
   username: string | null = null;
   isLoggedIn = false;
   private routerSubscription?: Subscription;
+  isAdmin = false;          // backend verified
+  isAdminMode = false;      // frontend switch state (from service)
 
-  constructor(private router: Router, private authService: AuthService) {}
+  constructor(private router: Router, private authService: AuthService, private adminModeService: AdminModeService) { }
 
   ngOnInit() {
     // Check auth status on initialization
     this.checkAuthStatus();
+
+    this.adminModeService.adminMode$.subscribe(value => {
+      this.isAdminMode = value;
+    });
 
     // Subscribe to router events to update header after navigation
     this.routerSubscription = this.router.events
@@ -38,9 +45,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   checkAuthStatus() {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     this.isLoggedIn = !!token;
-    
+
     if (token) {
       this.loadUser();
     } else {
@@ -52,6 +59,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
     try {
       const res = await this.authService.me();
       this.username = res.user?.name || res.user?.username || null;
+      this.isAdmin = res.isAdmin;          // ✅ backend verified
+      this.isAdminMode = this.adminModeService.isAdminMode; // get initial switch state
     } catch (error) {
       console.error('Error loading user:', error);
       this.username = null;
@@ -70,7 +79,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   async logout() {
     try {
       await this.authService.logout();
-      localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_token');
       this.isLoggedIn = false;
       this.username = null;
       this.router.navigate(['/login']);
@@ -81,5 +90,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   login() {
     this.router.navigate(['/login']);
+  }
+
+  onToggleAdminMode() {
+    this.adminModeService.toggle();
   }
 }

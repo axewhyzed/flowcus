@@ -37,7 +37,7 @@ export class LoginPage implements OnInit {
           name: this.name
         };
         const res = await this.authService.register(registerData);
-        localStorage.setItem('auth_token', res.token);
+        sessionStorage.setItem('auth_token', res.token);
         this.router.navigate(['/dashboard']);
       } else {
         const loginData: LoginRequest = {
@@ -45,7 +45,7 @@ export class LoginPage implements OnInit {
           password: this.password
         };
         const res = await this.authService.login(loginData);
-        localStorage.setItem('auth_token', res.token);
+        sessionStorage.setItem('auth_token', res.token);
         this.router.navigate(['/dashboard']);
       }
     } catch (err) {

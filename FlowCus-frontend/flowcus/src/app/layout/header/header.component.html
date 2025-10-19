@@ -2,174 +2,160 @@
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between items-center h-16">
       @if (isLoggedIn) {
-        <!-- Logged In Layout -->
-        <!-- Logo -->
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-700 to-blue-600 bg-clip-text text-transparent">
-              FlowCus
-            </h1>
-          </div>
-
-          <!-- Desktop Navigation -->
-          <nav class="hidden md:ml-10 md:flex md:space-x-1">
-            <a 
-              routerLink="/dashboard" 
-              routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
-              [routerLinkActiveOptions]="{exact: false}"
-              class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none"
-            >
-              Dashboard
-            </a>
-            <a 
-              routerLink="/tasks" 
-              routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
-              [routerLinkActiveOptions]="{exact: false}"
-              class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none"
-            >
-              Tasks
-            </a>
-            <a 
-              routerLink="/task-types" 
-              routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
-              [routerLinkActiveOptions]="{exact: false}"
-              class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none"
-            >
-              Types
-            </a>
-            <a 
-              routerLink="/timetables" 
-              routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
-              [routerLinkActiveOptions]="{exact: false}"
-              class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none"
-            >
-              Timetables
-            </a>
-            <a 
-              routerLink="/user" 
-              routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
-              [routerLinkActiveOptions]="{exact: false}"
-              class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none"
-            >
-              Profile
-            </a>
-          </nav>
-        </div>
-
-        <!-- User Menu -->
-        <div class="hidden md:flex md:items-center md:space-x-4">
-          @if (username) {
-            <span class="text-sm text-gray-700">
-              Hello, <span class="font-medium text-gray-900">{{ username }}</span>
-            </span>
-          }
-          <button 
-            (click)="logout()" 
-            class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm"
-          >
-            Logout
-          </button>
-        </div>
-
-        <!-- Mobile Menu Button -->
-        <div class="md:hidden">
-          <button 
-            (click)="toggleMenu()" 
-            class="p-2 rounded-lg text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-            aria-label="Toggle menu"
-          >
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              @if (!isMenuOpen) {
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-              } @else {
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              }
-            </svg>
-          </button>
-        </div>
-      } @else {
-        <!-- Not Logged In Layout - Centered Logo -->
-        <div class="flex-1"></div>
+      <!-- Logged In Layout -->
+      <!-- Logo -->
+      <div class="flex items-center">
         <div class="flex-shrink-0">
-          <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-700 to-blue-600 bg-clip-text text-transparent">
+          <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-700 to-blue-600 bg-clip-text text-transparent">
             FlowCus
           </h1>
         </div>
-        <div class="flex-1 flex justify-end">
-          <button 
-            (click)="login()" 
-            class="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800 transition-colors shadow-sm"
-          >
-            Log In
-          </button>
+
+        <!-- Desktop Navigation -->
+        <nav class="hidden md:ml-10 md:flex md:space-x-1">
+          <a routerLink="/dashboard" routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
+            [routerLinkActiveOptions]="{exact: false}"
+            class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none">
+            Dashboard
+          </a>
+          <a routerLink="/tasks" routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
+            [routerLinkActiveOptions]="{exact: false}"
+            class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none">
+            Tasks
+          </a>
+          <a routerLink="/task-types" routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
+            [routerLinkActiveOptions]="{exact: false}"
+            class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none">
+            Types
+          </a>
+          <a routerLink="/timetables" routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
+            [routerLinkActiveOptions]="{exact: false}"
+            class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none">
+            Timetables
+          </a>
+          <a routerLink="/user" routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
+            [routerLinkActiveOptions]="{exact: false}"
+            class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none">
+            Profile
+          </a>
+          @if (isAdmin) {
+          <a routerLink="/admin/users" routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
+            [routerLinkActiveOptions]="{exact: false}"
+            class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none">
+            User Management
+          </a>
+          }
+        </nav>
+      </div>
+
+      <!-- User Menu -->
+      <div class="hidden md:flex md:items-center md:space-x-4">
+        @if (username) {
+        <span class="text-sm text-gray-700">
+          Hello, <span class="font-medium text-gray-900">{{ username }}</span>
+        </span>
+        }
+
+        @if (isAdmin) {
+        <div class="flex items-center space-x-2">
+          <label class="text-sm text-gray-700">Admin Mode</label>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" class="sr-only peer" [checked]="isAdminMode" (change)="onToggleAdminMode()" />
+            <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full
+           peer dark:bg-gray-600 peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px]
+           after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5
+           after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white">
+            </div>
+          </label>
         </div>
+        }
+
+        <button (click)="logout()"
+          class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm">
+          Logout
+        </button>
+      </div>
+
+      <!-- Mobile Menu Button -->
+      <div class="md:hidden">
+        <button (click)="toggleMenu()"
+          class="p-2 rounded-lg text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          aria-label="Toggle menu">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            @if (!isMenuOpen) {
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            } @else {
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            }
+          </svg>
+        </button>
+      </div>
+      } @else {
+      <!-- Not Logged In Layout - Centered Logo -->
+      <div class="flex-1"></div>
+      <div class="flex-shrink-0">
+        <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-700 to-blue-600 bg-clip-text text-transparent">
+          FlowCus
+        </h1>
+      </div>
+      <div class="flex-1 flex justify-end">
+        <button (click)="login()"
+          class="px-4 py-2 bg-blue-700 text-white text-sm font-medium rounded-lg hover:bg-blue-800 transition-colors shadow-sm">
+          Log In
+        </button>
+      </div>
       }
     </div>
 
     <!-- Mobile Navigation (Only when logged in) -->
     @if (isMenuOpen && isLoggedIn) {
-      <div class="md:hidden border-t border-gray-200 py-3 space-y-1">
-        <a 
-          routerLink="/dashboard" 
-          routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
-          [routerLinkActiveOptions]="{exact: false}"
-          (click)="closeMenu()" 
-          class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none"
-        >
-          Dashboard
-        </a>
-        <a 
-          routerLink="/tasks" 
-          routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
-          [routerLinkActiveOptions]="{exact: false}"
-          (click)="closeMenu()" 
-          class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none"
-        >
-          Tasks
-        </a>
-        <a 
-          routerLink="/task-types" 
-          routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
-          [routerLinkActiveOptions]="{exact: false}"
-          (click)="closeMenu()" 
-          class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none"
-        >
-          Types
-        </a>
-        <a 
-          routerLink="/timetables" 
-          routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
-          [routerLinkActiveOptions]="{exact: false}"
-          (click)="closeMenu()" 
-          class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none"
-        >
-          Timetables
-        </a>
-        <a 
-          routerLink="/user" 
-          routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
-          [routerLinkActiveOptions]="{exact: false}"
-          (click)="closeMenu()" 
-          class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none"
-        >
-          Profile
-        </a>
+    <div class="md:hidden border-t border-gray-200 py-3 space-y-1">
+      <a routerLink="/dashboard" routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
+        [routerLinkActiveOptions]="{exact: false}" (click)="closeMenu()"
+        class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none">
+        Dashboard
+      </a>
+      <a routerLink="/tasks" routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
+        [routerLinkActiveOptions]="{exact: false}" (click)="closeMenu()"
+        class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none">
+        Tasks
+      </a>
+      <a routerLink="/task-types" routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
+        [routerLinkActiveOptions]="{exact: false}" (click)="closeMenu()"
+        class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none">
+        Types
+      </a>
+      <a routerLink="/timetables" routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
+        [routerLinkActiveOptions]="{exact: false}" (click)="closeMenu()"
+        class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none">
+        Timetables
+      </a>
+      <a routerLink="/user" routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
+        [routerLinkActiveOptions]="{exact: false}" (click)="closeMenu()"
+        class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none">
+        Profile
+      </a>
+      @if (isAdmin) {
+      <a routerLink="/admin/users" routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
+        [routerLinkActiveOptions]="{exact: false}" (click)="closeMenu()"
+        class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none">
+        User Management
+      </a>
+      }
 
-        <!-- Mobile Logout Button -->
-        <div class="px-4 pt-3 border-t border-gray-200">
-          @if (username) {
-            <p class="text-sm text-gray-700 mb-3">
-              Hello, <span class="font-medium text-gray-900">{{ username }}</span>
-            </p>
-          }
-          <button 
-            (click)="logout(); closeMenu()" 
-            class="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm"
-          >
-            Logout
-          </button>
-        </div>
+      <!-- Mobile Logout Button -->
+      <div class="px-4 pt-3 border-t border-gray-200">
+        @if (username) {
+        <p class="text-sm text-gray-700 mb-3">
+          Hello, <span class="font-medium text-gray-900">{{ username }}</span>
+        </p>
+        }
+        <button (click)="logout(); closeMenu()"
+          class="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm">
+          Logout
+        </button>
       </div>
+    </div>
     }
   </div>
 </header>

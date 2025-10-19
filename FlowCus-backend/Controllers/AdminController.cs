@@ -32,7 +32,7 @@ namespace FlowCus.Controllers
         {
             try
             {
-                string sql = "SELECT id, username, name, created_on FROM userlist WHERE is_deleted = FALSE ORDER BY created_on DESC";
+                string sql = "SELECT id, username, name, created_on, is_admin FROM userlist ORDER BY created_on DESC";
                 var dt = await _dbHelper.GetTableAsync(sql);
                 var users = new List<object>();
                 foreach (DataRow row in dt.Rows)
@@ -42,7 +42,8 @@ namespace FlowCus.Controllers
                         Id = Convert.ToInt32(row["id"]),
                         Username = row["username"] == DBNull.Value ? null : row["username"]?.ToString(),
                         Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
-                        CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"]
+                        CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"],
+                        isAdmin = row["is_admin"] != DBNull.Value && Convert.ToBoolean(row["is_admin"])
                     });
                 }
                 return Ok(users);

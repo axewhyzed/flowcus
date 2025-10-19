@@ -84,6 +84,56 @@ namespace FlowCus.Controllers
             }
         }
 
+        // POST api/admin/users
+        [HttpPost("users")]
+        public async Task<IActionResult> CreateUser([FromBody] UserCreateRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Username))
+                return BadRequest(new { error = "Username is required" });
+
+            try
+            {
+                // Check if username already exists
+                string checkSql = "SELECT COUNT(*) FROM userlist WHERE username = @username";
+                var count = Convert.ToInt32(await _dbHelper.GetValueAsync(checkSql, new NpgsqlParameter("@username", request.Username)));
+                if (count > 0)
+                    return Conflict(new { error = "Username already exists" });
+
+                // Insert new user
+                string insertSql = @"
+                    INSERT INTO userlist (username, name, is_admin, created_on)
+                    VALUES (@username, @name, @isAdmin, now())
+                    RETURNING id, username, name, created_on
+                ";
+
+                var dt = await _dbHelper.GetTableAsync(insertSql,
+                    new NpgsqlParameter("@username", request.Username),
+                    new NpgsqlParameter("@name", (object?)request.Name ?? DBNull.Value),
+                    new NpgsqlParameter("@isAdmin", request.IsAdmin)
+                );
+
+                if (dt.Rows.Count == 1)
+                {
+                    var row = dt.Rows[0];
+                    return Ok(new
+                    {
+                        Id = Convert.ToInt32(row["id"]),
+                        Username = row["username"]?.ToString(),
+                        Name = row["name"]?.ToString(),
+                        CreatedOn = (DateTime)row["created_on"],
+                        isAdmin = row["is_admin"] != DBNull.Value && Convert.ToBoolean(row["is_admin"])
+                    });
+                }
+
+                return StatusCode(500, new { error = "Failed to create user" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating user");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
         private int GetCurrentUserId()
         {
             var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
@@ -95,5 +145,13 @@ namespace FlowCus.Controllers
     public class UpdateUserRequest
     {
         public string Name { get; set; } = "";
+    }
+
+    // DTO for user creation
+    public class UserCreateRequest
+    {
+        public string Username { get; set; } = null!;
+        public string? Name { get; set; }
+        public bool IsAdmin { get; set; } = false;
     }
 }
