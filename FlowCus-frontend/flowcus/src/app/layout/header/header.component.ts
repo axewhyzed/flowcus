@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule, NavigationEnd } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { filter, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { AdminModeService } from '../../core/services/admin-mode.service';
 
 @Component({
@@ -15,56 +15,59 @@ export class HeaderComponent implements OnInit, OnDestroy {
   isMenuOpen = false;
   username: string | null = null;
   isLoggedIn = false;
-  private routerSubscription?: Subscription;
-  isAdmin = false;          // backend verified
-  isAdminMode = false;      // frontend switch state (from service)
+  
+  isAdmin = false;
+  isAdminMode = false;
 
-  constructor(private router: Router, private authService: AuthService, private adminModeService: AdminModeService) { }
+  private authSubscription?: Subscription;
+  private adminModeSubscription?: Subscription;
+
+  constructor(
+    private router: Router, 
+    private authService: AuthService, 
+    private adminModeService: AdminModeService
+  ) { }
 
   ngOnInit() {
-    // Check auth status on initialization
-    this.checkAuthStatus();
+    // 1. Reactive Subscription
+    this.authSubscription = this.authService.isAuthenticated$.subscribe(isAuthenticated => {
+      this.isLoggedIn = isAuthenticated;
+      
+      if (isAuthenticated) {
+        this.loadUser();
+      } else {
+        this.username = null;
+        this.isAdmin = false;
+      }
+    });
 
-    this.adminModeService.adminMode$.subscribe(value => {
+    // 2. Admin Mode Subscription
+    this.adminModeSubscription = this.adminModeService.adminMode$.subscribe(value => {
       this.isAdminMode = value;
     });
 
-    // Subscribe to router events to update header after navigation
-    this.routerSubscription = this.router.events
-      .pipe(filter(event => event instanceof NavigationEnd))
-      .subscribe(() => {
-        this.checkAuthStatus();
-      });
+    // 3. Initial Check: ONLY if we don't know the state yet.
+    // This prevents redundant API calls immediately after a successful login.
+    if (!this.authService.isAuthenticated) {
+      this.authService.checkAuthStatus();
+    }
   }
 
   ngOnDestroy() {
-    // Clean up subscription
-    if (this.routerSubscription) {
-      this.routerSubscription.unsubscribe();
-    }
-  }
-
-  checkAuthStatus() {
-    const token = sessionStorage.getItem('auth_token');
-    this.isLoggedIn = !!token;
-
-    if (token) {
-      this.loadUser();
-    } else {
-      this.username = null;
-    }
+    if (this.authSubscription) this.authSubscription.unsubscribe();
+    if (this.adminModeSubscription) this.adminModeSubscription.unsubscribe();
   }
 
   async loadUser() {
     try {
       const res = await this.authService.me();
-      this.username = res.user?.name || res.user?.username || null;
-      this.isAdmin = res.isAdmin;          // ✅ backend verified
-      this.isAdminMode = this.adminModeService.isAdminMode; // get initial switch state
+      this.username = res.user?.name || res.user?.username || 'User';
+      this.isAdmin = res.isAdmin;
+      this.isAdminMode = this.adminModeService.isAdminMode; 
     } catch (error) {
       console.error('Error loading user:', error);
-      this.username = null;
-      this.isLoggedIn = false;
+      // Note: We don't manually redirect here because the ApiService 
+      // interceptor will handle the 401/Redirect if the session is truly dead.
     }
   }
 
@@ -79,9 +82,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
   async logout() {
     try {
       await this.authService.logout();
-      sessionStorage.removeItem('auth_token');
-      this.isLoggedIn = false;
-      this.username = null;
       this.router.navigate(['/login']);
     } catch (error) {
       console.error('Error logging out:', error);

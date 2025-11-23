@@ -1,22 +1,31 @@
 import { Injectable } from '@angular/core';
-import { CanActivate, Router, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
+import { CanActivate, Router, ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthGuard implements CanActivate {
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private authService: AuthService
+  ) {}
 
-  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean {
-    const token = sessionStorage.getItem('auth_token');
+  async canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Promise<boolean | UrlTree> {
     
-    if (token) {
-      // TODO: Add token validation logic here
+    // 1. Optimistic Check: If we already know they are logged in (from previous in-memory state)
+    if (this.authService.isAuthenticated) {
       return true;
     }
 
-    // Redirect to login page
-    this.router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
-    return false;
+    // 2. Verification Check: If state is false/unknown (e.g. page refresh), verify cookie with backend
+    const isValid = await this.authService.checkAuthStatus();
+    
+    if (isValid) {
+      return true;
+    }
+
+    // 3. Not Authenticated: Redirect to login
+    return this.router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
   }
 }

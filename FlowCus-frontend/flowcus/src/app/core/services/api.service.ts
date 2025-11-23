@@ -18,23 +18,19 @@ export class ApiService {
     this.axiosInstance = axios.create({
       baseURL: environment.apiUrl,
       timeout: 30000,
-      withCredentials: true, // <--- CRITICAL: Allows sending Cookies (Refresh Token)
+      withCredentials: true, // <--- CRITICAL: Browser automatically handles Cookies
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
     });
 
-    // 1. Request Interceptor: Attach Access Token
+    // Request Interceptor: Pass-through (Cookies are automatic)
     this.axiosInstance.interceptors.request.use((config) => {
-      const token = sessionStorage.getItem('auth_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
       return config;
     });
 
-    // 2. Response Interceptor: Handle 401 & Refresh
+    // Response Interceptor: Handle 401 & Refresh
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
@@ -42,32 +38,23 @@ export class ApiService {
 
         // If 401 Unauthorized and we haven't retried yet
         if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('auth/refresh-token')) {
-          originalRequest._retry = true; // Mark as retried to prevent infinite loops
+          originalRequest._retry = true;
 
           try {
-            // Attempt to refresh the token
-            // Note: We use the internal instance to call the backend
-            const refreshResponse = await this.axiosInstance.post<AuthResponse>('auth/refresh-token');
+            // 1. Attempt to refresh (Browser sends Refresh Cookie, Backend sets new Access Cookie)
+            await this.axiosInstance.post<AuthResponse>('auth/refresh-token');
             
-            // If success, get new token
-            const newToken = refreshResponse.data.token;
-            sessionStorage.setItem('auth_token', newToken);
-
-            // Update Authorization header for the retry
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-
-            // Retry the original request
+            // 2. Retry the original request
+            // We do NOT manually attach headers; the browser attaches the new cookie automatically.
             return this.axiosInstance(originalRequest);
 
           } catch (refreshError) {
-            // If refresh failed (Cookie expired or invalid), logout user
-            sessionStorage.removeItem('auth_token');
+            // If refresh fails (Cookie expired), redirect to login
             this.router.navigate(['/login']);
             return Promise.reject(refreshError);
           }
         }
 
-        // For all other errors (or if refresh failed), show error message
         this.errorHandler.handleError(error);
         return Promise.reject(error);
       }

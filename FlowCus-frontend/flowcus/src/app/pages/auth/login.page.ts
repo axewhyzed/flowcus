@@ -1,10 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { 
-  ReactiveFormsModule, 
-  FormBuilder, 
-  FormGroup, 
-  Validators 
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  Validators
 } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -33,7 +33,7 @@ export class LoginPage implements OnInit {
     });
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void { }
 
   isFieldInvalid(fieldName: string): boolean {
     const field = this.loginForm.get(fieldName);
@@ -49,14 +49,19 @@ export class LoginPage implements OnInit {
     this.isLoading = true;
     this.errorMessage = null;
     const { username, password } = this.loginForm.value;
-debugger;
+
     try {
       await this.authService.login({ username, password });
-      this.router.navigate(['/dashboard']);
+      const navSuccess = await this.router.navigate(['/dashboard']);
+      debugger
+      // Optional: If navigation failed (e.g. guard rejection), stop loading
+      if (!navSuccess) {
+        this.isLoading = false;
+      }
+
     } catch (err: any) {
       this.errorMessage = err?.error?.message || 'Invalid username or password. Please try again.';
-    } finally {
-      //this.isLoading = false;
+      this.isLoading = false; // Only stop loading on error
     }
   }
 }
