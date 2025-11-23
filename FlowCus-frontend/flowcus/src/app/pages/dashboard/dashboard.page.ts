@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { DashboardService } from '../../core/services/dashboard.service'
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 
 interface TimetableSlot {
   id: number;
@@ -23,14 +24,14 @@ export class DashboardPage implements OnInit {
   processedTimetable: TimetableSlot[] = [];
   todayDate: Date = new Date();
 
-  constructor(private dashboardService: DashboardService) {}
+  constructor(private dashboardService: DashboardService, private router: Router) {}
 
   ngOnInit(): void {
     this.loadDashboard();
   }
 
   async loadDashboard() {
-    this.dashboardData = await this.dashboardService.getDashboardData();
+    this.dashboardData = await this.dashboardService.getDashboardStats();
     if (this.dashboardData?.todayTimetable) {
       this.processedTimetable = this.processTimetableData(this.dashboardData.todayTimetable);
     }
@@ -76,5 +77,10 @@ export class DashboardPage implements OnInit {
     if (hour < 21) return 'Evening';
     return 'Night';
   }
+
+  quickAddTask() {
+  // Navigate to tasks page and trigger the modal via query param
+  this.router.navigate(['/tasks'], { queryParams: { action: 'create' } });
+}
   // try to start using primeng in later versions - not now - ignore this comment
 }

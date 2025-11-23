@@ -1,43 +1,68 @@
 <div class="min-h-screen bg-gray-50 p-4 md:p-6">
   <div class="max-w-7xl mx-auto">
-    <!-- Header -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-      <div class="flex items-center justify-between">
+    
+    <div class="bg-white rounded-xl shadow-sm border border-zinc-200 p-4 mb-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">Tasks</h1>
-          <p class="text-sm text-gray-500 mt-1">Manage your tasks and activities</p>
+          <h1 class="text-xl font-bold text-zinc-900">My Tasks</h1>
+          <p class="text-sm text-zinc-500">{{ filteredTasks.length }} tasks found</p>
         </div>
-        <button
-          (click)="openTaskForm()"
-          class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <span>+</span>
-          <span>Add Task</span>
-        </button>
+
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="relative">
+            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm"></i>
+            <input type="text" [(ngModel)]="searchQuery" placeholder="Search tasks..." 
+              class="pl-9 pr-3 py-2 w-full sm:w-48 rounded-lg border border-zinc-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow">
+          </div>
+
+          <select [(ngModel)]="selectedCategoryId" 
+            class="px-3 py-2 rounded-lg border border-zinc-300 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer">
+            <option [ngValue]="null">All Categories</option>
+            @for (category of categories; track category.id) {
+              <option [ngValue]="category.id">{{ category.name }}</option>
+            }
+          </select>
+
+          <select [(ngModel)]="sortBy" 
+            class="px-3 py-2 rounded-lg border border-zinc-300 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="priority">Priority</option>
+          </select>
+
+          <button (click)="openTaskForm()" 
+            class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap flex items-center justify-center gap-2 shadow-sm">
+            <i class="fa-solid fa-plus"></i> <span>Add Task</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Task List -->
-    @if (tasks.length === 0) {
+    @if (filteredTasks.length === 0) {
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
         <div class="text-gray-400 mb-4">
           <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
           </svg>
         </div>
-        <p class="text-gray-500 mb-4">No tasks yet</p>
-        <button
-          (click)="openTaskForm()"
-          class="text-blue-700 hover:text-blue-800 font-medium"
-        >
-          Create your first task
-        </button>
+        @if (tasks.length === 0) {
+          <p class="text-gray-500 mb-4">No tasks yet</p>
+          <button (click)="openTaskForm()" class="text-blue-700 hover:text-blue-800 font-medium">
+            Create your first task
+          </button>
+        } @else {
+          <p class="text-gray-500">No tasks match your filters</p>
+          <button (click)="searchQuery = ''; selectedCategoryId = null" class="text-blue-700 hover:text-blue-800 font-medium mt-2">
+            Clear filters
+          </button>
+        }
       </div>
     } @else {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        @for (task of tasks; track task.taskId) {
-          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow">
-            <!-- Task Header -->
+        @for (task of filteredTasks; track task.taskId) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow group relative">
+            
             <div class="flex items-start justify-between mb-3">
               <div class="flex-1 min-w-0">
                 <h3 class="text-base font-semibold text-gray-900 truncate">
@@ -51,7 +76,6 @@
               </div>
             </div>
 
-            <!-- Category and Subcategory -->
             <div class="flex flex-wrap gap-2 mb-3">
               <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                 {{ categoryNameById(task.taskCategoryId) }}
@@ -63,23 +87,18 @@
               }
             </div>
 
-            <!-- Time Information -->
             @if (task.startTime || task.endTime) {
               <div class="bg-gray-50 rounded-lg p-3 mb-3 space-y-1">
                 @if (task.startTime) {
                   <div class="flex items-center gap-2 text-xs text-gray-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
+                    <i class="fa-regular fa-clock text-zinc-400"></i>
                     <span class="font-medium">Start:</span>
                     <span>{{ formatDateTime(task.startTime) }}</span>
                   </div>
                 }
                 @if (task.endTime) {
                   <div class="flex items-center gap-2 text-xs text-gray-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
+                    <i class="fa-solid fa-flag-checkered text-zinc-400"></i>
                     <span class="font-medium">End:</span>
                     <span>{{ formatDateTime(task.endTime) }}</span>
                   </div>
@@ -87,8 +106,7 @@
               </div>
             }
 
-            <!-- Action Buttons -->
-            <div class="flex gap-2 pt-2 border-t border-gray-100">
+            <div class="flex gap-2 pt-2 border-t border-gray-100 mt-auto">
               <button
                 (click)="openTaskForm(task)"
                 class="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
@@ -97,7 +115,7 @@
               </button>
               <button
                 (click)="deleteTask(task.taskId)"
-                class="flex-1 px-3 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                class="flex-1 px-3 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
               >
                 Delete
               </button>
@@ -109,56 +127,42 @@
   </div>
 </div>
 
-<!-- Task Form Modal -->
 @if (showTaskForm) {
   <div
-    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
     (click)="closeTaskForm()"
   >
     <div 
-      class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+      class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all"
       (click)="$event.stopPropagation()"
     >
-      <!-- Modal Header -->
-      <div class="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-lg z-10">
+      <div class="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl z-10 flex justify-between items-center">
         <h3 class="text-xl font-bold text-gray-900">
-          {{ editingTask ? 'Edit Task' : 'Add Task' }}
+          {{ editingTask ? 'Edit Task' : 'New Task' }}
         </h3>
+        <button (click)="closeTaskForm()" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
       </div>
 
-      <!-- Modal Body -->
-      <div class="p-6 space-y-4">
-        <!-- Title -->
+      <div class="p-6 space-y-5">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Title *</label>
-          <input
-            type="text"
-            [(ngModel)]="newTask.title"
-            placeholder="Enter task title"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-          />
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Title *</label>
+          <input type="text" [(ngModel)]="newTask.title" placeholder="What needs to be done?"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
         </div>
 
-        <!-- Description -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <textarea
-            [(ngModel)]="newTask.description"
-            placeholder="Enter task description"
-            rows="3"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
-          ></textarea>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+          <textarea [(ngModel)]="newTask.description" placeholder="Add details..." rows="3"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"></textarea>
         </div>
 
-        <!-- Category and Subcategory Row -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Category -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-            <select
-              [(ngModel)]="newTask.taskCategoryId"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
-            >
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Category *</label>
+            <select [(ngModel)]="newTask.taskCategoryId"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white">
               <option [ngValue]="0" disabled>Select category</option>
               @for (category of categories; track category.id) {
                 <option [ngValue]="category.id">{{ category.name }}</option>
@@ -166,14 +170,11 @@
             </select>
           </div>
 
-          <!-- Subcategory -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Subcategory (Optional)</label>
-            <select
-              [(ngModel)]="newTask.taskSubtypeId"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
-              [disabled]="!newTask.taskCategoryId || newTask.taskCategoryId === 0"
-            >
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subcategory</label>
+            <select [(ngModel)]="newTask.taskSubtypeId"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+              [disabled]="!newTask.taskCategoryId || newTask.taskCategoryId === 0">
               <option [ngValue]="null">None</option>
               @for (subcat of getSubcategoriesByCategory(newTask.taskCategoryId); track subcat.id) {
                 <option [ngValue]="subcat.id">{{ subcat.name }}</option>
@@ -182,43 +183,29 @@
           </div>
         </div>
 
-        <!-- Time Row -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Start Time -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
-            <input
-              type="datetime-local"
-              [(ngModel)]="newTask.startTime"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-            />
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Start Time</label>
+            <input type="datetime-local" [(ngModel)]="newTask.startTime"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
           </div>
 
-          <!-- End Time -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">End Time</label>
-            <input
-              type="datetime-local"
-              [(ngModel)]="newTask.endTime"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-            />
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">End Time</label>
+            <input type="datetime-local" [(ngModel)]="newTask.endTime"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
           </div>
         </div>
       </div>
 
-      <!-- Modal Footer -->
-      <div class="sticky bottom-0 bg-white border-t border-gray-200 p-6 rounded-b-lg flex gap-3 justify-end">
-        <button
-          (click)="closeTaskForm()"
-          class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-        >
+      <div class="sticky bottom-0 bg-white border-t border-gray-200 p-6 rounded-b-xl flex gap-3 justify-end">
+        <button (click)="closeTaskForm()"
+          class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
           Cancel
         </button>
-        <button
-          (click)="saveTask()"
-          class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm"
-        >
-          {{ editingTask ? 'Update' : 'Add Task' }}
+        <button (click)="saveTask()"
+          class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium">
+          {{ editingTask ? 'Save Changes' : 'Create Task' }}
         </button>
       </div>
     </div>

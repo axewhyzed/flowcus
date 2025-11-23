@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TimetableService } from '../../core/services/timetable.service';
@@ -56,6 +56,9 @@ export class TimetablePage implements OnInit {
   loading = false;
   errorMessage = '';
 
+  windowWidth: number = window.innerWidth;
+  activeMobileDayIndex: number = new Date().getDay();
+
   constructor(
     private timetableService: TimetableService,
     private timetableItemService: TimetableItemService,
@@ -82,6 +85,18 @@ export class TimetablePage implements OnInit {
         this.timeSlots.push(time);
       }
     }
+  }
+
+  @HostListener('window:resize', ['$event'])
+  onResize(event: any) {
+    this.windowWidth = event.target.innerWidth;
+  }
+
+  // Helper to map JS Day (0=Sun) to your App Day (0=Mon probably?)
+  // If your app treats 0 as Sunday, this is fine.
+
+  setActiveMobileDay(index: number) {
+    this.activeMobileDayIndex = index;
   }
 
   formatTime24to12(time: { hour: number; minute: number }): string {
@@ -153,7 +168,7 @@ export class TimetablePage implements OnInit {
 
   async loadTimetableItems(timetableId: number): Promise<void> {
     try {
-      const data: any = await this.timetableItemService.get(timetableId);
+      const data: any = await this.timetableItemService.getItems(timetableId);
       this.timetableItems = Array.isArray(data) ? data : [];
     } catch (err: unknown) {
       const error = err as Error;

@@ -7,6 +7,7 @@ import { TaskCategory } from '../../core/models/task-category.model';
 import { TaskCategoryService } from '../../core/services/task-category.service';
 import { TaskSubtypeService } from '../../core/services/task-subtype.service';
 import { TaskSubtype } from '../../core/models/task-subtype.model';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-task',
@@ -30,10 +31,15 @@ export class TaskPage implements OnInit {
   categories: TaskCategory[] = [];
   subcategories: TaskSubtype[] = [];
 
+  searchQuery: string = '';
+  selectedCategoryId: number | null = null; // 0 or null for 'All'
+  sortBy: 'newest' | 'oldest' | 'priority' = 'newest';
+
   constructor(
     private taskService: TaskService,
     private taskCategoryService: TaskCategoryService,
-    private subtypeService: TaskSubtypeService
+    private subtypeService: TaskSubtypeService,
+    private route: ActivatedRoute
   ) { }
 
   async ngOnInit() {
@@ -42,6 +48,12 @@ export class TaskPage implements OnInit {
       this.loadCategories(),
       this.loadSubcategories()
     ]);
+
+    this.route.queryParams.subscribe(params => {
+      if (params['action'] === 'create') {
+        this.openTaskForm();
+      }
+    });
   }
 
   async loadTasks() {
@@ -56,6 +68,24 @@ export class TaskPage implements OnInit {
   async loadSubcategories() {
     const subs = await this.subtypeService.getAll();
     this.subcategories = subs ?? [];
+  }
+
+  // Getters for Filtered Data
+  get filteredTasks() {
+    return this.tasks
+      .filter(task => {
+        const matchesSearch = (task.title?.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          task.description?.toLowerCase().includes(this.searchQuery.toLowerCase()));
+        const matchesCategory = this.selectedCategoryId ? task.taskCategoryId === this.selectedCategoryId : true;
+
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => {
+        if (this.sortBy === 'priority') return (b.priority || 0) - (a.priority || 0);
+        const dateA = new Date(a.createdOn || 0).getTime();
+        const dateB = new Date(b.createdOn || 0).getTime();
+        return this.sortBy === 'newest' ? dateB - dateA : dateA - dateB;
+      });
   }
 
   // Filter subcategories by selected category
