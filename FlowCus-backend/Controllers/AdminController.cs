@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace FlowCus.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/admin")]
     [Authorize(Roles = "Admin")] // SECURITY FIX: Only users with the 'Admin' role can access these endpoints
     public class AdminController : ControllerBase
     {

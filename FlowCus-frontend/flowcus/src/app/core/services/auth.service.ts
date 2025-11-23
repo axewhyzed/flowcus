@@ -1,36 +1,33 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
 import { LoginRequest, RegisterRequest, AuthResponse } from '../models/auth.model';
+import { API_ENDPOINTS } from '../constants/api-endpoints';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class AuthService {
   constructor(private api: ApiService) {}
 
   login(data: LoginRequest) {
-    return this.api.post<AuthResponse>('auth/login', data);
+    return this.api.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, data);
   }
 
-  // NEW: Called by interceptor when 401 happens
   refreshToken() {
-    return this.api.post<AuthResponse>('auth/refresh-token', {});
+    return this.api.post<AuthResponse>(API_ENDPOINTS.AUTH.REFRESH_TOKEN, {});
   }
 
   register(data: RegisterRequest) {
-    return this.api.post<AuthResponse>('auth/register', data);
+    return this.api.post<AuthResponse>(API_ENDPOINTS.AUTH.REGISTER, data);
   }
 
   changePassword(data: any) {
-    return this.api.post<any>('auth/change-password', data);
+    return this.api.post<any>(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, data);
   }
 
   logout() {
-    sessionStorage.removeItem('auth_token'); // Ensure cleanup on explicit logout
-    return this.api.post<any>('auth/logout', {});
+    return this.api.post<any>(API_ENDPOINTS.AUTH.LOGOUT, {});
   }
 
   me() {
-    return this.api.get<any>('auth/me');
+    return this.api.get<any>(API_ENDPOINTS.AUTH.ME);
   }
 }

@@ -6,7 +6,7 @@ using System.Security.Claims;
 namespace FlowCus.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/dashboard")]
     [Authorize]
     public class DashboardController : ControllerBase
     {
@@ -25,6 +25,20 @@ namespace FlowCus.Controllers
 
             var stats = await _service.GetDashboardStatsAsync(userId);
             return Ok(stats);
+        }
+
+        [HttpGet("now")]
+        public async Task<IActionResult> GetCurrentFocus()
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
+
+            var currentItem = await _service.GetActiveFocusAsync(userId);
+
+            if (currentItem == null)
+                return Ok(new { message = "No task scheduled right now. Free time!" });
+
+            return Ok(currentItem);
         }
     }
 }

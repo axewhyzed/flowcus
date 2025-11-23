@@ -7,7 +7,7 @@ using System.Security.Claims;
 namespace FlowCus.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/tasks")]
     [Authorize]
     public class TasksController : ControllerBase
     {

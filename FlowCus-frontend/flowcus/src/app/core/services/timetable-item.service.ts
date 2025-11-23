@@ -1,30 +1,29 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
 import { TimetableItem } from '../models/timetable-item.model';
+import { API_ENDPOINTS } from '../constants/api-endpoints';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class TimetableItemService {
   constructor(private api: ApiService) {}
 
-  getAll() {
-    return this.api.get<TimetableItem[]>('timetableitem');
+  // FIX: Must pass the timetableId to get its items
+  getItems(timetableId: number) {
+    return this.api.get<TimetableItem[]>(`${API_ENDPOINTS.TIMETABLE}/${timetableId}/items`);
   }
 
-  get(id: number) {
-    return this.api.get<TimetableItem>(`timetableitem/${id}`);
-  }
-
+  // Backend: POST api/timetable/items
   create(data: Partial<TimetableItem>) {
-    return this.api.post<TimetableItem>('timetableitem', data);
+    return this.api.post<TimetableItem>(`${API_ENDPOINTS.TIMETABLE}/items`, data);
   }
 
+  // Backend: PUT api/timetable/items/{id}
   update(id: number, data: Partial<TimetableItem>) {
-    return this.api.put<TimetableItem>(`timetableitem/${id}`, data);
+    return this.api.put<TimetableItem>(`${API_ENDPOINTS.TIMETABLE}/items/${id}`, data);
   }
 
+  // Backend: DELETE api/timetable/items/{id}
   delete(id: number) {
-    return this.api.delete<any>(`timetableitem/${id}`);
+    return this.api.delete<any>(`${API_ENDPOINTS.TIMETABLE}/items/${id}`);
   }
 }

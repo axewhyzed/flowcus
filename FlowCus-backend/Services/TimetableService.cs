@@ -53,14 +53,15 @@ namespace FlowCus.Services
 
         public async Task<IEnumerable<TimetableItem>> GetItemsAsync(int timetableId, int userId)
         {
-            // JOIN with task_category to get the 'TaskName' (category name) and Color for display
+            // FIX: Join task_subtypes (s) and use COALESCE to prefer Subtype details if they exist
             string sql = @"
                 SELECT i.*, 
-                       c.name as TaskName, 
-                       c.color_hex as ColorHex 
+                       COALESCE(s.name, c.name) as TaskName, 
+                       COALESCE(s.color_hex, c.color_hex) as ColorHex 
                 FROM timetable_items i
                 JOIN timetables t ON i.timetable_id = t.id
                 LEFT JOIN task_category c ON i.task_category_id = c.id
+                LEFT JOIN task_subtypes s ON i.task_subtype_id = s.id
                 WHERE t.id = @TId AND t.user_id = @UserId AND i.is_deleted = FALSE
                 ORDER BY i.day_of_week, i.start_time";
 
