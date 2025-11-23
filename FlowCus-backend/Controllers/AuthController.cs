@@ -84,16 +84,27 @@ namespace FlowCus.Controllers
         }
 
         [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefreshToken()
+        // Add [FromBody] to accept JSON, but make it nullable so Web requests (which have no body) don't fail
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest? request = null)
         {
+            // 1. Try to get token from Cookie (Web)
             var refreshToken = Request.Cookies["refreshToken"];
+            // 2. If Cookie is missing, try to get from JSON Body (Mobile)
+            if (string.IsNullOrEmpty(refreshToken) && request != null)
+            {
+                refreshToken = request.Token;
+            }
             if (string.IsNullOrEmpty(refreshToken))
                 return Unauthorized(new { message = "Token required" });
 
             try
             {
                 var result = await _authService.RefreshTokenAsync(refreshToken);
-                SetTokenCookie(result.RefreshToken); // Rotate the token
+
+                // Set Cookie for Web (preserves existing behavior)
+                SetTokenCookie(result.RefreshToken);
+
+                // Return result (which now includes RefreshToken in the body for Mobile)
                 return Ok(result);
             }
             catch (Exception ex)
@@ -260,11 +271,12 @@ namespace FlowCus.Controllers
     public class RegisterRequest { public string Username { get; set; } = ""; public string Password { get; set; } = ""; public string? Name { get; set; } }
     public class ChangePasswordRequest { public string CurrentPassword { get; set; } = ""; public string NewPassword { get; set; } = ""; }
     public class ErrorResponse { public string Error { get; set; } = ""; }
+    public class RefreshTokenRequest { public string Token { get; set; } = ""; }
 
     public class AuthResponse
     {
         public string Token { get; set; } = "";
-        [System.Text.Json.Serialization.JsonIgnore]
+        //[System.Text.Json.Serialization.JsonIgnore]
         public string RefreshToken { get; set; } = "";
         public UserDto User { get; set; } = new UserDto();
     }
