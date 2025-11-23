@@ -10,6 +10,7 @@ import { AuthResponse } from '../models/auth.model';
 })
 export class ApiService {
   private axiosInstance: AxiosInstance;
+  private accessToken: string | null = null; // Store Access Token in memory
 
   constructor(
     private errorHandler: ErrorHandlingService,
@@ -18,19 +19,22 @@ export class ApiService {
     this.axiosInstance = axios.create({
       baseURL: environment.apiUrl,
       timeout: 30000,
-      withCredentials: true, // <--- CRITICAL: Browser automatically handles Cookies
+      withCredentials: true, // Allows sending/receiving Cookies (Refresh Token)
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
     });
 
-    // Request Interceptor: Pass-through (Cookies are automatic)
+    // 1. Request Interceptor: Attach Access Token from Memory
     this.axiosInstance.interceptors.request.use((config) => {
+      if (this.accessToken) {
+        config.headers.Authorization = `Bearer ${this.accessToken}`;
+      }
       return config;
     });
 
-    // Response Interceptor: Handle 401 & Refresh
+    // 2. Response Interceptor: Handle 401 & Refresh
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
@@ -38,18 +42,25 @@ export class ApiService {
 
         // If 401 Unauthorized and we haven't retried yet
         if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('auth/refresh-token')) {
-          originalRequest._retry = true;
+          originalRequest._retry = true; // Mark as retried
 
           try {
-            // 1. Attempt to refresh (Browser sends Refresh Cookie, Backend sets new Access Cookie)
-            await this.axiosInstance.post<AuthResponse>('auth/refresh-token');
+            // Attempt to refresh (Browser sends Refresh Cookie)
+            const refreshResponse = await this.axiosInstance.post<AuthResponse>('auth/refresh-token');
             
-            // 2. Retry the original request
-            // We do NOT manually attach headers; the browser attaches the new cookie automatically.
-            return this.axiosInstance(originalRequest);
-
+            // Capture the new Access Token from the response
+            if (refreshResponse.data && refreshResponse.data.token) {
+              this.setAccessToken(refreshResponse.data.token);
+              
+              // Update the Authorization header for the retry
+              originalRequest.headers.Authorization = `Bearer ${this.accessToken}`;
+              
+              // Retry the original request
+              return this.axiosInstance(originalRequest);
+            }
           } catch (refreshError) {
-            // If refresh fails (Cookie expired), redirect to login
+            // If refresh failed, clear everything and redirect
+            this.setAccessToken(null);
             this.router.navigate(['/login']);
             return Promise.reject(refreshError);
           }
@@ -59,6 +70,11 @@ export class ApiService {
         return Promise.reject(error);
       }
     );
+  }
+
+  // Helper to update the token in memory
+  setAccessToken(token: string | null) {
+    this.accessToken = token;
   }
 
   async get<T>(url: string): Promise<T> {

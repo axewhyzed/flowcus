@@ -53,7 +53,6 @@ export class LoginPage implements OnInit {
     try {
       await this.authService.login({ username, password });
       const navSuccess = await this.router.navigate(['/dashboard']);
-      debugger
       // Optional: If navigation failed (e.g. guard rejection), stop loading
       if (!navSuccess) {
         this.isLoading = false;

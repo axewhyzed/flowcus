@@ -10,7 +10,7 @@ export class AuthService {
   private isAuthenticatedSubject = new BehaviorSubject<boolean>(false);
   public isAuthenticated$ = this.isAuthenticatedSubject.asObservable();
 
-  constructor(private api: ApiService) { }
+  constructor(private api: ApiService) {}
 
   // Getter for current value
   get isAuthenticated(): boolean {
@@ -19,6 +19,9 @@ export class AuthService {
 
   login(data: LoginRequest) {
     return this.api.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, data).then(res => {
+      // Store the Access Token in API Service memory
+      this.api.setAccessToken(res.token);
+      
       // Update state on successful login
       this.isAuthenticatedSubject.next(true);
       return res;
@@ -39,6 +42,7 @@ export class AuthService {
 
   logout() {
     return this.api.post<any>(API_ENDPOINTS.AUTH.LOGOUT, {}).then(res => {
+      this.api.setAccessToken(null);
       this.isAuthenticatedSubject.next(false);
       return res;
     });
@@ -48,9 +52,13 @@ export class AuthService {
     return this.api.get<any>(API_ENDPOINTS.AUTH.ME);
   }
 
-  // Method used by AuthGuard to verify cookie validity
   async checkAuthStatus(): Promise<boolean> {
     try {
+      // If we don't have a token in memory yet (e.g., page refresh),
+      // this call will initially fail (401).
+      // The ApiService interceptor will catch it, call /refresh-token,
+      // get a new token, save it, and then retry this 'me()' call.
+      // If that succeeds, we are authenticated.
       await this.me();
       this.isAuthenticatedSubject.next(true);
       return true;
