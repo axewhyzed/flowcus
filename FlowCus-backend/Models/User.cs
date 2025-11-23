@@ -14,19 +14,29 @@ namespace FlowCus.Models
         [Required, MaxLength(50)]
         public string Username { get; set; } = null!;
 
-        // store hashed password here (bcrypt/argon2 output)
+        [Column("password_hash")]
         [Required, MaxLength(255)]
         public string PasswordHash { get; set; } = null!;
 
         [MaxLength(100)]
         public string? Name { get; set; }
 
+        [Column("created_on")]
         public DateTime CreatedOn { get; set; }
-        public int? CreatedBy { get; set; }      // optional: keeping ints for ownership/activity
-        public DateTime? UpdatedOn { get; set; }
-        public int? UpdatedBy { get; set; }
 
-        // Navigation
+        [Column("updated_on")]
+        public DateTime? UpdatedOn { get; set; }
+
+        [Column("failed_attempts")]
+        public int FailedAttempts { get; set; }
+
+        [Column("lockout_until")]
+        public DateTime? LockoutUntil { get; set; }
+
+        [Column("is_admin")]
+        public bool IsAdmin { get; set; }
+
+        // Navigation (Optional, Dapper ignores these unless explicitly mapped)
         public virtual ICollection<TaskSubtype> TaskSubtypes { get; set; } = new List<TaskSubtype>();
         public virtual ICollection<TaskEntity> TaskEntities { get; set; } = new List<TaskEntity>();
         public virtual ICollection<Timetable> Timetables { get; set; } = new List<Timetable>();

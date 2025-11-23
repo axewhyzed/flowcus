@@ -4,7 +4,12 @@ export interface TimetableItem {
   taskCategoryId: number;
   taskSubtypeId?: number | null;
   dayOfWeek: number;
-  startTime: string; // stored as TIME in backend
-  endTime: string;   // stored as TIME in backend
-  isDeleted?: boolean;
+  startTime: string; // Format: "HH:mm:ss"
+  endTime: string;   // Format: "HH:mm:ss"
+  specificDate?: string;
+  isDeleted: boolean;
+
+  // Optional display properties (populated via joins)
+  taskName?: string;
+  colorHex?: string;
 }

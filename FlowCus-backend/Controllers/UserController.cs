@@ -1,11 +1,9 @@
-﻿using FlowCus.Helpers;
-using FlowCus.Models;
+﻿using FlowCus.Models;
+using FlowCus.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 using System;
-using System.Data;
 using System.Threading.Tasks;
 
 namespace FlowCus.Controllers
@@ -15,12 +13,12 @@ namespace FlowCus.Controllers
     [Authorize]
     public class UserController : ControllerBase
     {
-        private readonly DBHelper _dbHelper;
+        private readonly UserService _userService;
         private readonly ILogger<UserController> _logger;
 
-        public UserController(DBHelper dbHelper, ILogger<UserController> logger)
+        public UserController(UserService userService, ILogger<UserController> logger)
         {
-            _dbHelper = dbHelper;
+            _userService = userService;
             _logger = logger;
         }
 
@@ -32,21 +30,17 @@ namespace FlowCus.Controllers
 
             try
             {
-                string sql = "SELECT id, username, name, created_on, updated_on FROM userlist WHERE id = @id LIMIT 1";
-                var p = new NpgsqlParameter("@id", userId);
-                var dt = await _dbHelper.GetTableAsync(sql, p);
-
-                if (dt.Rows.Count == 0)
+                var user = await _userService.GetByIdAsync(userId);
+                if (user == null)
                     return NotFound(new { error = "User not found" });
 
-                var row = dt.Rows[0];
                 return Ok(new
                 {
-                    Id = Convert.ToInt32(row["id"]),
-                    Username = row["username"] == DBNull.Value ? null : row["username"]?.ToString(),
-                    Name = row["name"] == DBNull.Value ? null : row["name"]?.ToString(),
-                    CreatedOn = row["created_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["created_on"],
-                    UpdatedOn = row["updated_on"] == DBNull.Value ? (DateTime?)null : (DateTime)row["updated_on"]
+                    user.Id,
+                    user.Username,
+                    user.Name,
+                    user.CreatedOn,
+                    user.UpdatedOn
                 });
             }
             catch (Exception ex)
@@ -67,11 +61,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                string sql = "UPDATE userlist SET name = @name, updated_on = now() WHERE id = @id AND is_deleted = FALSE";
-                var p1 = new NpgsqlParameter("@name", request.Name.Trim());
-                var p2 = new NpgsqlParameter("@id", userId);
-
-                int rows = await _dbHelper.ExecuteQueryAsync(sql, p1, p2);
+                int rows = await _userService.UpdateNameAsync(userId, request.Name.Trim());
                 if (rows == 1)
                     return Ok(new { message = "Profile updated successfully" });
                 else
@@ -93,35 +83,20 @@ namespace FlowCus.Controllers
 
             try
             {
-                // Check if username already exists
-                string checkSql = "SELECT COUNT(*) FROM userlist WHERE username = @username";
-                var count = Convert.ToInt32(await _dbHelper.GetValueAsync(checkSql, new NpgsqlParameter("@username", request.Username)));
-                if (count > 0)
+                if (await _userService.CheckUsernameExistsAsync(request.Username))
                     return Conflict(new { error = "Username already exists" });
 
-                // Insert new user
-                string insertSql = @"
-                    INSERT INTO userlist (username, name, is_admin, created_on)
-                    VALUES (@username, @name, @isAdmin, now())
-                    RETURNING id, username, name, created_on
-                ";
+                var user = await _userService.CreateUserAsync(request);
 
-                var dt = await _dbHelper.GetTableAsync(insertSql,
-                    new NpgsqlParameter("@username", request.Username),
-                    new NpgsqlParameter("@name", (object?)request.Name ?? DBNull.Value),
-                    new NpgsqlParameter("@isAdmin", request.IsAdmin)
-                );
-
-                if (dt.Rows.Count == 1)
+                if (user != null)
                 {
-                    var row = dt.Rows[0];
                     return Ok(new
                     {
-                        Id = Convert.ToInt32(row["id"]),
-                        Username = row["username"]?.ToString(),
-                        Name = row["name"]?.ToString(),
-                        CreatedOn = (DateTime)row["created_on"],
-                        isAdmin = row["is_admin"] != DBNull.Value && Convert.ToBoolean(row["is_admin"])
+                        user.Id,
+                        user.Username,
+                        user.Name,
+                        user.CreatedOn,
+                        user.IsAdmin
                     });
                 }
 
@@ -138,7 +113,11 @@ namespace FlowCus.Controllers
         {
             var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                           ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-            return int.TryParse(idClaim, out int userId) ? userId : throw new UnauthorizedAccessException("Invalid token");
+
+            if (int.TryParse(idClaim, out int userId))
+                return userId;
+
+            throw new UnauthorizedAccessException("Invalid token");
         }
     }
 
@@ -147,7 +126,6 @@ namespace FlowCus.Controllers
         public string Name { get; set; } = "";
     }
 
-    // DTO for user creation
     public class UserCreateRequest
     {
         public string Username { get; set; } = null!;

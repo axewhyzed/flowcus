@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -16,18 +15,16 @@ namespace FlowCus.Models
 
         public string? Description { get; set; }
 
-        [MaxLength(7)]
+        [Column("color_hex")]
         public string? ColorHex { get; set; }
 
-        [MaxLength(150)]
+        [Column("icon_name")]
         public string? IconName { get; set; }
 
+        [Column("created_on")]
         public DateTime CreatedOn { get; set; }
-        public bool IsDeleted { get; set; }
 
-        // Navigation
-        public virtual ICollection<TaskSubtype> TaskSubtypes { get; set; } = new List<TaskSubtype>();
-        public virtual ICollection<TaskEntity> TaskEntities { get; set; } = new List<TaskEntity>();
-        public virtual ICollection<TimetableItem> TimetableItems { get; set; } = new List<TimetableItem>();
+        [Column("is_deleted")]
+        public bool IsDeleted { get; set; }
     }
 }

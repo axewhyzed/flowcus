@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -11,16 +10,19 @@ namespace FlowCus.Models
         [Key]
         public int Id { get; set; }
 
+        [Column("user_id")]
         public int UserId { get; set; }
-        public virtual User User { get; set; } = null!;
 
-        [Required, MaxLength(100)]
-        public string Name { get; set; } = null!;
+        [Column("name")]
+        public string Name { get; set; } = "";
 
-        public bool IsActive { get; set; }
-        public bool IsDeleted { get; set; }
+        [Column("created_at")]
         public DateTime CreatedAt { get; set; }
 
-        public virtual ICollection<TimetableItem> TimetableItems { get; set; } = new List<TimetableItem>();
+        [Column("is_active")]
+        public bool IsActive { get; set; }
+
+        [Column("is_deleted")]
+        public bool IsDeleted { get; set; }
     }
 }

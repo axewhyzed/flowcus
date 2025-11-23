@@ -1,31 +1,48 @@
 using FlowCus.Helpers;
+using FlowCus.Services; //
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Security.Claims; // Needed for ClaimTypes
 
 var builder = WebApplication.CreateBuilder(args);
 
-string[] allowedOrigins = builder.Environment.IsDevelopment() ? new[] { "http://localhost:4200" } : new[] { "https://axewhyzed.github.io" };
+string[] allowedOrigins = builder.Environment.IsDevelopment()
+    ? new[] { "http://localhost:4200" }
+    : new[] { "https://axewhyzed.github.io" };
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("GlobalPolicy", policy =>
     {
-        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // IMPORTANT: Required for sending Cookies (Refresh Token)
     });
 });
-// Add services to the container.
 
 builder.Services.AddControllers();
+
+// Add Services to the container
+builder.Services.AddScoped<DBHelper>();
+builder.Services.AddScoped<AuthService>(); // NEW: Register Auth Service
+
+// NEW SERVICES
+builder.Services.AddScoped<FlowCus.Services.DashboardService>();
+builder.Services.AddScoped<FlowCus.Services.TaskCategoryService>();
+builder.Services.AddScoped<FlowCus.Services.TaskSubtypeService>();
+builder.Services.AddScoped<FlowCus.Services.TaskService>();
+builder.Services.AddScoped<FlowCus.Services.TimetableService>();
+builder.Services.AddScoped<FlowCus.Services.UserService>(); // For profile management
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
-// FAIL FAST if Jwt:Key is missing
 if (string.IsNullOrWhiteSpace(jwtKey))
 {
-    throw new InvalidOperationException("Configuration error: Jwt:Key is missing. Please set it in appsettings or environment.");
+    throw new InvalidOperationException("Configuration error: Jwt:Key is missing.");
 }
 
 builder.Services.AddAuthentication(options =>
@@ -44,20 +61,20 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero,
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+
+        // CRITICAL FIX: Map the standard "role" claim to the framework's Role logic
+        RoleClaimType = ClaimTypes.Role
     };
 });
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache();
 builder.Services.AddLogging();
-builder.Services.AddScoped<DBHelper>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

@@ -12,26 +12,30 @@ namespace FlowCus.Models
         [Key]
         public int Id { get; set; }
 
-        // owner
+        [Column("user_id")]
         public int UserId { get; set; }
         public virtual User User { get; set; } = null!;
 
-        // category bucket
+        [Column("category_id")]
         public int CategoryId { get; set; }
         public virtual TaskCategory Category { get; set; } = null!;
 
         [Required, MaxLength(120)]
         public string Name { get; set; } = null!;
 
+        [Column("color_hex")]
         [MaxLength(7)]
         public string? ColorHex { get; set; }
 
+        [Column("icon_name")]
         [MaxLength(150)]
         public string? IconName { get; set; }
 
+        [Column("created_on")]
         public DateTime CreatedOn { get; set; }
-        public bool IsDeleted { get; set; }
 
+        [Column("is_deleted")]
+        public bool IsDeleted { get; set; }
         // Navigation
         public virtual ICollection<TaskEntity> TaskEntities { get; set; } = new List<TaskEntity>();
         public virtual ICollection<TimetableItem> TimetableItems { get; set; } = new List<TimetableItem>();

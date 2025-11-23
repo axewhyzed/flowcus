@@ -1,10 +1,10 @@
 export interface TaskSubtype {
   id: number;
-  userId: number;
   categoryId: number;
+  userId: number;
   name: string;
-  colorHex?: string | null;
-  iconName?: string | null;
-  createdOn?: string;
-  isDeleted?: boolean;
+  colorHex?: string;
+  iconName?: string;
+  createdOn: string;
+  isDeleted: boolean;
 }

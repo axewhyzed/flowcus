@@ -1,7 +1,10 @@
 export interface User {
   id: number;
   username: string;
-  name?: string | null;
-  createdOn?: string;
+  name?: string;
   isAdmin: boolean;
+  createdOn: string;
+  updatedOn?: string;
+  failedAttempts: number;
+  lockoutUntil?: string;
 }

@@ -2,14 +2,14 @@ export interface Task {
   taskId: number;
   taskCategoryId: number;
   taskSubtypeId?: number | null;
-  title?: string | null;
-  description?: string | null;
-  priority?: number | null;
-  createdOn?: string;
+  title?: string;
+  description?: string;
+  priority?: number;
   createdBy: number;
-  updatedOn?: string | null;
-  startTime?: string | null;
-  endTime?: string | null;
-  durationSeconds?: number | null;
-  isDeleted?: boolean;
+  createdOn: string;
+  updatedOn?: string;
+  startTime?: string;
+  endTime?: string;
+  durationSeconds?: number;
+  isDeleted: boolean;
 }

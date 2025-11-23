@@ -3,6 +3,6 @@ export interface Timetable {
   userId: number;
   name: string;
   isActive: boolean;
-  isDeleted?: boolean;
-  createdAt?: string;
+  createdAt: string;
+  isDeleted: boolean;
 }

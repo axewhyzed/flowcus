@@ -21,8 +21,8 @@ export class TaskPage implements OnInit {
     description: '',
     taskCategoryId: 0,
     taskSubtypeId: null,
-    startTime: null,
-    endTime: null
+    startTime: new Date().toISOString(),  // Set current time as startTime
+    endTime: new Date(new Date().getTime() + 30 * 60000).toISOString()  // Set 30 minutes later as endTime
   };
   editingTask: Task | null = null;
   showTaskForm = false;
@@ -34,7 +34,7 @@ export class TaskPage implements OnInit {
     private taskService: TaskService,
     private taskCategoryService: TaskCategoryService,
     private subtypeService: TaskSubtypeService
-  ) {}
+  ) { }
 
   async ngOnInit() {
     await Promise.all([
@@ -75,8 +75,8 @@ export class TaskPage implements OnInit {
         description: '',
         taskCategoryId: 0,
         taskSubtypeId: null,
-        startTime: null,
-        endTime: null
+        startTime: new Date().toISOString(),  // Set current time as startTime
+        endTime: new Date(new Date().getTime() + 30 * 60000).toISOString()  // Set 30 minutes later as endTime
       };
     }
     this.showTaskForm = true;
@@ -90,8 +90,8 @@ export class TaskPage implements OnInit {
       description: '',
       taskCategoryId: 0,
       taskSubtypeId: null,
-      startTime: null,
-      endTime: null
+      startTime: new Date().toISOString(),  // Set current time as startTime
+      endTime: new Date(new Date().getTime() + 30 * 60000).toISOString()  // Set 30 minutes later as endTime
     };
   }
 

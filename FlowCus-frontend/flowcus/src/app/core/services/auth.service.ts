@@ -12,6 +12,11 @@ export class AuthService {
     return this.api.post<AuthResponse>('auth/login', data);
   }
 
+  // NEW: Called by interceptor when 401 happens
+  refreshToken() {
+    return this.api.post<AuthResponse>('auth/refresh-token', {});
+  }
+
   register(data: RegisterRequest) {
     return this.api.post<AuthResponse>('auth/register', data);
   }
@@ -21,7 +26,8 @@ export class AuthService {
   }
 
   logout() {
-    return this.api.post<any>('auth/logout');
+    sessionStorage.removeItem('auth_token'); // Ensure cleanup on explicit logout
+    return this.api.post<any>('auth/logout', {});
   }
 
   me() {
