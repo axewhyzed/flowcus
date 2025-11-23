@@ -36,5 +36,11 @@ namespace FlowCus.Services
             string sql = "SELECT * FROM task_subtypes WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE";
             return await _db.QuerySingleAsync<TaskSubtype>(sql, new { Id = id, UserId = userId });
         }
+
+        public async Task<IEnumerable<TaskSubtype>> GetAllAsync(int userId)
+        {
+            string sql = "SELECT * FROM task_subtypes WHERE user_id = @UserId AND is_deleted = FALSE ORDER BY name";
+            return await _db.QueryAsync<TaskSubtype>(sql, new { UserId = userId });
+        }
     }
 }

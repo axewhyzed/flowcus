@@ -17,6 +17,6 @@ export class UserService {
   }
 
   updateUser(data: Partial<User>) {
-    return this.api.put<User>('user', data);
+    return this.api.put<User>('users', data);
   }
 }

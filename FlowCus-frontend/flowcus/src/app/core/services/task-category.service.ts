@@ -9,7 +9,7 @@ export class TaskCategoryService {
   constructor(private api: ApiService) {}
 
   getAll() {
-    return this.api.get<TaskCategory[]>('taskcategory');
+    return this.api.get<TaskCategory[]>('task-category');
   }
 
   get(id: number) {

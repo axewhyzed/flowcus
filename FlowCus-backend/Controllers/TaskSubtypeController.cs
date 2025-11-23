@@ -57,5 +57,13 @@ namespace FlowCus.Controllers
             if (subtype == null) return NotFound();
             return Ok(subtype);
         }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var result = await _service.GetAllAsync(userId);
+            return Ok(result);
+        }
     }
 }
