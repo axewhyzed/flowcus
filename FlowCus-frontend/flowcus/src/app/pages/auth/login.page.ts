@@ -1,55 +1,62 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { 
+  ReactiveFormsModule, 
+  FormBuilder, 
+  FormGroup, 
+  Validators 
+} from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { LoginRequest, RegisterRequest } from '../../core/models/auth.model';
-import { ActivatedRoute, Router } from '@angular/router';
-import { FormsModule } from '@angular/forms';
 
 @Component({
+  selector: 'app-login',
   standalone: true,
-  selector: 'app-auth',
+  imports: [CommonModule, ReactiveFormsModule, RouterModule],
   templateUrl: './login.page.html',
-  styleUrls: ['./login.page.css'],
-  imports: [FormsModule]
+  styles: []
 })
 export class LoginPage implements OnInit {
-  username = '';
-  password = '';
-  name = '';
-  isRegister = false; // enabled via ?mode=register
+  loginForm: FormGroup;
+  isLoading = false;
+  errorMessage: string | null = null;
 
   constructor(
+    private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router,
-    private route: ActivatedRoute
-  ) {}
-
-  ngOnInit(): void {
-    const mode = this.route.snapshot.queryParamMap.get('mode');
-    this.isRegister = mode === 'register';
+    private router: Router
+  ) {
+    // strict minimal form: username & password only
+    this.loginForm = this.fb.group({
+      username: ['', [Validators.required]],
+      password: ['', [Validators.required, Validators.minLength(6)]]
+    });
   }
 
-  async submit() {
+  ngOnInit(): void {}
+
+  isFieldInvalid(fieldName: string): boolean {
+    const field = this.loginForm.get(fieldName);
+    return !!(field && field.invalid && (field.dirty || field.touched));
+  }
+
+  async onSubmit(): Promise<void> {
+    if (this.loginForm.invalid) {
+      this.loginForm.markAllAsTouched();
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = null;
+    const { username, password } = this.loginForm.value;
+debugger;
     try {
-      if (this.isRegister) {
-        const registerData: RegisterRequest = {
-          username: this.username,
-          password: this.password,
-          name: this.name
-        };
-        const res = await this.authService.register(registerData);
-        sessionStorage.setItem('auth_token', res.token);
-        this.router.navigate(['/dashboard']);
-      } else {
-        const loginData: LoginRequest = {
-          username: this.username,
-          password: this.password
-        };
-        const res = await this.authService.login(loginData);
-        sessionStorage.setItem('auth_token', res.token);
-        this.router.navigate(['/dashboard']);
-      }
-    } catch (err) {
-      console.error(err);
+      await this.authService.login({ username, password });
+      this.router.navigate(['/dashboard']);
+    } catch (err: any) {
+      this.errorMessage = err?.error?.message || 'Invalid username or password. Please try again.';
+    } finally {
+      //this.isLoading = false;
     }
   }
 }

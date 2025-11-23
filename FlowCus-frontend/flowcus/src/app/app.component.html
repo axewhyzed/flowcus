@@ -1,1 +1,7 @@
+<!-- Global Header (Visible on Login and Dashboard) -->
+<app-header></app-header>
+
+<!-- Global loading spinner: Only shows when isLoading is true -->
+<app-loading-spinner *ngIf="isLoading"></app-loading-spinner>
+
 <router-outlet></router-outlet>
