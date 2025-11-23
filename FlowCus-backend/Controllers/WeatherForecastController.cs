@@ -32,18 +32,5 @@ namespace FlowCus.Controllers
             })
             .ToArray();
         }
-
-        [HttpGet("testdb")]
-        public async Task<IActionResult> TestDb()
-        {
-            bool isConnected = await _dbHelper.TestConnectionAsync();
-            object? result = await _dbHelper.GetValueAsync("select username from userlist");
-            string username = result?.ToString() ?? string.Empty;
-            if (isConnected)
-                return Ok("Database connection successful!" + " username is: " + username);
-            else
-                return StatusCode(500, "Database connection failed.");
-        }
-
     }
 }
