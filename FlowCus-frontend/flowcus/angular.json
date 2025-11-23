@@ -27,9 +27,7 @@
               }
             ],
             "styles": [
-              "src/styles.css",
-              "src/assets/css/app.css",
-              "src/assets/css/bootstrap.min.css"
+              "src/styles.css"
             ],
             "scripts": [],
             "outputMode": "static",
