@@ -1,77 +1,85 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+// src/screens/LoginScreen.tsx
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import tw from 'twrnc';
-import { useDispatch } from 'react-redux';
-import { login } from '../redux/slices/auth'; // Adjust the path as necessary
+import { useDispatch, useSelector } from 'react-redux';
+import { login, clearError } from '../redux/slices/auth';
+import { AppDispatch, RootState } from '../redux/store';
 
-const LoginScreen = () => {
-    const dispatch = useDispatch();
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
+const LoginScreen = ({ navigation }: any) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  
+  const dispatch = useDispatch<AppDispatch>();
+  const { isLoading, error, isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-    const handleLogin = () => {
-        if (!username || !password) {
-            Alert.alert('Error', 'Please enter both username and password.');
-            return;
-        }
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Login Failed', error);
+      dispatch(clearError());
+    }
+    // If authenticated, navigation is usually handled by the RootNavigator 
+    // switching stacks, but explicit nav is fine too.
+  }, [error, isAuthenticated]);
 
-        setLoading(true);
+  const handleLogin = () => {
+    if (!username || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    dispatch(login({ username, password }));
+  };
 
-        // Hardcoded credentials
-        const validUsername = 'admin';
-        const validPassword = 'mihir';
+  return (
+    <View style={tw`flex-1 justify-center px-6 bg-white`}>
+      <Text style={tw`text-3xl font-bold text-center mb-8 text-gray-800`}>
+        Welcome Back!
+      </Text>
 
-        // Simulate authentication process
-        setTimeout(() => {
-            if (username === validUsername && password === validPassword) {
-                dispatch(login({ username }));
-            } else {
-                Alert.alert('Invalid Credentials', 'The username or password is incorrect.');
-            }
-            setLoading(false);
-        }, 1000);
-    };
+      <View style={tw`mb-4`}>
+        <Text style={tw`text-gray-600 mb-2 font-medium`}>Username</Text>
+        <TextInput
+          style={tw`border border-gray-300 p-4 rounded-xl text-lg text-black`}
+          placeholder="Enter your username"
+          placeholderTextColor="#9ca3af"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+        />
+      </View>
 
-    return (
-        <View style={tw`flex-1 justify-center items-center bg-white px-6`}>
-            <Text style={tw`text-2xl font-bold mb-6`}>Welcome Back</Text>
+      <View style={tw`mb-8`}>
+        <Text style={tw`text-gray-600 mb-2 font-medium`}>Password</Text>
+        <TextInput
+          style={tw`border border-gray-300 p-4 rounded-xl text-lg text-black`}
+          placeholder="Enter your password"
+          placeholderTextColor="#9ca3af"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+      </View>
 
-            <View style={tw`w-full mb-4`}>
-                <Text style={tw`text-gray-700 mb-1`}>Username</Text>
-                <TextInput
-                    style={tw`w-full border border-gray-300 rounded px-4 py-2`}
-                    placeholder="Enter your username"
-                    value={username}
-                    onChangeText={setUsername}
-                    autoCapitalize="none"
-                />
-            </View>
+      <TouchableOpacity
+        style={tw`bg-blue-600 p-4 rounded-xl items-center shadow-lg`}
+        onPress={handleLogin}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={tw`text-white text-lg font-bold`}>Log In</Text>
+        )}
+      </TouchableOpacity>
 
-            <View style={tw`w-full mb-6`}>
-                <Text style={tw`text-gray-700 mb-1`}>Password</Text>
-                <TextInput
-                    style={tw`w-full border border-gray-300 rounded px-4 py-2 text-black`}
-                    placeholder="Enter your password"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={true}
-                    autoCapitalize="none"
-                />
-            </View>
-
-
-            <TouchableOpacity
-                style={tw`w-full bg-blue-500 rounded py-3`}
-                onPress={handleLogin}
-                disabled={loading}
-            >
-                <Text style={tw`text-white text-center text-lg`}>
-                    {loading ? 'Logging in...' : 'Login'}
-                </Text>
-            </TouchableOpacity>
-        </View>
-    );
+      <View style={tw`flex-row justify-center mt-6`}>
+        <Text style={tw`text-gray-600`}>Don't have an account? </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+          <Text style={tw`text-blue-600 font-bold`}>Sign Up</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 };
 
 export default LoginScreen;

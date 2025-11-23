@@ -1,32 +1,42 @@
-// store.ts
-import { configureStore } from '@reduxjs/toolkit';
-import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist';
-import { createKeychainStorage } from 'redux-persist-keychain-storage';
-import authReducer from './slices/auth';
+// src/redux/store.ts
+import { configureStore, combineReducers } from '@reduxjs/toolkit';
+import { persistStore, persistReducer } from 'redux-persist';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Initialize keychain storage without arguments
-const keychainStorage = createKeychainStorage();
+// Import Reducers
+import authReducer from './slices/auth';
+import dashboardReducer from './slices/dashboard';
+import tasksReducer from './slices/tasks';
+import categoriesReducer from './slices/categories';
+import timetableReducer from './slices/timetable'; // <--- NEW
+import subtypesReducer from './slices/subtypes';
+
+const rootReducer = combineReducers({
+  auth: authReducer,
+  dashboard: dashboardReducer,
+  tasks: tasksReducer,
+  categories: categoriesReducer,
+  timetable: timetableReducer,
+  subtypes: subtypesReducer,
+});
 
 const persistConfig = {
-  key: 'auth',
-  storage: keychainStorage,
-  keyPrefix: 'com.flowcus.persist.', // Your bundle‑ID style prefix
+  key: 'root',
+  storage: AsyncStorage,
+  whitelist: ['auth'], 
 };
 
-const persistedAuthReducer = persistReducer(persistConfig, authReducer);
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
-  reducer: { auth: persistedAuthReducer },
+  reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: {
-        // Ignore redux-persist action types that contain non-serializable values
-        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
-      },
+      serializableCheck: false,
     }),
 });
 
+export const persistor = persistStore(store);
+
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
-
-export const persistor = persistStore(store);
