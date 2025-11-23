@@ -14,10 +14,14 @@ namespace FlowCus.Models
 
         [Column("user_id")]
         public int UserId { get; set; }
+        
+        [JsonIgnore]
         public virtual User User { get; set; } = null!;
 
         [Column("category_id")]
         public int CategoryId { get; set; }
+
+        [JsonIgnore]
         public virtual TaskCategory Category { get; set; } = null!;
 
         [Required, MaxLength(120)]
