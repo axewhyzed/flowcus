@@ -42,5 +42,14 @@ namespace FlowCus.Controllers
             if (!success) return NotFound(new { message = "Category not found" });
             return Ok(new { message = "Category deleted" });
         }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            // Assuming categories are global, otherwise pass userId
+            var category = await _service.GetByIdAsync(id);
+            if (category == null) return NotFound();
+            return Ok(category);
+        }
     }
 }

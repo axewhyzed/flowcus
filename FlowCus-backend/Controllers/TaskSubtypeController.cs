@@ -44,5 +44,18 @@ namespace FlowCus.Controllers
                 return BadRequest(new { error = "Subtype limit reached for this category." });
             }
         }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            // Extract current user's ID
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            // Pass BOTH id and userId to the service
+            var subtype = await _service.GetByIdAsync(id, userId);
+
+            if (subtype == null) return NotFound();
+            return Ok(subtype);
+        }
     }
 }

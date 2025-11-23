@@ -45,6 +45,12 @@ namespace FlowCus.Services
             return true;
         }
 
+        public async Task<Timetable?> GetByIdAsync(int id, int userId)
+        {
+            string sql = "SELECT * FROM timetables WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE";
+            return await _db.QuerySingleAsync<Timetable>(sql, new { Id = id, UserId = userId });
+        }
+
         public async Task<IEnumerable<TimetableItem>> GetItemsAsync(int timetableId, int userId)
         {
             // JOIN with task_category to get the 'TaskName' (category name) and Color for display

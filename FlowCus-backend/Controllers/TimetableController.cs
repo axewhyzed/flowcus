@@ -48,6 +48,16 @@ namespace FlowCus.Controllers
             return Ok(new { message = "Timetable activated successfully." });
         }
 
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            // You will need to add GetByIdAsync to your TimetableService as well!
+            var timetable = await _service.GetByIdAsync(id, userId);
+            if (timetable == null) return NotFound();
+            return Ok(timetable);
+        }
+
         // --- Timetable Item Endpoints ---
 
         [HttpGet("{timetableId}/items")]

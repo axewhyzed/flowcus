@@ -31,6 +31,10 @@ namespace FlowCus.Services
             return await _db.ExecuteScalarAsync<int>(sql, subtype);
         }
 
-        // Add Delete if needed, following similar pattern
+        public async Task<TaskSubtype?> GetByIdAsync(int id, int userId)
+        {
+            string sql = "SELECT * FROM task_subtypes WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE";
+            return await _db.QuerySingleAsync<TaskSubtype>(sql, new { Id = id, UserId = userId });
+        }
     }
 }

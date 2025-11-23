@@ -45,5 +45,11 @@ namespace FlowCus.Services
             int rows = await _db.ExecuteAsync(sql, new { Id = id, CreatedBy = userId });
             return rows > 0;
         }
+
+        public async Task<TaskEntity?> GetByIdAsync(int id, int userId)
+        {
+            string sql = "SELECT * FROM tasks WHERE task_id = @Id AND created_by = @CreatedBy AND is_deleted = FALSE";
+            return await _db.QuerySingleAsync<TaskEntity>(sql, new { Id = id, CreatedBy = userId });
+        }
     }
 }

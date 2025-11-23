@@ -34,5 +34,11 @@ namespace FlowCus.Services
             int rows = await _db.ExecuteAsync(sql, new { Id = id });
             return rows > 0;
         }
+
+        public async Task<TaskCategory?> GetByIdAsync(int id)
+        {
+            string sql = "SELECT * FROM task_category WHERE id = @Id AND is_deleted = FALSE";
+            return await _db.QuerySingleAsync<TaskCategory>(sql, new { Id = id });
+        }
     }
 }

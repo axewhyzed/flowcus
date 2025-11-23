@@ -54,5 +54,18 @@ namespace FlowCus.Controllers
             if (!success) return NotFound(new { message = "Task not found" });
             return Ok(new { message = "Task deleted" });
         }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            // Extract current user's ID
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            // Pass BOTH id and userId to the service
+            var task = await _service.GetByIdAsync(id, userId);
+
+            if (task == null) return NotFound();
+            return Ok(task);
+        }
     }
 }
