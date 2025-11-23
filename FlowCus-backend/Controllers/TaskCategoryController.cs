@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace FlowCus.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/task-category")]
     [Authorize]
     public class TaskCategoryController : ControllerBase
     {

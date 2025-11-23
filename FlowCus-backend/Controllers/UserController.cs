@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace FlowCus.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/users")]
     [Authorize]
     public class UserController : ControllerBase
     {
@@ -50,6 +50,39 @@ namespace FlowCus.Controllers
             }
         }
 
+        [HttpGet("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetUserById(int id)
+        {
+            return await FetchUserAndRespond(id);
+        }
+
+        // Helper method to avoid code duplication
+        private async Task<IActionResult> FetchUserAndRespond(int userId)
+        {
+            try
+            {
+                var user = await _userService.GetByIdAsync(userId);
+                if (user == null)
+                    return NotFound(new { error = "User not found" });
+
+                return Ok(new
+                {
+                    user.Id,
+                    user.Username,
+                    user.Name,
+                    user.CreatedOn,
+                    user.UpdatedOn,
+                    user.IsAdmin
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching profile for user {UserId}", userId);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
         // PUT api/user
         [HttpPut]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateUserRequest request)
@@ -74,8 +107,9 @@ namespace FlowCus.Controllers
             }
         }
 
-        // POST api/admin/users
-        [HttpPost("users")]
+        // POST api/users
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateUser([FromBody] UserCreateRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Username))
@@ -121,15 +155,6 @@ namespace FlowCus.Controllers
         }
     }
 
-    public class UpdateUserRequest
-    {
-        public string Name { get; set; } = "";
-    }
-
-    public class UserCreateRequest
-    {
-        public string Username { get; set; } = null!;
-        public string? Name { get; set; }
-        public bool IsAdmin { get; set; } = false;
-    }
+    public class UpdateUserRequest { public string Name { get; set; } = ""; }
+    public class UserCreateRequest { public string Username { get; set; } = null!; public string? Name { get; set; } public bool IsAdmin { get; set; } = false; }
 }

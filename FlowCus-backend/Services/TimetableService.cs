@@ -26,6 +26,25 @@ namespace FlowCus.Services
             return await _db.ExecuteScalarAsync<int>(sql, t);
         }
 
+        public async Task<bool> ActivateTimetableAsync(int timetableId, int userId)
+        {
+            // 1. Verify timetable exists and belongs to user
+            string checkSql = "SELECT COUNT(*) FROM timetables WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE";
+            long count = await _db.ExecuteScalarAsync<long>(checkSql, new { Id = timetableId, UserId = userId });
+
+            if (count == 0) return false;
+
+            // 2. Deactivate all timetables for this user first
+            string deactivateSql = "UPDATE timetables SET is_active = FALSE WHERE user_id = @UserId";
+            await _db.ExecuteAsync(deactivateSql, new { UserId = userId });
+
+            // 3. Activate the specific timetable
+            string activateSql = "UPDATE timetables SET is_active = TRUE WHERE id = @Id";
+            await _db.ExecuteAsync(activateSql, new { Id = timetableId });
+
+            return true;
+        }
+
         public async Task<IEnumerable<TimetableItem>> GetItemsAsync(int timetableId, int userId)
         {
             // JOIN with task_category to get the 'TaskName' (category name) and Color for display
@@ -44,7 +63,7 @@ namespace FlowCus.Services
 
         public async Task<int> CreateItemAsync(TimetableItem item)
         {
-            // FIX: Insert ID references, not string names
+            // Note: @TaskSubtypeId will be DBNull if item.TaskSubtypeId is null.
             string sql = @"
                 INSERT INTO timetable_items 
                 (timetable_id, task_category_id, task_subtype_id, day_of_week, start_time, end_time, specific_date, is_deleted)

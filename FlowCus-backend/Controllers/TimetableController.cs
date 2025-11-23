@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace FlowCus.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/timetable")]
     [Authorize]
     public class TimetableController : ControllerBase
     {
@@ -37,6 +37,17 @@ namespace FlowCus.Controllers
             return Ok(new { id });
         }
 
+        [HttpPost("{id}/activate")]
+        public async Task<IActionResult> Activate(int id)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            var success = await _service.ActivateTimetableAsync(id, userId);
+            if (!success) return NotFound(new { message = "Timetable not found." });
+
+            return Ok(new { message = "Timetable activated successfully." });
+        }
+
         // --- Timetable Item Endpoints ---
 
         [HttpGet("{timetableId}/items")]
@@ -51,11 +62,11 @@ namespace FlowCus.Controllers
         [HttpPost("items")]
         public async Task<IActionResult> CreateItem([FromBody] TimetableItem item)
         {
+            // Note: item.TaskSubtypeId is nullable. Dapper handles nulls automatically.
             var id = await _service.CreateItemAsync(item);
             return Ok(new { id });
         }
 
-        // NEW: Add these to support the full frontend service
         [HttpPut("items/{id}")]
         public async Task<IActionResult> UpdateItem(int id, [FromBody] TimetableItem item)
         {

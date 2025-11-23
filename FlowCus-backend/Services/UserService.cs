@@ -33,7 +33,8 @@ namespace FlowCus.Services
         public async Task<bool> CheckUsernameExistsAsync(string username)
         {
             string sql = "SELECT COUNT(*) FROM userlist WHERE username = @Username";
-            int count = Convert.ToInt32(await _db.GetValueAsync(sql, new NpgsqlParameter("@Username", username)));
+            // FIX: PostgreSQL COUNT returns BigInt (Int64), not Int32.
+            long count = await _db.ExecuteScalarAsync<long>(sql, new NpgsqlParameter("@Username", username));
             return count > 0;
         }
 

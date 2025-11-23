@@ -8,7 +8,7 @@ using Npgsql; // for exception handling
 namespace FlowCus.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/task-subtype")]
     [Authorize]
     public class TaskSubtypeController : ControllerBase
     {
