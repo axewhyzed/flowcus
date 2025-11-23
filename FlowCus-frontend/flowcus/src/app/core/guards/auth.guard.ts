@@ -1,3 +1,4 @@
+// src/app/core/guards/auth.guard.ts
 import { Injectable } from '@angular/core';
 import { CanActivate, Router, ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { AuthService } from '../services/auth.service';
@@ -12,20 +13,17 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Promise<boolean | UrlTree> {
-    
-    // 1. Optimistic Check: If we already know they are logged in (from previous in-memory state)
+    // If we already have an authenticated user in memory, allow.
     if (this.authService.isAuthenticated) {
       return true;
     }
 
-    // 2. Verification Check: If state is false/unknown (e.g. page refresh), verify cookie with backend
-    const isValid = await this.authService.checkAuthStatus();
-    
-    if (isValid) {
-      return true;
-    }
+    // Wait for the single page-load restore to complete (will call /me -> refresh if needed)
+    const isValid = await this.authService.initRestoreIfNeeded();
 
-    // 3. Not Authenticated: Redirect to login
+    if (isValid) return true;
+
+    // Not authenticated -> redirect to login
     return this.router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
   }
 }

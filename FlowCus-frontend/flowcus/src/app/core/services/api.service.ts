@@ -1,3 +1,4 @@
+// src/app/core/services/api.service.ts
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
@@ -10,7 +11,7 @@ import { AuthResponse } from '../models/auth.model';
 })
 export class ApiService {
   private axiosInstance: AxiosInstance;
-  private accessToken: string | null = null; // Store Access Token in memory
+  private accessToken: string | null = null; // memory-only
 
   constructor(
     private errorHandler: ErrorHandlingService,
@@ -19,66 +20,85 @@ export class ApiService {
     this.axiosInstance = axios.create({
       baseURL: environment.apiUrl,
       timeout: 30000,
-      withCredentials: true, // Allows sending/receiving Cookies (Refresh Token)
+      withCredentials: true, // important: send cookies (refresh token)
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
     });
 
-    // 1. Request Interceptor: Attach Access Token from Memory
+    // Attach access token from memory (if present)
     this.axiosInstance.interceptors.request.use((config) => {
       if (this.accessToken) {
+        config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${this.accessToken}`;
       }
       return config;
     });
 
-    // 2. Response Interceptor: Handle 401 & Refresh
+    // Response interceptor: attempt refresh on 401 once, then retry
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
 
-        // If 401 Unauthorized and we haven't retried yet
-        if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('auth/refresh-token')) {
-          originalRequest._retry = true; // Mark as retried
-
+        // If 401 Unauthorized and not a refresh-token request and not retried yet
+        if (
+          error.response?.status === 401 &&
+          originalRequest &&
+          !originalRequest._retry &&
+          !originalRequest.url.includes('auth/refresh-token')
+        ) {
+          originalRequest._retry = true;
           try {
-            // Attempt to refresh (Browser sends Refresh Cookie)
-            const refreshResponse = await this.axiosInstance.post<AuthResponse>('auth/refresh-token');
-            
-            // Capture the new Access Token from the response
-            if (refreshResponse.data && refreshResponse.data.token) {
-              this.setAccessToken(refreshResponse.data.token);
-              
-              // Update the Authorization header for the retry
+            // Call refresh-token endpoint (server will read refresh cookie)
+            // Use a raw axios call to avoid potential interceptor loops, but reuse baseURL/withCredentials.
+            const refreshResp = await this.axiosInstance.post<AuthResponse>('auth/refresh-token');
+
+            if (refreshResp.data && refreshResp.data.token) {
+              this.setAccessToken(refreshResp.data.token);
+              // set header on original and retry
+              originalRequest.headers = originalRequest.headers || {};
               originalRequest.headers.Authorization = `Bearer ${this.accessToken}`;
-              
-              // Retry the original request
               return this.axiosInstance(originalRequest);
             }
           } catch (refreshError) {
-            // If refresh failed, clear everything and redirect
+            // Refresh failed -> ensure clean state and redirect to login
             this.setAccessToken(null);
-            this.router.navigate(['/login']);
+            try {
+              // Avoid navigation during interceptor if router not ready; still best-effort
+              this.router.navigate(['/login']);
+            } catch (e) {
+              /* ignore navigation error */
+            }
             return Promise.reject(refreshError);
           }
         }
 
+        // Let centralized error handler run (logs, toasts etc.)
         this.errorHandler.handleError(error);
         return Promise.reject(error);
       }
     );
   }
 
-  // Helper to update the token in memory
+  // Public: set/clear token in memory and axios defaults
   setAccessToken(token: string | null) {
     this.accessToken = token;
+    if (token) {
+      this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete this.axiosInstance.defaults.headers.common['Authorization'];
+    }
   }
 
-  async get<T>(url: string): Promise<T> {
-    const response: AxiosResponse<T> = await this.axiosInstance.get(url);
+  getAccessToken() {
+    return this.accessToken;
+  }
+
+  // Basic wrappers
+  async get<T>(url: string, params?: any): Promise<T> {
+    const response: AxiosResponse<T> = await this.axiosInstance.get(url, { params });
     return response.data;
   }
 

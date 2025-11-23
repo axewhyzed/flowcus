@@ -15,7 +15,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   isMenuOpen = false;
   username: string | null = null;
   isLoggedIn = false;
-  
+
   isAdmin = false;
   isAdminMode = false;
 
@@ -23,52 +23,35 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private adminModeSubscription?: Subscription;
 
   constructor(
-    private router: Router, 
-    private authService: AuthService, 
+    private router: Router,
+    private authService: AuthService,
     private adminModeService: AdminModeService
   ) { }
 
-  ngOnInit() {
-    // 1. Reactive Subscription
-    this.authSubscription = this.authService.isAuthenticated$.subscribe(isAuthenticated => {
-      this.isLoggedIn = isAuthenticated;
-      
-      if (isAuthenticated) {
-        this.loadUser();
-      } else {
-        this.username = null;
-        this.isAdmin = false;
-      }
-    });
+ ngOnInit() {
+  this.authSubscription = this.authService.isAuthenticated$.subscribe((isAuthenticated) => {
+    const loggedIn = isAuthenticated === true;
 
-    // 2. Admin Mode Subscription
-    this.adminModeSubscription = this.adminModeService.adminMode$.subscribe(value => {
-      this.isAdminMode = value;
-    });
+    this.isLoggedIn = loggedIn;
 
-    // 3. Initial Check: ONLY if we don't know the state yet.
-    // This prevents redundant API calls immediately after a successful login.
-    if (!this.authService.isAuthenticated) {
-      this.authService.checkAuthStatus();
+    if (loggedIn) {
+      const u = this.authService.user;
+      this.username = u?.name || u?.username || null;
+      this.isAdmin  = u?.isAdmin || false;
+    } else {
+      this.username = null;
+      this.isAdmin = false;
     }
-  }
+  });
+
+  this.adminModeSubscription = this.adminModeService.adminMode$.subscribe(v => {
+    this.isAdminMode = v;
+  });
+}
 
   ngOnDestroy() {
     if (this.authSubscription) this.authSubscription.unsubscribe();
     if (this.adminModeSubscription) this.adminModeSubscription.unsubscribe();
-  }
-
-  async loadUser() {
-    try {
-      const res = await this.authService.me();
-      this.username = res.user?.name || res.user?.username || 'User';
-      this.isAdmin = res.isAdmin;
-      this.isAdminMode = this.adminModeService.isAdminMode; 
-    } catch (error) {
-      console.error('Error loading user:', error);
-      // Note: We don't manually redirect here because the ApiService 
-      // interceptor will handle the 401/Redirect if the session is truly dead.
-    }
   }
 
   toggleMenu() {
