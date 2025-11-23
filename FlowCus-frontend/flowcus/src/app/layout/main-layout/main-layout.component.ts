@@ -56,16 +56,19 @@ export class MainLayoutComponent {
   ];
 
   constructor(private auth: AuthService) {
-    // FIX: Changed .subscribe() to .then() because your service returns a Promise
-    this.auth.me().then((user: any) => {
-      if (user && user.isAdmin) {
-        this.menuItems.push({ label: 'User Management', route: '/users', icon: 'fa-solid fa-users-gear' });
-      }
-    });
+    this.auth.me()
+      .then((user: any) => {
+        if (user && user.isAdmin) {
+          this.menuItems.push({ label: 'User Management', route: '/users', icon: 'fa-solid fa-users-gear' });
+        }
+      })
+      .catch(() => {
+        // If 'me()' fails (e.g. 401), the interceptor handles the redirect.
+        // We just catch it here to prevent console errors in the component.
+      });
   }
 
   logout() {
-    // FIX: Changed .subscribe() to .then()
     this.auth.logout().then(() => window.location.reload());
   }
 }

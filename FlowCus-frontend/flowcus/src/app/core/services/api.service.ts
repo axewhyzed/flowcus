@@ -41,7 +41,7 @@ export class ApiService {
         const originalRequest = error.config;
 
         // If 401 Unauthorized and we haven't retried yet
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('auth/refresh-token')) {
           originalRequest._retry = true; // Mark as retried to prevent infinite loops
 
           try {

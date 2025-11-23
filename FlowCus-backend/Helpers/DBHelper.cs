@@ -9,11 +9,36 @@ namespace FlowCus.Helpers
     public class DBHelper
     {
         private readonly string _connectionString;
+        private readonly ILogger<DBHelper> _logger;
 
-        public DBHelper(IConfiguration configuration)
+        public DBHelper(IConfiguration configuration, ILogger<DBHelper> logger)
         {
+            _logger = logger;
             Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
-            _connectionString = configuration.GetConnectionString("DefaultConnection") ?? "";
+
+            string encryptedConnStr;
+            bool isProd = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
+            if (isProd)
+            {
+                encryptedConnStr = Environment.GetEnvironmentVariable("DBProd")
+                    ?? throw new InvalidOperationException("DBProd environment variable is not set.");
+                _logger.LogInformation("Production environment detected.");
+            }
+            else
+            {
+                encryptedConnStr = configuration.GetConnectionString("DBLocal")
+                    ?? throw new InvalidOperationException("DBLocal connection string is not set.");
+                _logger.LogInformation("Development environment detected.");
+            }
+
+            if (string.IsNullOrWhiteSpace(encryptedConnStr))
+            {
+                _logger.LogError("Connection string is null or empty.");
+                throw new InvalidOperationException("Connection string cannot be null or empty.");
+            }
+
+            _connectionString = CryptoHelper.Decrypt(encryptedConnStr, _logger);
+            _logger.LogDebug("Connection string decrypted successfully.");
         }
 
         // --- Dapper Methods ---
