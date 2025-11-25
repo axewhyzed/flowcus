@@ -7,6 +7,7 @@ using System.Security.Claims; // Needed for ClaimTypes
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 1. CORS: Ensure Credentials are allowed for Cookies to work
 string[] allowedOrigins = builder.Environment.IsDevelopment()
     ? new[] { "http://localhost:4200" }
     : new[] { "https://axewhyzed.github.io" };
@@ -18,7 +19,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); // IMPORTANT: Required for sending Cookies (Refresh Token)
+              .AllowCredentials(); // IMPORTANT: Required for sending Cookies
     });
 });
 
@@ -65,6 +66,26 @@ builder.Services.AddAuthentication(options =>
 
         // CRITICAL FIX: Map the standard "role" claim to the framework's Role logic
         RoleClaimType = ClaimTypes.Role
+    };
+
+    //auto cookie handling logic
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            // 1. Try to get token from "Authorization: Bearer" header (Mobile/Postman)
+            // The framework does this automatically, but we can explicitly check or fallback.
+            
+            // 2. If no header, check "auth_session" cookie (Web)
+            if (string.IsNullOrEmpty(context.Token)) // Token is null if no Bearer header found yet
+            {
+                if (context.Request.Cookies.ContainsKey("auth_session"))
+                {
+                    context.Token = context.Request.Cookies["auth_session"];
+                }
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 

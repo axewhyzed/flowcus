@@ -1,4 +1,3 @@
-// src/app/core/services/auth.service.ts
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
 import { LoginRequest, RegisterRequest } from '../models/auth.model';
@@ -7,14 +6,11 @@ import { BehaviorSubject } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  // null = not-restored-yet, false = unauthenticated, true = authenticated
+  // null = initial, false = guest, true = logged in
   private isAuthenticatedSubject = new BehaviorSubject<boolean | null>(null);
   public isAuthenticated$ = this.isAuthenticatedSubject.asObservable();
 
-  // store current user in memory
   private currentUser: any = null;
-
-  // Ensure restore called only once per page load
   private restorePromise: Promise<boolean> | null = null;
 
   constructor(private api: ApiService) {}
@@ -27,19 +23,12 @@ export class AuthService {
     return this.currentUser;
   }
 
-  // Minimal login flow: server sets refresh cookie and returns an access token + user
   async login(data: LoginRequest) {
+    // 1. Post credentials -> Server sets HttpOnly cookie
     const res = await this.api.post<any>(API_ENDPOINTS.AUTH.LOGIN, data);
-    if (res && res.token) {
-      this.api.setAccessToken(res.token); // memory-only
-    }
-    if (res && res.user) {
-      this.currentUser = res.user;
-      this.isAuthenticatedSubject.next(true);
-    } else {
-      this.currentUser = null;
-      this.isAuthenticatedSubject.next(false);
-    }
+    
+    // 2. Validate session immediately by fetching user profile
+    await this.checkAuthStatus();
     return res;
   }
 
@@ -47,9 +36,8 @@ export class AuthService {
     try {
       await this.api.post(API_ENDPOINTS.AUTH.LOGOUT, {});
     } catch (e) {
-      // ignore server errors on logout
+      // Ignore errors during logout
     } finally {
-      this.api.setAccessToken(null);
       this.currentUser = null;
       this.isAuthenticatedSubject.next(false);
     }
@@ -59,47 +47,26 @@ export class AuthService {
     return this.api.post<any>(API_ENDPOINTS.AUTH.REGISTER, data);
   }
 
-  // me() calls protected endpoint which relies on access token (memory) set by ApiService.
   me() {
     return this.api.get<any>(API_ENDPOINTS.AUTH.ME);
   }
 
-  // checkAuthStatus: attempts to get /me. If 401, attempts refresh-token then retry /me.
+  // Restore Session: Just call /me. 
+  // If the browser has a valid cookie, this succeeds. If not, it fails.
   async checkAuthStatus(): Promise<boolean> {
     try {
-      // Try directly: if access token exists in memory, this will pass.
-      const user = await this.me();
-      this.currentUser = user.user ?? user;
+      const userDto = await this.me();
+      this.currentUser = userDto;
       this.isAuthenticatedSubject.next(true);
       return true;
-    } catch (err: any) {
-      // If first /me failed because access token missing or expired,
-      // call refresh-token endpoint which will use the cookie and
-      // return a new access token (see backend RefreshTokenAsync).
-      try {
-        const refreshResult = await this.api.post<any>('auth/refresh-token', {});
-        if (refreshResult && refreshResult.token) {
-          this.api.setAccessToken(refreshResult.token);
-          // Retry me()
-          const user = await this.me();
-          this.currentUser = user;
-          this.isAuthenticatedSubject.next(true);
-          return true;
-        }
-      } catch (refreshErr) {
-        // Refresh failed or me retry failed -> unauthenticated
-      }
-
-      // Clear any partial state
-      this.api.setAccessToken(null);
+    } catch (err) {
       this.currentUser = null;
       this.isAuthenticatedSubject.next(false);
       return false;
     }
   }
 
-  // Public method that ensures restore happens at most once per page load.
-  // Guards / App init should call this and await it.
+  // Called on App Init
   initRestoreIfNeeded(): Promise<boolean> {
     if (!this.restorePromise) {
       this.restorePromise = this.checkAuthStatus();

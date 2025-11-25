@@ -40,46 +40,40 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-                return BadRequest(new ErrorResponse { Error = "Username and password are required." });
+                return BadRequest(new { error = "Username and password are required." });
 
-            string username = request.Username.Trim();
             string ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-            // 1. Rate Limiting Checks
-            if (IsRateLimited($"ip:{ip}", _ipRateLimitPerMinute))
-            {
-                Response.Headers["Retry-After"] = "60";
-                return StatusCode(429, new ErrorResponse { Error = "Too many requests from this IP. Try again later." });
-            }
-
-            if (IsRateLimited($"user:{username}", _userRateLimitPerMinute))
-            {
-                Response.Headers["Retry-After"] = "60";
-                return StatusCode(429, new ErrorResponse { Error = "Too many attempts for this user. Try again later." });
-            }
 
             try
             {
-                // 2. Use AuthService for Authentication
-                var result = await _authService.AuthenticateAsync(username, request.Password, ip);
+                var result = await _authService.AuthenticateAsync(request.Username, request.Password, ip);
+                if (result == null) return Unauthorized(new { error = "Invalid credentials." });
 
-                if (result == null)
+                // 1. Set HttpOnly Cookie for Web Clients (The "Session")
+                var cookieOptions = new CookieOptions
                 {
-                    IncrementRateCounters(username, ip);
-                    _logger.LogWarning("Login failed for user {User}", username);
-                    return Unauthorized(new ErrorResponse { Error = "Invalid credentials." });
+                    HttpOnly = true,
+                    Secure = true, // Ensure true in production (requires HTTPS)
+                    SameSite = SameSiteMode.None, // Allow cross-site for decoupled frontends
+                    Expires = DateTime.UtcNow.AddDays(7)
+                };
+
+                // Adjust for local dev if needed
+                if (_configuration["Environment"] == "Development")
+                {
+                    cookieOptions.SameSite = SameSiteMode.Lax;
+                    cookieOptions.Secure = false; 
                 }
 
-                // 3. Set Refresh Token Cookie
-                SetTokenCookie(result.RefreshToken);
+                Response.Cookies.Append("auth_session", result.Token, cookieOptions);
 
-                _logger.LogInformation("User {UserId} logged in successfully via AuthService.", result.User.Id);
+                // 2. Return JSON for Mobile Clients (Header-based auth)
                 return Ok(result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during login for user {User}", username);
-                return StatusCode(500, new ErrorResponse { Error = "Internal server error occurred." });
+                _logger.LogError(ex, "Login error");
+                return StatusCode(500, new { error = "Internal server error." });
             }
         }
 
@@ -200,12 +194,10 @@ namespace FlowCus.Controllers
         [Authorize]
         public async Task<IActionResult> Me()
         {
-            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
-            // Dapper: Query Single User
             var user = await _dbHelper.QuerySingleAsync<Models.User>("SELECT * FROM userlist WHERE id = @Id", new { Id = userId });
-
             if (user == null) return NotFound();
 
             return Ok(new UserDto
@@ -218,10 +210,13 @@ namespace FlowCus.Controllers
         }
 
         [HttpPost("logout")]
-        [Authorize]
         public IActionResult Logout()
         {
-            Response.Cookies.Delete("refreshToken");
+            Response.Cookies.Delete("auth_session", new CookieOptions { 
+                HttpOnly = true, 
+                Secure = true, 
+                SameSite = SameSiteMode.None 
+            });
             return Ok(new { message = "Logged out successfully" });
         }
 
@@ -233,8 +228,8 @@ namespace FlowCus.Controllers
             {
                 HttpOnly = true,
                 Expires = DateTime.UtcNow.AddDays(7),
-                SameSite = SameSiteMode.Strict,
-                Secure = true // Ensure this is true in Production
+                SameSite = SameSiteMode.None, // Required for cross-site cookie if frontend/backend domains differ
+                Secure = true // HTTPS only (use false for localhost if not using https)
             };
             Response.Cookies.Append("refreshToken", token, cookieOptions);
         }
