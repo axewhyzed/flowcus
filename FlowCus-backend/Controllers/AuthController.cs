@@ -39,26 +39,23 @@ namespace FlowCus.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest(new { error = "Username and password are required." });
-
-            string ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
             try
             {
-                var result = await _authService.AuthenticateAsync(request.Username, request.Password, ip);
+                var result = await _authService.AuthenticateAsync(request.Username, request.Password);
                 if (result == null) return Unauthorized(new { error = "Invalid credentials." });
 
-                // 1. Set HttpOnly Cookie for Web Clients (The "Session")
+                // 1. Set HttpOnly Cookie (The Session)
                 var cookieOptions = new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = true, // Ensure true in production (requires HTTPS)
-                    SameSite = SameSiteMode.None, // Allow cross-site for decoupled frontends
-                    Expires = DateTime.UtcNow.AddDays(7)
+                    Secure = true, 
+                    SameSite = SameSiteMode.None,
+                    Expires = DateTime.UtcNow.AddDays(7) // Matches JWT expiry
                 };
 
-                // Adjust for local dev if needed
                 if (_configuration["Environment"] == "Development")
                 {
                     cookieOptions.SameSite = SameSiteMode.Lax;
@@ -67,7 +64,7 @@ namespace FlowCus.Controllers
 
                 Response.Cookies.Append("auth_session", result.Token, cookieOptions);
 
-                // 2. Return JSON for Mobile Clients (Header-based auth)
+                // 2. Return JSON for Mobile (Header-based auth)
                 return Ok(result);
             }
             catch (Exception ex)
@@ -75,47 +72,6 @@ namespace FlowCus.Controllers
                 _logger.LogError(ex, "Login error");
                 return StatusCode(500, new { error = "Internal server error." });
             }
-        }
-
-        [HttpPost("refresh-token")]
-        // Add [FromBody] to accept JSON, but make it nullable so Web requests (which have no body) don't fail
-        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest? request = null)
-        {
-            // 1. Try to get token from Cookie (Web)
-            var refreshToken = Request.Cookies["refreshToken"];
-            // 2. If Cookie is missing, try to get from JSON Body (Mobile)
-            if (string.IsNullOrEmpty(refreshToken) && request != null)
-            {
-                refreshToken = request.Token;
-            }
-            if (string.IsNullOrEmpty(refreshToken))
-                return Unauthorized(new { message = "Token required" });
-
-            try
-            {
-                var result = await _authService.RefreshTokenAsync(refreshToken);
-
-                // Set Cookie for Web (preserves existing behavior)
-                SetTokenCookie(result.RefreshToken);
-
-                // Return result (which now includes RefreshToken in the body for Mobile)
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Refresh token failed: {Message}", ex.Message);
-                return Unauthorized(new { message = "Invalid token" });
-            }
-        }
-
-        [HttpPost("revoke-token")]
-        [Authorize]
-        public IActionResult RevokeToken()
-        {
-            // Optional: Implement revocation logic in AuthService if needed
-            // For now, we just clear the cookie
-            Response.Cookies.Delete("refreshToken");
-            return Ok(new { message = "Token revoked" });
         }
 
         // Note: Kept Register/ChangePassword/Me as-is (using DBHelper) to ensure they work 
@@ -212,6 +168,7 @@ namespace FlowCus.Controllers
         [HttpPost("logout")]
         public IActionResult Logout()
         {
+            // Clear the session cookie
             Response.Cookies.Delete("auth_session", new CookieOptions { 
                 HttpOnly = true, 
                 Secure = true, 
@@ -268,19 +225,18 @@ namespace FlowCus.Controllers
     public class ErrorResponse { public string Error { get; set; } = ""; }
     public class RefreshTokenRequest { public string Token { get; set; } = ""; }
 
+    // Updated AuthResponse (No RefreshToken)
     public class AuthResponse
     {
         public string Token { get; set; } = "";
-        //[System.Text.Json.Serialization.JsonIgnore]
-        public string RefreshToken { get; set; } = "";
         public UserDto User { get; set; } = new UserDto();
     }
 
-    public class UserDto
-    {
-        public int Id { get; set; }
-        public string Username { get; set; } = "";
-        public string? Name { get; set; }
-        public bool isAdmin { get; set; }
+    public class UserDto 
+    { 
+        public int Id { get; set; } 
+        public string Username { get; set; } = ""; 
+        public string? Name { get; set; } 
+        public bool isAdmin { get; set; } 
     }
 }
