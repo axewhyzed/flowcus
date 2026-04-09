@@ -1,5 +1,6 @@
 ﻿using FlowCus.Helpers;
 using FlowCus.Services;
+using FlowCus.Controllers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -13,7 +14,7 @@ namespace FlowCus.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AuthService _authService;
-        private readonly DBHelper _dbHelper; // Kept for Register/ChangePassword/Me
+        private readonly DBHelper _dbHelper; 
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
         private readonly IMemoryCache _cache;
@@ -42,18 +43,25 @@ namespace FlowCus.Controllers
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest(new { error = "Username and password are required." });
 
+            string ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (IncrementAndCheckRateLimits(request.Username, ip))
+            {
+                _logger.LogWarning($"Rate limit exceeded for user {request.Username} from IP {ip}");
+                return StatusCode(429, new { error = "Too many requests. Please try again later." });
+            }
+
             try
             {
                 var result = await _authService.AuthenticateAsync(request.Username, request.Password);
-                if (result == null) return Unauthorized(new { error = "Invalid credentials." });
+                
+                if (result is null) return Unauthorized(new { error = "Invalid credentials." });
 
-                // 1. Set HttpOnly Cookie (The Session)
                 var cookieOptions = new CookieOptions
                 {
                     HttpOnly = true,
                     Secure = true, 
                     SameSite = SameSiteMode.None,
-                    Expires = DateTime.UtcNow.AddDays(7) // Matches JWT expiry
+                    Expires = DateTime.UtcNow.AddDays(7) 
                 };
 
                 if (_configuration["Environment"] == "Development")
@@ -64,7 +72,6 @@ namespace FlowCus.Controllers
 
                 Response.Cookies.Append("auth_session", result.Token, cookieOptions);
 
-                // 2. Return JSON for Mobile (Header-based auth)
                 return Ok(result);
             }
             catch (Exception ex)
@@ -74,9 +81,6 @@ namespace FlowCus.Controllers
             }
         }
 
-        // Note: Kept Register/ChangePassword/Me as-is (using DBHelper) to ensure they work 
-        // with your current codebase. Ideally, move these to AuthService later.
-
         [Authorize]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
@@ -84,7 +88,6 @@ namespace FlowCus.Controllers
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int currentUserId)) return Unauthorized();
 
-            // Dapper: Check Admin Status
             bool isAdmin = await _dbHelper.ExecuteScalarAsync<bool>("SELECT is_admin FROM userlist WHERE id = @Id", new { Id = currentUserId });
             if (!isAdmin) return StatusCode(403, new ErrorResponse { Error = "Only admins can register new users." });
 
@@ -98,7 +101,6 @@ namespace FlowCus.Controllers
                                VALUES (@Username, @Hash, @Name, now()) 
                                RETURNING id;";
 
-                // Dapper: ExecuteScalar
                 int newId = await _dbHelper.ExecuteScalarAsync<int>(sql, new { Username = request.Username, Hash = bcryptHash, Name = request.Name });
 
                 return Ok(new { message = "User registered successfully", userId = newId });
@@ -123,7 +125,6 @@ namespace FlowCus.Controllers
 
             try
             {
-                // Dapper: Get Hash
                 string? storedHash = await _dbHelper.QuerySingleAsync<string>("SELECT password_hash FROM userlist WHERE id = @Id", new { Id = userId });
 
                 if (string.IsNullOrEmpty(storedHash)) return NotFound("User not found");
@@ -133,7 +134,6 @@ namespace FlowCus.Controllers
 
                 string newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, _bcryptWorkFactor);
 
-                // Dapper: Execute
                 await _dbHelper.ExecuteAsync("UPDATE userlist SET password_hash = @Hash, updated_on = now() WHERE id = @Id",
                     new { Hash = newHash, Id = userId });
 
@@ -168,7 +168,6 @@ namespace FlowCus.Controllers
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            // Clear the session cookie
             Response.Cookies.Delete("auth_session", new CookieOptions { 
                 HttpOnly = true, 
                 Secure = true, 
@@ -185,16 +184,18 @@ namespace FlowCus.Controllers
             {
                 HttpOnly = true,
                 Expires = DateTime.UtcNow.AddDays(7),
-                SameSite = SameSiteMode.None, // Required for cross-site cookie if frontend/backend domains differ
-                Secure = true // HTTPS only (use false for localhost if not using https)
+                SameSite = SameSiteMode.None, 
+                Secure = true 
             };
             Response.Cookies.Append("refreshToken", token, cookieOptions);
         }
 
-        private void IncrementRateCounters(string username, string ip)
+        private bool IncrementAndCheckRateLimits(string username, string ip)
         {
-            _ = IsRateLimited($"ip:{ip}", _ipRateLimitPerMinute, incrementOnly: true);
-            _ = IsRateLimited($"user:{username}", _userRateLimitPerMinute, incrementOnly: true);
+            bool ipLimited = IsRateLimited($"ip:{ip}", _ipRateLimitPerMinute, incrementOnly: true);
+            bool userLimited = IsRateLimited($"user:{username}", _userRateLimitPerMinute, incrementOnly: true);
+            
+            return ipLimited || userLimited;
         }
 
         private bool IsRateLimited(string key, int limitPerMinute, bool incrementOnly = false)
@@ -207,13 +208,17 @@ namespace FlowCus.Controllers
                 return new RateLimitBucket { Count = 0, WindowStart = now };
             });
 
-            if (incrementOnly)
+            if (entry != null)
             {
-                entry.Count++;
-                _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1) });
-                return entry.Count > limitPerMinute;
+                if (incrementOnly)
+                {
+                    entry.Count++;
+                    _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1) });
+                    return entry.Count > limitPerMinute;
+                }
+                return entry.Count >= limitPerMinute;
             }
-            return entry.Count >= limitPerMinute;
+            return false;
         }
 
         private class RateLimitBucket { public int Count { get; set; } public DateTime WindowStart { get; set; } }
@@ -225,8 +230,8 @@ namespace FlowCus.Controllers
     public class ErrorResponse { public string Error { get; set; } = ""; }
     public class RefreshTokenRequest { public string Token { get; set; } = ""; }
 
-    // Updated AuthResponse (No RefreshToken)
-    public class AuthResponse
+    // FIXED: Renamed to LoginResponse to prevent namespace collision
+    public class LoginResponse
     {
         public string Token { get; set; } = "";
         public UserDto User { get; set; } = new UserDto();

@@ -1,4 +1,5 @@
-﻿using FlowCus.Helpers;
+﻿using FlowCus.Controllers;
+using FlowCus.Helpers;
 using FlowCus.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -20,7 +21,7 @@ namespace FlowCus.Services
             _logger = logger;
         }
 
-        public async Task<AuthResponse?> AuthenticateAsync(string username, string password)
+        public async Task<LoginResponse?> AuthenticateAsync(string username, string password)
         {
             // 1. Get User
             string sql = "SELECT * FROM userlist WHERE username = @Username LIMIT 1";
@@ -38,7 +39,7 @@ namespace FlowCus.Services
             return GenerateAuthResponse(user);
         }
 
-        private AuthResponse GenerateAuthResponse(User user)
+        private LoginResponse GenerateAuthResponse(User user)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? ""));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -63,7 +64,7 @@ namespace FlowCus.Services
             var tokenHandler = new JwtSecurityTokenHandler();
             var accessToken = tokenHandler.WriteToken(tokenHandler.CreateToken(tokenDescriptor));
 
-            return new AuthResponse
+            return new LoginResponse
             {
                 Token = accessToken,
                 User = new UserDto { Id = user.Id, Username = user.Username, Name = user.Name, isAdmin = user.IsAdmin }

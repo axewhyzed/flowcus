@@ -32,8 +32,8 @@ namespace FlowCus.Services
         {
             string sql = @"
                 UPDATE tasks 
-                SET title = @Title, description = @Description, priority = @Priority, 
-                    start_time = @StartTime, end_time = @EndTime, updated_on = now()
+                SET title = @Title, description = @Description, priority = @Priority, task_category_id = @TaskCategoryId,
+                    task_subtype_id = @TaskSubtypeId, start_time = @StartTime, end_time = @EndTime, updated_on = now()
                 WHERE task_id = @TaskId AND created_by = @CreatedBy";
             int rows = await _db.ExecuteAsync(sql, task);
             return rows > 0;
@@ -41,7 +41,7 @@ namespace FlowCus.Services
 
         public async Task<bool> DeleteAsync(int id, int userId)
         {
-            string sql = "UPDATE tasks SET is_deleted = TRUE, updated_on = now() WHERE task_id = @TaskId AND created_by = @CreatedBy";
+            string sql = "UPDATE tasks SET is_deleted = TRUE, updated_on = now() WHERE task_id = @Id AND created_by = @CreatedBy";
             int rows = await _db.ExecuteAsync(sql, new { Id = id, CreatedBy = userId });
             return rows > 0;
         }
