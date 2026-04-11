@@ -4,7 +4,7 @@
 
 CREATE TABLE task_category (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(120) NOT NULL UNIQUE,
+    name VARCHAR(120) NOT NULL,
     description TEXT,
     created_on TIMESTAMPTZ NOT NULL DEFAULT now(),
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
@@ -18,4 +18,7 @@ CREATE TABLE task_category (
 
 -- New index for filtering active categories
 CREATE INDEX idx_task_category_name ON task_category(name) 
+    WHERE is_deleted = false;
+
+CREATE UNIQUE INDEX idx_task_category_unique_active_name ON task_category(name) 
     WHERE is_deleted = false;

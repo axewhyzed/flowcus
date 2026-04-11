@@ -17,7 +17,7 @@ CREATE TABLE timetable_items (
     
     -- CHECK constraints for data integrity
     CONSTRAINT chk_day_of_week CHECK (day_of_week BETWEEN 0 AND 6),
-    CONSTRAINT chk_time_order CHECK (end_time > start_time)
+    CONSTRAINT chk_time_order CHECK (end_time != start_time)
 );
 
 -- Existing indexes (automatically created)

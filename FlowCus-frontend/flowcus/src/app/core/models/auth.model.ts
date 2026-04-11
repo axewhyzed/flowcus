@@ -9,7 +9,7 @@ export interface RegisterRequest {
   name?: string;
 }
 
-export interface AuthResponse {
+export interface LoginResponse {
   token: string;
   user: {
     id: number;
