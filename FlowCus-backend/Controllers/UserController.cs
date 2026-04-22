@@ -156,5 +156,11 @@ namespace FlowCus.Controllers
     }
 
     public class UpdateUserRequest { public string Name { get; set; } = ""; }
-    public class UserCreateRequest { public string Username { get; set; } = null!; public string? Name { get; set; } public bool IsAdmin { get; set; } = false; }
+    public class UserCreateRequest 
+    { 
+        public string Username { get; set; } = null!;
+        public string Password { get; set; } = null!; // Password is now required for account creation
+        public string? Name { get; set; } 
+        public bool IsAdmin { get; set; } = false; 
+    }
 }

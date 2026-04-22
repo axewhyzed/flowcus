@@ -105,13 +105,17 @@ namespace FlowCus.Helpers
             string key = Environment.GetEnvironmentVariable("ENCRYPTION_KEY")
                 ?? throw new InvalidOperationException("ENCRYPTION_KEY environment variable not found");
 
-            byte[] keyBytes = Encoding.UTF8.GetBytes(key);
-            if (keyBytes.Length != 32)
+            if (key.Length < 16)
             {
-                logger?.LogWarning("ENCRYPTION_KEY length was {Length}; resizing to 32 bytes for AES-256.", keyBytes.Length);
-                Array.Resize(ref keyBytes, 32);
+                throw new InvalidOperationException("ENCRYPTION_KEY must be at least 16 characters long for security.");
             }
-            return keyBytes;
+
+            // SECURITY FIX: Use PBKDF2 to derive a proper 32-byte key from any length password
+            // This prevents weak key space from short or improperly-padded keys
+            using (var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(key, Encoding.UTF8.GetBytes("FlowCusSalt"), 10000, System.Security.Cryptography.HashAlgorithmName.SHA256))
+            {
+                return pbkdf2.GetBytes(32); // Return 32 bytes for AES-256
+            }
         }
     }
 }

@@ -126,7 +126,8 @@ export class TaskPage implements OnInit {
   }
 
   async saveTask() {
-    if (!this.newTask.title?.trim() || !this.newTask.taskCategoryId) {
+    // FIX: Treat 0 and other falsy values as "not selected" for required category field
+    if (!this.newTask.title?.trim() || !this.newTask.taskCategoryId || this.newTask.taskCategoryId <= 0) {
       alert('Please enter a title and select a category.');
       return;
     }

@@ -59,7 +59,13 @@ export class LoginPage implements OnInit {
       }
 
     } catch (err: any) {
-      this.errorMessage = err?.error?.message || 'Invalid username or password. Please try again.';
+      // FIX: Handle Axios error structure properly
+      // Axios errors have response.data (not error.message)
+      const errorMsg = err?.response?.data?.error || 
+                       err?.response?.data?.message ||
+                       err?.error?.message || 
+                       'Invalid username or password. Please try again.';
+      this.errorMessage = errorMsg;
       this.isLoading = false; // Only stop loading on error
     }
   }

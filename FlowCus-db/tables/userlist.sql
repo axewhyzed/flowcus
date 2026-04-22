@@ -11,7 +11,8 @@ CREATE TABLE userlist (
     updated_on TIMESTAMPTZ,
     failed_attempts INTEGER NOT NULL DEFAULT 0, -- number of failed login attempts
     lockout_until TIMESTAMPTZ NULL, -- account lockout until time
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE -- admin status indicator
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE, -- admin status indicator
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE -- soft delete flag
 );
 
 -- Existing indexes (automatically created by PostgreSQL)

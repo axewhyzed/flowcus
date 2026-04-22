@@ -120,6 +120,13 @@ namespace FlowCus.Controllers
         [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
+            // validate that new password is not empty
+            if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+                return BadRequest(new ErrorResponse { Error = "Current password and new password are required." });
+
+            if (request.NewPassword.Length < 6)
+                return BadRequest(new ErrorResponse { Error = "New password must be at least 6 characters long." });
+
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(userIdClaim, out int userId)) return Unauthorized();
 
@@ -166,6 +173,7 @@ namespace FlowCus.Controllers
         }
 
         [HttpPost("logout")]
+        [Authorize] // SECURITY FIX: Require authorization to prevent unauthorized endpoint exposure
         public IActionResult Logout()
         {
             Response.Cookies.Delete("auth_session", new CookieOptions { 
@@ -202,21 +210,33 @@ namespace FlowCus.Controllers
         {
             var now = DateTime.UtcNow;
             string cacheKey = $"ratelimit:{key}";
+            
+            // FIX: Use a proper sliding window by checking window expiration
             var entry = _cache.GetOrCreate(cacheKey, ce =>
             {
-                ce.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1);
-                return new RateLimitBucket { Count = 0, WindowStart = now };
+                return new RateLimitBucket { Count = 1, WindowStart = now };
             });
 
             if (entry != null)
             {
+                // Check if the window has expired (more than 1 minute since WindowStart)
+                if ((now - entry.WindowStart).TotalMinutes >= 1.0)
+                {
+                    // Reset window
+                    entry.Count = 1;
+                    entry.WindowStart = now;
+                    _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
+                    return false;
+                }
+
+                // Still in current window - increment and check limit
                 if (incrementOnly)
                 {
                     entry.Count++;
-                    _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1) });
-                    return entry.Count > limitPerMinute;
+                    _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
                 }
-                return entry.Count >= limitPerMinute;
+                
+                return entry.Count > limitPerMinute;
             }
             return false;
         }
@@ -233,7 +253,7 @@ namespace FlowCus.Controllers
     // FIXED: Renamed to LoginResponse to prevent namespace collision
     public class LoginResponse
     {
-        public string Token { get; set; } = "";
+        // Token is sent in HttpOnly cookie, not in response body, to prevent XSS exposure
         public UserDto User { get; set; } = new UserDto();
     }
 
@@ -242,6 +262,6 @@ namespace FlowCus.Controllers
         public int Id { get; set; } 
         public string Username { get; set; } = ""; 
         public string? Name { get; set; } 
-        public bool isAdmin { get; set; } 
+        public bool IsAdmin { get; set; } // FIX: Use PascalCase per C# conventions
     }
 }

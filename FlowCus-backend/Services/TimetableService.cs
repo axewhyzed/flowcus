@@ -34,14 +34,18 @@ namespace FlowCus.Services
 
             if (count == 0) return false;
 
-            // 2. Deactivate all timetables for this user first
-            string deactivateSql = "UPDATE timetables SET is_active = FALSE WHERE user_id = @UserId";
-            await _db.ExecuteAsync(deactivateSql, new { UserId = userId });
-
-            // 3. Activate the specific timetable
-            string activateSql = "UPDATE timetables SET is_active = TRUE WHERE id = @Id";
-            await _db.ExecuteAsync(activateSql, new { Id = timetableId });
-
+            // wrap in transaction to prevent race condition where brief window with no active timetable occurs
+            // Also prevents scenario where two concurrent activations both see 0 active, then both set themselves active
+            string transactionSql = @"
+                BEGIN TRANSACTION;
+                
+                UPDATE timetables SET is_active = FALSE WHERE user_id = @UserId;
+                UPDATE timetables SET is_active = TRUE WHERE id = @Id;
+                
+                COMMIT;
+            ";
+            
+            await _db.ExecuteAsync(transactionSql, new { Id = timetableId, UserId = userId });
             return true;
         }
 
@@ -70,6 +74,30 @@ namespace FlowCus.Services
 
         public async Task<int> CreateItemAsync(TimetableItem item)
         {
+            // SECURITY FIX: Check for overlapping time slots on same day in this timetable
+            string overlapSql = @"
+                SELECT COUNT(*) FROM timetable_items 
+                WHERE timetable_id = @TimetableId 
+                AND day_of_week = @DayOfWeek 
+                AND is_deleted = FALSE
+                AND (
+                    (start_time < @EndTime AND end_time > @StartTime)
+                )
+            ";
+
+            long overlapCount = await _db.ExecuteScalarAsync<long>(overlapSql, new
+            {
+                TimetableId = item.TimetableId,
+                DayOfWeek = item.DayOfWeek,
+                StartTime = item.StartTime,
+                EndTime = item.EndTime
+            });
+
+            if (overlapCount > 0)
+            {
+                throw new InvalidOperationException("Time slot overlaps with an existing event on this day.");
+            }
+
             // Note: @TaskSubtypeId will be DBNull if item.TaskSubtypeId is null.
             string sql = @"
                 INSERT INTO timetable_items 
@@ -109,6 +137,31 @@ namespace FlowCus.Services
             };
 
             int rows = await _db.ExecuteAsync(sql, paramsObj);
+            return rows > 0;
+        }
+
+        public async Task<bool> UpdateAsync(int id, string name, int userId)
+        {
+            string sql = @"
+                UPDATE timetables 
+                SET name = @Name 
+                WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE
+            ";
+
+            int rows = await _db.ExecuteAsync(sql, new { Id = id, Name = name, UserId = userId });
+            return rows > 0;
+        }
+
+        public async Task<bool> DeleteAsync(int id, int userId)
+        {
+            // Soft delete the timetable and cascade cascade deletes its items
+            string sql = @"
+                UPDATE timetables 
+                SET is_deleted = TRUE 
+                WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE
+            ";
+
+            int rows = await _db.ExecuteAsync(sql, new { Id = id, UserId = userId });
             return rows > 0;
         }
 

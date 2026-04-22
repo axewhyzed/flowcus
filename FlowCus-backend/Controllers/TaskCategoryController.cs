@@ -28,6 +28,7 @@ namespace FlowCus.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")] // Only admins can create global categories
         public async Task<IActionResult> Create([FromBody] TaskCategory category)
         {
             var newId = await _service.CreateAsync(category);
@@ -35,6 +36,7 @@ namespace FlowCus.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")] // Only admins can delete global categories
         public async Task<IActionResult> Delete(int id)
         {
             var success = await _service.DeleteAsync(id);

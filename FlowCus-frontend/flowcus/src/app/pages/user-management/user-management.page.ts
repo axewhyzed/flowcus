@@ -28,9 +28,11 @@ export class UserManagementComponent implements OnInit {
 
   async ngOnInit() {
     try {
-      const me = await this.authService.me();
+      // check admin status without making redundant API call
+      const me = this.authService.getCurrentUser?.() || await this.authService.me();
       this.currentUser = me;
-      if (!me.isAdmin) {
+      
+      if (!me?.isAdmin) {
         alert('This page requires admin rights');
         this.router.navigate(['/dashboard']);
         return;

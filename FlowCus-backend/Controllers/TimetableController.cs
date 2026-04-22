@@ -52,10 +52,39 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> GetById(int id)
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            // You will need to add GetByIdAsync to your TimetableService as well!
             var timetable = await _service.GetByIdAsync(id, userId);
             if (timetable == null) return NotFound();
             return Ok(timetable);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateTimetableRequest request)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            
+            // Verify ownership before updating
+            var timetable = await _service.GetByIdAsync(id, userId);
+            if (timetable == null) return NotFound(new { message = "Timetable not found." });
+
+            var success = await _service.UpdateAsync(id, request.Name, userId);
+            if (!success) return NotFound();
+
+            return Ok(new { message = "Timetable updated successfully." });
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            // Verify ownership before deleting
+            var timetable = await _service.GetByIdAsync(id, userId);
+            if (timetable == null) return NotFound(new { message = "Timetable not found." });
+
+            var success = await _service.DeleteAsync(id, userId);
+            if (!success) return NotFound();
+
+            return Ok(new { message = "Timetable deleted successfully." });
         }
 
         // --- Timetable Item Endpoints ---
@@ -72,9 +101,26 @@ namespace FlowCus.Controllers
         [HttpPost("items")]
         public async Task<IActionResult> CreateItem([FromBody] TimetableItem item)
         {
-            // Note: item.TaskSubtypeId is nullable. Dapper handles nulls automatically.
-            var id = await _service.CreateItemAsync(item);
-            return Ok(new { id });
+            // SECURITY FIX: Extract userId and verify timetable ownership
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            
+            // Verify that the timetable belongs to this user before creating an item
+            var timetable = await _service.GetByIdAsync(item.TimetableId, userId);
+            if (timetable == null)
+            {
+                return Forbidden(new { error = "You do not have permission to add items to this timetable." });
+            }
+
+            try
+            {
+                var id = await _service.CreateItemAsync(item);
+                return Ok(new { id });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // VALIDATION FIX: Return 400 for overlap conflicts instead of 500
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpPut("items/{id}")]
@@ -102,5 +148,10 @@ namespace FlowCus.Controllers
 
             return Ok(new { message = "Item deleted" });
         }
+    }
+
+    public class UpdateTimetableRequest
+    {
+        public string Name { get; set; } = "";
     }
 }

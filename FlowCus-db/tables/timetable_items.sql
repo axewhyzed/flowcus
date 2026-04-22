@@ -6,18 +6,18 @@
 
 CREATE TABLE timetable_items (
     id SERIAL PRIMARY KEY,
-    timetable_id INT NOT NULL REFERENCES timetables(id),
+    timetable_id INT NOT NULL REFERENCES timetables(id) ON DELETE CASCADE,
     task_category_id INT NOT NULL REFERENCES task_category(id), -- always required
     task_subtype_id INT REFERENCES task_subtypes(id) DEFAULT NULL, -- optional
     day_of_week SMALLINT NOT NULL, -- 0=Sunday to 6=Saturday
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     specific_date DATE, -- for one-off events (optional)
-    is_deleted BOOLEAN DEFAULT FALSE,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE, -- soft delete flag with NOT NULL constraint
     
     -- CHECK constraints for data integrity
     CONSTRAINT chk_day_of_week CHECK (day_of_week BETWEEN 0 AND 6),
-    CONSTRAINT chk_time_order CHECK (end_time != start_time)
+    CONSTRAINT chk_time_order CHECK (end_time > start_time)
 );
 
 -- Existing indexes (automatically created)

@@ -36,6 +36,9 @@ namespace FlowCus.Models
         [Column("is_admin")]
         public bool IsAdmin { get; set; }
 
+        [Column("is_deleted")]
+        public bool IsDeleted { get; set; }
+
         // Navigation (Optional, Dapper ignores these unless explicitly mapped)
         public virtual ICollection<TaskSubtype> TaskSubtypes { get; set; } = new List<TaskSubtype>();
         public virtual ICollection<TaskEntity> TaskEntities { get; set; } = new List<TaskEntity>();

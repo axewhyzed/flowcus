@@ -29,8 +29,13 @@ export class ApiService {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
-            // Session cookie expired or invalid -> force login
-            this.router.navigate(['/login']);
+            // SECURITY FIX: Only redirect on 401 for authenticated pages, not on login endpoint
+            // Failed login attempts also return 401, but we don't want to redirect
+            const requestUrl = error.config?.url || '';
+            if (!requestUrl.includes('auth/login')) {
+                // Session cookie expired or invalid -> force login (for authenticated pages)
+                this.router.navigate(['/login']);
+            }
         }
         
         this.errorHandler.handleError(error);

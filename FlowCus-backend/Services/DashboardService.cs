@@ -15,24 +15,53 @@ namespace FlowCus.Services
 
         public async Task<object> GetDashboardStatsAsync(int userId)
         {
-            // Run multiple queries in parallel or sequentially
-            string sqlTasks = "SELECT COUNT(*) FROM tasks WHERE created_by = @CreatedBy AND is_deleted = FALSE";
-            string sqlCats = "SELECT COUNT(*) FROM task_category WHERE is_deleted = FALSE";
+            string sqlUser = "SELECT id, username, name, is_admin FROM userlist WHERE id = @UserId AND is_deleted = FALSE LIMIT 1";
+            var user = await _db.QuerySingleAsync<dynamic>(sqlUser, new { UserId = userId });
 
-            var pending = await _db.ExecuteScalarAsync<int>(sqlTasks, new { CreatedBy = userId });
-            var categories = await _db.ExecuteScalarAsync<int>(sqlCats, new { CreatedBy = userId });
+            string sqlAllTasks = "SELECT COUNT(*) FROM tasks WHERE created_by = @UserId AND is_deleted = FALSE";
+            var totalPendingTasks = await _db.ExecuteScalarAsync<int>(sqlAllTasks, new { UserId = userId });
+
+            string sqlTodayTasks = @"
+                SELECT task_id as TaskId, title, description, start_time as StartTime, end_time as EndTime, priority
+                FROM tasks WHERE created_by = @UserId AND is_deleted = FALSE 
+                AND DATE(start_time AT TIME ZONE 'UTC') = CURRENT_DATE AT TIME ZONE 'UTC'
+                ORDER BY start_time ASC
+            ";
+            var todayTasks = (await _db.QueryAsync<dynamic>(sqlTodayTasks, new { UserId = userId }))?.ToList() ?? new();
+
+            var now = DateTime.UtcNow;
+            int todayDayOfWeek = (int)now.DayOfWeek;
+            
+            string sqlTodayTimetable = @"
+                SELECT i.id, i.start_time as StartTime, i.end_time as EndTime, COALESCE(s.name, c.name) as CategoryName,
+                s.name as SubtypeName, COALESCE(s.color_hex, c.color_hex) as ColorHex
+                FROM timetable_items i JOIN timetables t ON i.timetable_id = t.id
+                LEFT JOIN task_category c ON i.task_category_id = c.id
+                LEFT JOIN task_subtypes s ON i.task_subtype_id = s.id
+                WHERE t.user_id = @UserId AND t.is_active = TRUE AND t.is_deleted = FALSE
+                AND i.is_deleted = FALSE AND i.day_of_week = @DayOfWeek ORDER BY i.start_time ASC";
+            var todayTimetable = (await _db.QueryAsync<dynamic>(sqlTodayTimetable, new { UserId = userId, DayOfWeek = todayDayOfWeek }))?.ToList() ?? new();
 
             return new
             {
-                PendingTasks = pending,
-                TotalCategories = categories
+                UserName = user?.name ?? "User",
+                IsAdmin = user?.is_admin ?? false,
+                PendingTasks = totalPendingTasks,
+                TotalCategories = await GetCategoryCountAsync(userId),
+                TodayTasks = todayTasks,
+                TodayTimetable = todayTimetable
             };
         }
 
-        // NEW: Get the item currently scheduled for Now
+        private async Task<int> GetCategoryCountAsync(int userId)
+        {
+            string sql = "SELECT COUNT(*) FROM task_category WHERE is_deleted = FALSE";
+            return await _db.ExecuteScalarAsync<int>(sql);
+        }
+
         public async Task<TimetableItem?> GetActiveFocusAsync(int userId)
         {
-            var now = DateTime.Now;
+            var now = DateTime.UtcNow;
             int currentDayOfWeek = (int)now.DayOfWeek; // 0 = Sunday
             TimeSpan currentTime = now.TimeOfDay;
 
@@ -51,6 +80,7 @@ namespace FlowCus.Services
                   AND i.day_of_week = @Day
                   AND i.start_time <= @Time 
                   AND i.end_time > @Time
+                ORDER BY i.start_time
                 LIMIT 1";
 
             return await _db.QuerySingleAsync<TimetableItem>(sql, new

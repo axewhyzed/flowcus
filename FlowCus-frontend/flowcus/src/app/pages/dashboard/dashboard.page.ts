@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { DashboardService } from '../../core/services/dashboard.service'
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 
 interface TimetableSlot {
   id: number;
@@ -16,7 +16,8 @@ interface TimetableSlot {
 @Component({
   selector: 'app-dashboard',
   templateUrl: './dashboard.page.html',
-  imports: [CommonModule],
+  standalone: true,
+  imports: [CommonModule, RouterModule],
   styleUrls: ['./dashboard.page.css']
 })
 export class DashboardPage implements OnInit {

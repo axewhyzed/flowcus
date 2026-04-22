@@ -8,10 +8,12 @@ namespace FlowCus.Services
     public class UserService
     {
         private readonly DBHelper _db;
+        private readonly int _bcryptWorkFactor;
 
-        public UserService(DBHelper db)
+        public UserService(DBHelper db, IConfiguration configuration)
         {
             _db = db;
+            _bcryptWorkFactor = int.Parse(configuration["AuthSettings:BcryptWorkFactor"] ?? "12");
         }
 
         public async Task<User?> GetByIdAsync(int id)
@@ -35,17 +37,19 @@ namespace FlowCus.Services
 
         public async Task<User?> CreateUserAsync(UserCreateRequest request)
         {
-            // Updated to use Dapper QuerySingleAsync
+            // Hash the password using BCrypt
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, _bcryptWorkFactor);
+
             string sql = @"
-                INSERT INTO userlist (username, name, is_admin, created_on)
-                VALUES (@Username, @Name, @IsAdmin, now())
-                RETURNING id, username, name, created_on, is_admin, password_hash, failed_attempts, lockout_until, updated_on
+                INSERT INTO userlist (username, password_hash, name, is_admin, created_on, is_deleted, failed_attempts, lockout_until)
+                VALUES (@Username, @PasswordHash, @Name, @IsAdmin, now(), FALSE, 0, NULL)
+                RETURNING id, username, name, created_on, is_admin, password_hash, failed_attempts, lockout_until, updated_on, is_deleted
             ";
 
-            // Note: We select all fields to match the User model, handling nulls for optional fields
             return await _db.QuerySingleAsync<User>(sql, new
             {
                 Username = request.Username,
+                PasswordHash = passwordHash,
                 Name = request.Name,
                 IsAdmin = request.IsAdmin
             });

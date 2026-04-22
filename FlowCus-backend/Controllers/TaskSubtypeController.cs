@@ -38,10 +38,10 @@ namespace FlowCus.Controllers
                 var newId = await _service.CreateAsync(subtype);
                 return Ok(new { id = newId });
             }
-            catch (PostgresException ex) when (ex.Message.Contains("limit"))
+            catch (PostgresException ex) when (ex.Message.Contains("subtypes") || ex.Message.Contains("maximum"))
             {
-                // Handle your custom DB function error 'enforce_subtype_limit'
-                return BadRequest(new { error = "Subtype limit reached for this category." });
+                // Handle the custom DB trigger error 'enforce_subtype_limit' - message is "User % already has the maximum of 5 subtypes"
+                return BadRequest(new { error = "Subtype limit reached for this user." });
             }
         }
 

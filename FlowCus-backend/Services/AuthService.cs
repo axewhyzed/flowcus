@@ -23,19 +23,55 @@ namespace FlowCus.Services
 
         public async Task<LoginResponse?> AuthenticateAsync(string username, string password)
         {
-            // 1. Get User
-            string sql = "SELECT * FROM userlist WHERE username = @Username LIMIT 1";
+            string sql = "SELECT * FROM userlist WHERE username = @Username AND is_deleted = FALSE LIMIT 1";
             var user = await _db.QuerySingleAsync<User>(sql, new { Username = username });
 
             if (user == null) return null;
 
-            // 2. Verify Password
-            if (string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            if (user.LockoutUntil.HasValue && user.LockoutUntil > DateTime.UtcNow)
             {
+                _logger.LogWarning($"Login attempt for locked account: {username}");
+                return null; // Account is locked
+            }
+
+            bool passwordValid = !string.IsNullOrEmpty(user.PasswordHash) && BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+
+            if (!passwordValid)
+            {
+                // failed attempt - increment counter
+                int maxFailedAttempts = int.Parse(_configuration["AuthSettings:MaxFailedAttempts"] ?? "3");
+                int lockoutMinutes = int.Parse(_configuration["AuthSettings:LockoutMinutes"] ?? "2");
+                
+                int newFailedAttempts = user.FailedAttempts + 1;
+                DateTime? newLockoutUntil = null;
+
+                if (newFailedAttempts >= maxFailedAttempts)
+                {
+                    newLockoutUntil = DateTime.UtcNow.AddMinutes(lockoutMinutes);
+                }
+
+                string updateSql = @"
+                    UPDATE userlist 
+                    SET failed_attempts = @FailedAttempts, 
+                        lockout_until = @LockoutUntil 
+                    WHERE id = @UserId
+                ";
+                await _db.ExecuteAsync(updateSql, new
+                {
+                    UserId = user.Id,
+                    FailedAttempts = newFailedAttempts,
+                    LockoutUntil = newLockoutUntil
+                });
+
+                _logger.LogWarning($"Failed login attempt for user: {username}. Attempts: {newFailedAttempts}");
                 return null;
             }
 
-            // 3. Generate Session Token (Long-lived JWT)
+            string resetSql = @"UPDATE userlist SET failed_attempts = 0, lockout_until = NULL,
+                                updated_on = now() WHERE id = @UserId";
+            await _db.ExecuteAsync(resetSql, new { UserId = user.Id });
+
+            // 5. Generate Session Token (Long-lived JWT)
             return GenerateAuthResponse(user);
         }
 
@@ -54,7 +90,7 @@ namespace FlowCus.Services
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                // CRITICAL FIX: Token life matches Session Cookie life (7 days)
+                // 7-day expiry
                 Expires = DateTime.UtcNow.AddDays(7), 
                 Issuer = _configuration["Jwt:Issuer"],
                 Audience = _configuration["Jwt:Audience"],
@@ -66,8 +102,7 @@ namespace FlowCus.Services
 
             return new LoginResponse
             {
-                Token = accessToken,
-                User = new UserDto { Id = user.Id, Username = user.Username, Name = user.Name, isAdmin = user.IsAdmin }
+                User = new UserDto { Id = user.Id, Username = user.Username, Name = user.Name, IsAdmin = user.IsAdmin }
             };
         }
     }

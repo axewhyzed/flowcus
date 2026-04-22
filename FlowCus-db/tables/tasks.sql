@@ -15,7 +15,7 @@ CREATE TABLE tasks (
     updated_on TIMESTAMPTZ,
     start_time TIMESTAMPTZ,
     end_time TIMESTAMPTZ,
-    duration_seconds INTEGER, -- optional; can be calculated in app or updated by DB job
+    duration_seconds INTEGER GENERATED ALWAYS AS (CASE WHEN end_time IS NOT NULL AND start_time IS NOT NULL THEN EXTRACT(EPOCH FROM (end_time - start_time))::INTEGER ELSE NULL END) STORED, -- auto-computed from timestamps
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     
     -- CHECK constraints for data integrity

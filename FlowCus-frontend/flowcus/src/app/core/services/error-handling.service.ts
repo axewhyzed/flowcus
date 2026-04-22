@@ -31,8 +31,9 @@ export class ErrorHandlingService {
       message = 'An unexpected client-side error occurred.';
     }
 
+    // FIX: Use computed message instead of calling getErrorMessage again
     const appError: AppError = {
-      message: this.getErrorMessage(error),
+      message: message,
       code: error.code || error.status?.toString(),
       details: error,
       timestamp: new Date()

@@ -1,0 +1,38 @@
+# Environment-specific config files (NEVER commit sensitive data!)
+appsettings.Production.json
+appsettings.Development.json
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+bin/
+obj/
+dist/
+build/
+
+# Node dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# IDE
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Misc
+.env.*.json
+.angular/
+*.orig
