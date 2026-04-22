@@ -14,11 +14,13 @@ namespace FlowCus.Controllers
     {
         private readonly DBHelper _dbHelper;
         private readonly ILogger<AdminController> _logger;
+        private readonly int _bcryptWorkFactor;
 
-        public AdminController(DBHelper dbHelper, ILogger<AdminController> logger)
+        public AdminController(DBHelper dbHelper, ILogger<AdminController> logger, IConfiguration config)
         {
             _dbHelper = dbHelper;
             _logger = logger;
+            _bcryptWorkFactor = int.Parse(config["AuthSettings:BcryptWorkFactor"] ?? "12");
         }
 
         // GET api/admin/users
@@ -104,7 +106,7 @@ namespace FlowCus.Controllers
             try
             {
                 // Hash the password
-                string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, 12);
+                string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, _bcryptWorkFactor);
 
                 string sql = @"
                     INSERT INTO userlist (username, password_hash, name, is_admin, created_on, is_deleted, failed_attempts, lockout_until)
@@ -160,7 +162,7 @@ namespace FlowCus.Controllers
                 if (!string.IsNullOrWhiteSpace(request.Password))
                 {
                     updates.Add("password_hash = @PasswordHash");
-                    string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, 12);
+                    string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, _bcryptWorkFactor);
                     parameters["PasswordHash"] = passwordHash;
                 }
 
