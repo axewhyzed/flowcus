@@ -155,6 +155,23 @@ namespace FlowCus.Controllers
 
                 if (request.IsAdmin.HasValue)
                 {
+                    if (request.IsAdmin.Value == false)
+                    {
+                        bool targetIsAdmin = await _dbHelper.ExecuteScalarAsync<bool>(
+                            "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE",
+                            new { Id = id });
+
+                        if (targetIsAdmin)
+                        {
+                            long otherAdminCount = await _dbHelper.ExecuteScalarAsync<long>(
+                                "SELECT COUNT(*) FROM userlist WHERE is_admin = TRUE AND is_deleted = FALSE AND id != @Id",
+                                new { Id = id });
+
+                            if (otherAdminCount == 0)
+                                return BadRequest(new { error = "Cannot remove admin rights from the last admin account." });
+                        }
+                    }
+
                     updates.Add("is_admin = @IsAdmin");
                     parameters["IsAdmin"] = request.IsAdmin.Value;
                 }

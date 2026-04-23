@@ -90,7 +90,9 @@ namespace FlowCus.Controllers
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int currentUserId)) return Unauthorized();
 
-            bool isAdmin = await _dbHelper.ExecuteScalarAsync<bool>("SELECT is_admin FROM userlist WHERE id = @Id", new { Id = currentUserId });
+            bool isAdmin = await _dbHelper.ExecuteScalarAsync<bool>(
+                "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE",
+                new { Id = currentUserId });
             if (!isAdmin) return StatusCode(403, new ErrorResponse { Error = "Only admins can register new users." });
 
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
@@ -134,7 +136,9 @@ namespace FlowCus.Controllers
 
             try
             {
-                string? storedHash = await _dbHelper.QuerySingleAsync<string>("SELECT password_hash FROM userlist WHERE id = @Id", new { Id = userId });
+                string? storedHash = await _dbHelper.QuerySingleAsync<string>(
+                    "SELECT password_hash FROM userlist WHERE id = @Id AND is_deleted = FALSE",
+                    new { Id = userId });
 
                 if (string.IsNullOrEmpty(storedHash)) return NotFound("User not found");
 
@@ -162,7 +166,9 @@ namespace FlowCus.Controllers
             var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
-            var user = await _dbHelper.QuerySingleAsync<Models.User>("SELECT * FROM userlist WHERE id = @Id", new { Id = userId });
+            var user = await _dbHelper.QuerySingleAsync<Models.User>(
+                "SELECT * FROM userlist WHERE id = @Id AND is_deleted = FALSE",
+                new { Id = userId });
             if (user == null) return NotFound();
 
             return Ok(new UserDto

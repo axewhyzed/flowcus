@@ -163,15 +163,16 @@ namespace FlowCus.Services
             return rows > 0;
         }
 
-        public async Task<bool> UpdateAsync(int id, string name, int userId)
+        public async Task<bool> UpdateAsync(int id, string name, bool isActive, int userId)
         {
             string sql = @"
                 UPDATE timetables 
-                SET name = @Name 
+                SET name = @Name,
+                    is_active = @IsActive
                 WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE
             ";
 
-            int rows = await _db.ExecuteAsync(sql, new { Id = id, Name = name, UserId = userId });
+            int rows = await _db.ExecuteAsync(sql, new { Id = id, Name = name, IsActive = isActive, UserId = userId });
             return rows > 0;
         }
 

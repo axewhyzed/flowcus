@@ -68,7 +68,7 @@ namespace FlowCus.Controllers
             var timetable = await _service.GetByIdAsync(id, userId);
             if (timetable == null) return NotFound(new { message = "Timetable not found." });
 
-            var success = await _service.UpdateAsync(id, request.Name, userId);
+            var success = await _service.UpdateAsync(id, request.Name, request.IsActive, userId);
             if (!success) return NotFound();
 
             if (request.IsActive)

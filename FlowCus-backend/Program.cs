@@ -85,6 +85,35 @@ builder.Services.AddAuthentication(options =>
                 }
             }
             return Task.CompletedTask;
+        },
+        OnTokenValidated = async context =>
+        {
+            var dbHelper = context.HttpContext.RequestServices.GetRequiredService<DBHelper>();
+
+            var idClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var roleClaim = context.Principal?.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (!int.TryParse(idClaim, out int userId))
+            {
+                context.Fail("Invalid token subject.");
+                return;
+            }
+
+            var user = await dbHelper.QuerySingleAsync<dynamic>(
+                "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE LIMIT 1",
+                new { Id = userId });
+
+            if (user == null)
+            {
+                context.Fail("User no longer exists.");
+                return;
+            }
+
+            string currentRole = user.is_admin ? "Admin" : "User";
+            if (!string.Equals(roleClaim, currentRole, StringComparison.Ordinal))
+            {
+                context.Fail("User role is no longer valid.");
+            }
         }
     };
 });
