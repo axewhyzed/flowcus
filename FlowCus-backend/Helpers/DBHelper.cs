@@ -16,29 +16,30 @@ namespace FlowCus.Helpers
             _logger = logger;
             Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
-            string encryptedConnStr;
+            string connectionString;
             bool isProd = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
             if (isProd)
             {
-                encryptedConnStr = Environment.GetEnvironmentVariable("DBProd")
-                    ?? throw new InvalidOperationException("DBProd environment variable is not set.");
-                _logger.LogInformation("Production environment detected.");
+                string encryptedConnStr = Environment.GetEnvironmentVariable("DB_CONNECTION_ENCRYPTED")
+                    ?? throw new InvalidOperationException("DB_CONNECTION_ENCRYPTED environment variable is not set in Production.");
+                _logger.LogInformation("Production environment detected - decrypting connection string.");
+                connectionString = CryptoHelper.Decrypt(encryptedConnStr, _logger);
             }
             else
             {
-                encryptedConnStr = configuration.GetConnectionString("DBLocal")
-                    ?? throw new InvalidOperationException("DBLocal connection string is not set.");
-                _logger.LogInformation("Development environment detected.");
+                connectionString = configuration.GetConnectionString("DefaultConnection")
+                    ?? throw new InvalidOperationException("DefaultConnection string is not set in appsettings.json.");
+                _logger.LogInformation("Development environment detected - using plain-text connection string.");
             }
 
-            if (string.IsNullOrWhiteSpace(encryptedConnStr))
+            if (string.IsNullOrWhiteSpace(connectionString))
             {
                 _logger.LogError("Connection string is null or empty.");
                 throw new InvalidOperationException("Connection string cannot be null or empty.");
             }
 
-            _connectionString = CryptoHelper.Decrypt(encryptedConnStr, _logger);
-            _logger.LogDebug("Connection string decrypted successfully.");
+            _connectionString = connectionString;
+            _logger.LogDebug("Database connection string decrypted successfully.");
         }
 
         // --- Dapper Methods ---

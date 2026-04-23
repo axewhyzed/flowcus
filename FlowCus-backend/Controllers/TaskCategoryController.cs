@@ -45,6 +45,20 @@ namespace FlowCus.Controllers
             return Ok(new { message = "Category deleted" });
         }
 
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Update(int id, [FromBody] TaskCategory category)
+        {
+            if (id <= 0 || category == null)
+                return BadRequest(new { message = "Invalid category data" });
+
+            category.Id = id; // Ensure ID matches
+            var success = await _service.UpdateAsync(category);
+
+            if (!success) return NotFound(new { message = "Category not found" });
+            return Ok(new { message = "Category updated" });
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {

@@ -9,7 +9,8 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-user-management',
   imports: [CommonModule, RouterModule, FormsModule],
-  templateUrl: './user-management.page.html'
+  templateUrl: './user-management.page.html',
+  standalone: true
 })
 export class UserManagementComponent implements OnInit {
   users: User[] = [];
@@ -79,7 +80,7 @@ export class UserManagementComponent implements OnInit {
       this.closeUserForm();
     } catch (err: any) {
       console.error(err);
-      this.errorMessage = err?.error?.message || 'Failed to save user';
+      this.errorMessage = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Failed to save user';
     }
   }
 

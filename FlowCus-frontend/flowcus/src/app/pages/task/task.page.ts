@@ -13,7 +13,8 @@ import { ActivatedRoute } from '@angular/router';
   selector: 'app-task',
   templateUrl: './task.page.html',
   imports: [CommonModule, FormsModule],
-  styleUrls: ['./task.page.css']
+  styleUrls: ['./task.page.css'],
+  standalone: true
 })
 export class TaskPage implements OnInit {
   tasks: Task[] = [];

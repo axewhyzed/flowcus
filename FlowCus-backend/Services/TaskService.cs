@@ -34,7 +34,7 @@ namespace FlowCus.Services
                 UPDATE tasks 
                 SET title = @Title, description = @Description, priority = @Priority, task_category_id = @TaskCategoryId,
                     task_subtype_id = @TaskSubtypeId, start_time = @StartTime, end_time = @EndTime, updated_on = now()
-                WHERE task_id = @TaskId AND created_by = @CreatedBy";
+                WHERE task_id = @TaskId AND created_by = @CreatedBy AND is_deleted = FALSE";
             int rows = await _db.ExecuteAsync(sql, task);
             return rows > 0;
         }

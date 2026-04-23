@@ -3,7 +3,6 @@ using FlowCus.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using Npgsql; // for exception handling
 
 namespace FlowCus.Controllers
 {
@@ -19,51 +18,51 @@ namespace FlowCus.Controllers
             _service = service;
         }
 
-        [HttpGet("by-letter/{letter}")]
-        public async Task<IActionResult> GetByLetter(string letter)
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var result = await _service.GetByStartLetterAsync(letter, userId);
+            var result = await _service.GetAllAsync();
             return Ok(result);
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] TaskSubtype subtype)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            subtype.UserId = userId;
-
-            try
-            {
-                var newId = await _service.CreateAsync(subtype);
-                return Ok(new { id = newId });
-            }
-            catch (PostgresException ex) when (ex.Message.Contains("subtypes") || ex.Message.Contains("maximum"))
-            {
-                // Handle the custom DB trigger error 'enforce_subtype_limit' - message is "User % already has the maximum of 5 subtypes"
-                return BadRequest(new { error = "Subtype limit reached for this user." });
-            }
+            var newId = await _service.CreateAsync(subtype);
+            return Ok(new { id = newId, message = "Subtype created" });
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            // Extract current user's ID
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-
-            // Pass BOTH id and userId to the service
-            var subtype = await _service.GetByIdAsync(id, userId);
-
+            var subtype = await _service.GetByIdAsync(id);
             if (subtype == null) return NotFound();
             return Ok(subtype);
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Update(int id, [FromBody] TaskSubtype subtype)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var result = await _service.GetAllAsync(userId);
-            return Ok(result);
+            if (id <= 0 || subtype == null)
+                return BadRequest(new { message = "Invalid subtype data" });
+
+            subtype.Id = id;
+            var success = await _service.UpdateAsync(subtype);
+
+            if (!success) return NotFound(new { message = "Subtype not found" });
+            return Ok(new { message = "Subtype updated" });
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var success = await _service.DeleteAsync(id);
+
+            if (!success) return NotFound(new { message = "Subtype not found" });
+            return Ok(new { message = "Subtype deleted" });
         }
     }
 }

@@ -1,0 +1,11 @@
+{
+  "Logging": { "LogLevel": { "Default": "Information" } },
+  "ConnectionStrings": {
+    "DefaultConnection": "${DB_CONNECTION_ENCRYPTED}"  // From environment
+  },
+  "Jwt": {
+    "Key": "${JWT_KEY}",  // From environment
+    "Issuer": "FlowcusAPI",
+    "Audience": "FlowcusClient"
+  }
+}

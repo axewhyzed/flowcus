@@ -40,5 +40,28 @@ namespace FlowCus.Services
             string sql = "SELECT * FROM task_category WHERE id = @Id AND is_deleted = FALSE";
             return await _db.QuerySingleAsync<TaskCategory>(sql, new { Id = id });
         }
+
+        public async Task<bool> UpdateAsync(TaskCategory category)
+        {
+            string sql = @"
+        UPDATE task_category 
+        SET name = @Name, 
+            description = @Description, 
+            color_hex = @ColorHex, 
+            icon_name = @IconName,
+            updated_on = now()
+        WHERE id = @Id AND is_deleted = FALSE";
+
+            int rows = await _db.ExecuteAsync(sql, new
+            {
+                Id = category.Id,
+                Name = category.Name,
+                Description = category.Description,
+                ColorHex = category.ColorHex,
+                IconName = category.IconName
+            });
+
+            return rows > 0;
+        }
     }
 }

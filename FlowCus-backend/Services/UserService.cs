@@ -18,7 +18,7 @@ namespace FlowCus.Services
 
         public async Task<User?> GetByIdAsync(int id)
         {
-            string sql = "SELECT * FROM userlist WHERE id = @Id LIMIT 1";
+            string sql = "SELECT * FROM userlist WHERE id = @Id AND is_deleted = FALSE LIMIT 1";
             return await _db.QuerySingleAsync<User>(sql, new { Id = id });
         }
 
@@ -30,7 +30,7 @@ namespace FlowCus.Services
 
         public async Task<bool> CheckUsernameExistsAsync(string username)
         {
-            string sql = "SELECT COUNT(*) FROM userlist WHERE username = @Username";
+            string sql = "SELECT COUNT(*) FROM userlist WHERE username = @Username AND is_deleted = FALSE";
             long count = await _db.ExecuteScalarAsync<long>(sql, new { Username = username });
             return count > 0;
         }

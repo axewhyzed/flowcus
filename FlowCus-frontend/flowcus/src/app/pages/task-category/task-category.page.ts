@@ -8,7 +8,8 @@ import { TaskCategory } from '../../core/models/task-category.model';
   selector: 'app-task-category',
   templateUrl: './task-category.page.html',
   imports: [CommonModule, FormsModule],
-  styleUrls: ['./task-category.page.css']
+  styleUrls: ['./task-category.page.css'],
+  standalone: true
 })
 export class TaskCategoryPage implements OnInit {
   categories: TaskCategory[] | null = null;

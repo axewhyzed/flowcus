@@ -1,6 +1,12 @@
+const apiUrl = '${API_URL}';  // CI/CD replaces this
+
+// Validate that substitution actually happened
+if (apiUrl.includes('${')) {
+    throw new Error('API_URL was not substituted by CI/CD pipeline. Check your build configuration.');
+}
+
 export const environment = {
     production: true,
-    // FIX: API_URL is substituted by CI/CD pipeline (azure-pipelines-frontend.yml)
-    apiUrl: '${API_URL}'.includes('${') ? '/api' : '${API_URL}',
+    apiUrl: apiUrl,
     appName: 'FlowCus'
-}
+};

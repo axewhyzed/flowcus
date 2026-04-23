@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
+import { AdminGuard } from './core/guards/admin.guard';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
 
 // Pages
@@ -29,7 +30,7 @@ export const routes: Routes = [
       { path: 'tasks', component: TaskPage },
       { path: 'timetables', component: TimetablePage },
       { path: 'task-types', component: TaskTypesPage },
-      { path: 'users', component: UserManagementComponent },
+      { path: 'users', component: UserManagementComponent, canActivate: [AdminGuard] },
     ]
   },
 

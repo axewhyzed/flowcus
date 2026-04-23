@@ -102,6 +102,7 @@ namespace FlowCus.Services
 
             return new LoginResponse
             {
+                Token = accessToken,
                 User = new UserDto { Id = user.Id, Username = user.Username, Name = user.Name, IsAdmin = user.IsAdmin }
             };
         }

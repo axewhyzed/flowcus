@@ -42,5 +42,35 @@ namespace FlowCus.Services
             string sql = "SELECT * FROM task_subtypes WHERE user_id = @UserId AND is_deleted = FALSE ORDER BY name";
             return await _db.QueryAsync<TaskSubtype>(sql, new { UserId = userId });
         }
+
+        public async Task<bool> UpdateAsync(TaskSubtype subtype)
+        {
+            string sql = @"
+        UPDATE task_subtypes 
+        SET name = @Name, 
+            description = @Description, 
+            color_hex = @ColorHex, 
+            icon_name = @IconName,
+            updated_on = now()
+        WHERE id = @Id AND is_deleted = FALSE";
+
+            int rows = await _db.ExecuteAsync(sql, new
+            {
+                Id = subtype.Id,
+                Name = subtype.Name,
+                Description = subtype.Description,
+                ColorHex = subtype.ColorHex,
+                IconName = subtype.IconName
+            });
+
+            return rows > 0;
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            string sql = "UPDATE task_subtypes SET is_deleted = TRUE, updated_on = now() WHERE id = @Id";
+            int rows = await _db.ExecuteAsync(sql, new { Id = id });
+            return rows > 0;
+        }
     }
 }

@@ -9,7 +9,7 @@ namespace FlowCus.Controllers
 {
     [ApiController]
     [Route("api/admin")]
-    [Authorize(Roles = "Admin")] // SECURITY FIX: Only users with the 'Admin' role can access these endpoints
+    [Authorize(Roles = "Admin")] // Only users with the 'Admin' role can access these endpoints
     public class AdminController : ControllerBase
     {
         private readonly DBHelper _dbHelper;
@@ -189,6 +189,24 @@ namespace FlowCus.Controllers
         {
             try
             {
+                // Get current user ID from JWT claims
+                var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (!int.TryParse(idClaim, out int currentUserId))
+                    return Unauthorized();
+
+                // PREVENT SELF-DELETE
+                if (id == currentUserId)
+                    return BadRequest(new { error = "You cannot delete your own account. Ask another admin." });
+
+                // PREVENT DELETING THE LAST ADMIN
+                long adminCount = await _dbHelper.ExecuteScalarAsync<long>(
+                    "SELECT COUNT(*) FROM userlist WHERE is_admin = TRUE AND is_deleted = FALSE AND id != @Id",
+                    new { Id = id }
+                );
+
+                if (adminCount == 0)
+                    return BadRequest(new { error = "Cannot delete the last admin account. Assign admin to another user first." });
+
                 string sql = "UPDATE userlist SET is_deleted = TRUE, updated_on = now() WHERE id = @Id";
                 int rows = await _dbHelper.ExecuteAsync(sql, new { Id = id });
 

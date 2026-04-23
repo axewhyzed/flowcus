@@ -168,7 +168,7 @@ namespace FlowCus.Controllers
                 Id = user.Id,
                 Username = user.Username,
                 Name = user.Name,
-                isAdmin = user.IsAdmin
+                IsAdmin = user.IsAdmin
             });
         }
 
@@ -185,19 +185,6 @@ namespace FlowCus.Controllers
         }
 
         // --- Helpers ---
-
-        private void SetTokenCookie(string token)
-        {
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Expires = DateTime.UtcNow.AddDays(7),
-                SameSite = SameSiteMode.None, 
-                Secure = true 
-            };
-            Response.Cookies.Append("refreshToken", token, cookieOptions);
-        }
-
         private bool IncrementAndCheckRateLimits(string username, string ip)
         {
             bool ipLimited = IsRateLimited($"ip:{ip}", _ipRateLimitPerMinute, incrementOnly: true);
@@ -210,16 +197,20 @@ namespace FlowCus.Controllers
         {
             var now = DateTime.UtcNow;
             string cacheKey = $"ratelimit:{key}";
-            
-            // FIX: Use a proper sliding window by checking window expiration
-            var entry = _cache.GetOrCreate(cacheKey, ce =>
-            {
-                return new RateLimitBucket { Count = 1, WindowStart = now };
-            });
 
-            if (entry != null)
+            lock (_rateLimitLock)  // Add synchronization lock
             {
-                // Check if the window has expired (more than 1 minute since WindowStart)
+                var entry = _cache.Get<RateLimitBucket>(cacheKey);
+
+                if (entry == null)
+                {
+                    // First request in this window
+                    _cache.Set(cacheKey, new RateLimitBucket { Count = 1, WindowStart = now },
+                        new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
+                    return false;
+                }
+
+                // Check if window expired
                 if ((now - entry.WindowStart).TotalMinutes >= 1.0)
                 {
                     // Reset window
@@ -229,18 +220,15 @@ namespace FlowCus.Controllers
                     return false;
                 }
 
-                // Still in current window - increment and check limit
-                if (incrementOnly)
-                {
-                    entry.Count++;
-                    _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
-                }
-                
+                // Still in current window
+                entry.Count++;
+                _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
+
                 return entry.Count > limitPerMinute;
             }
-            return false;
         }
 
+        private readonly object _rateLimitLock = new object();
         private class RateLimitBucket { public int Count { get; set; } public DateTime WindowStart { get; set; } }
     }
 
@@ -253,7 +241,7 @@ namespace FlowCus.Controllers
     // FIXED: Renamed to LoginResponse to prevent namespace collision
     public class LoginResponse
     {
-        // Token is sent in HttpOnly cookie, not in response body, to prevent XSS exposure
+        public string Token { get; set; } = "";
         public UserDto User { get; set; } = new UserDto();
     }
 

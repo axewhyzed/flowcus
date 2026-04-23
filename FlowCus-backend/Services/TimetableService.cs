@@ -34,19 +34,28 @@ namespace FlowCus.Services
 
             if (count == 0) return false;
 
-            // wrap in transaction to prevent race condition where brief window with no active timetable occurs
-            // Also prevents scenario where two concurrent activations both see 0 active, then both set themselves active
-            string transactionSql = @"
-                BEGIN TRANSACTION;
-                
-                UPDATE timetables SET is_active = FALSE WHERE user_id = @UserId;
-                UPDATE timetables SET is_active = TRUE WHERE id = @Id;
-                
-                COMMIT;
-            ";
-            
-            await _db.ExecuteAsync(transactionSql, new { Id = timetableId, UserId = userId });
-            return true;
+            // 2. Use a PostgreSQL-native advisory lock to prevent race conditions
+            // Advisory locks are per-session and auto-release on disconnect
+            string lockSql = "SELECT pg_advisory_lock(@LockId)";
+            await _db.ExecuteAsync(lockSql, new { LockId = userId }); // Use userId as lock ID
+
+            try
+            {
+                // 3. Now atomically deactivate all and activate the target one
+                string deactivateSql = "UPDATE timetables SET is_active = FALSE WHERE user_id = @UserId AND is_deleted = FALSE";
+                await _db.ExecuteAsync(deactivateSql, new { UserId = userId });
+
+                string activateSql = "UPDATE timetables SET is_active = TRUE WHERE id = @Id AND is_deleted = FALSE";
+                int rows = await _db.ExecuteAsync(activateSql, new { Id = timetableId });
+
+                return rows > 0;
+            }
+            finally
+            {
+                // 4. Release the advisory lock
+                string unlockSql = "SELECT pg_advisory_unlock(@LockId)";
+                await _db.ExecuteAsync(unlockSql, new { LockId = userId });
+            }
         }
 
         public async Task<Timetable?> GetByIdAsync(int id, int userId)
@@ -154,14 +163,21 @@ namespace FlowCus.Services
 
         public async Task<bool> DeleteAsync(int id, int userId)
         {
-            // Soft delete the timetable and cascade cascade deletes its items
-            string sql = @"
-                UPDATE timetables 
-                SET is_deleted = TRUE 
-                WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE
-            ";
+            // 1. Cascade delete items first
+            string deleteItemsSql = @"
+            UPDATE timetable_items 
+            SET is_deleted = TRUE 
+            WHERE timetable_id = @Id AND is_deleted = FALSE
+        ";
+            await _db.ExecuteAsync(deleteItemsSql, new { Id = id });
 
-            int rows = await _db.ExecuteAsync(sql, new { Id = id, UserId = userId });
+            // 2. Then delete timetable
+            string deleteTimetableSql = @"
+            UPDATE timetables 
+            SET is_deleted = TRUE 
+            WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE
+        ";
+            int rows = await _db.ExecuteAsync(deleteTimetableSql, new { Id = id, UserId = userId });
             return rows > 0;
         }
 

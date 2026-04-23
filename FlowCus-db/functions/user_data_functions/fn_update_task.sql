@@ -7,7 +7,6 @@ CREATE OR REPLACE FUNCTION fn_update_task(
     p_task_subtype_id INTEGER DEFAULT NULL,
     p_start_time TIMESTAMPTZ DEFAULT NULL,
     p_end_time TIMESTAMPTZ DEFAULT NULL,
-    p_duration_seconds INTEGER DEFAULT NULL,
     p_is_deleted BOOLEAN DEFAULT NULL
 )
 RETURNS INTEGER AS $$
@@ -21,7 +20,6 @@ BEGIN
         updated_on = NOW(),
         start_time = COALESCE(p_start_time, start_time),
         end_time = COALESCE(p_end_time, end_time),
-        duration_seconds = COALESCE(p_duration_seconds, duration_seconds),
         is_deleted = COALESCE(p_is_deleted, is_deleted)
     WHERE task_id = p_task_id;
 

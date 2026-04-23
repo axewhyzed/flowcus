@@ -4,7 +4,8 @@ import { TaskSubtypeService } from '../../core/services/task-subtype.service';
 @Component({
   selector: 'app-task-subtype',
   templateUrl: './task-subtype.page.html',
-  styleUrls: ['./task-subtype.page.css']
+  styleUrls: ['./task-subtype.page.css'],
+  standalone: true
 })
 export class TaskSubtypePage implements OnInit {
   subtypes: any[] = [];
