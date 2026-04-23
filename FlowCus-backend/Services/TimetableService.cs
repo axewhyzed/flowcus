@@ -74,8 +74,10 @@ namespace FlowCus.Services
             return await _db.QueryAsync<TimetableItem>(sql, new { TId = timetableId, UserId = userId });
         }
 
-        public async Task<int> CreateItemAsync(TimetableItem item)
+        public async Task<int> CreateItemAsync(TimetableItem item, int userId)
         {
+            await ValidateItemReferencesAsync(item.TaskCategoryId, item.TaskSubtypeId, userId);
+
             // SECURITY FIX: Check for overlapping time slots on same day in this timetable
             string overlapSql = @"
                 SELECT COUNT(*) FROM timetable_items 
@@ -112,6 +114,8 @@ namespace FlowCus.Services
 
         public async Task<bool> UpdateItemAsync(int id, TimetableItem item, int userId)
         {
+            await ValidateItemReferencesAsync(item.TaskCategoryId, item.TaskSubtypeId, userId);
+
             // CHECK FOR OVERLAPS (excluding current item)
             string overlapSql = @"
                     SELECT COUNT(*) FROM timetable_items 
@@ -208,6 +212,33 @@ namespace FlowCus.Services
 
             int rows = await _db.ExecuteAsync(sql, new { Id = id, UserId = userId });
             return rows > 0;
+        }
+
+        private async Task ValidateItemReferencesAsync(int categoryId, int? subtypeId, int? userId = null)
+        {
+            long categoryCount = await _db.ExecuteScalarAsync<long>(
+                "SELECT COUNT(*) FROM task_category WHERE id = @Id AND is_deleted = FALSE",
+                new { Id = categoryId });
+
+            if (categoryCount == 0)
+                throw new InvalidOperationException("Selected task category does not exist.");
+
+            if (!subtypeId.HasValue)
+                return;
+
+            TaskSubtype? subtype = userId.HasValue
+                ? await _db.QuerySingleAsync<TaskSubtype>(
+                    "SELECT * FROM task_subtypes WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",
+                    new { Id = subtypeId.Value, UserId = userId.Value })
+                : await _db.QuerySingleAsync<TaskSubtype>(
+                    "SELECT * FROM task_subtypes WHERE id = @Id AND is_deleted = FALSE",
+                    new { Id = subtypeId.Value });
+
+            if (subtype == null)
+                throw new InvalidOperationException("Selected task subtype does not exist.");
+
+            if (subtype.CategoryId != categoryId)
+                throw new InvalidOperationException("Selected task subtype does not belong to the chosen category.");
         }
     }
 }

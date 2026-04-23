@@ -30,8 +30,20 @@ namespace FlowCus.Controllers
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
             task.CreatedBy = userId;
-            var id = await _service.CreateAsync(task);
-            return Ok(new { id, message = "Task created" });
+
+            try
+            {
+                var id = await _service.CreateAsync(task);
+                return Ok(new { id, message = "Task created" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Npgsql.PostgresException ex)
+            {
+                return BadRequest(new { message = ex.MessageText });
+            }
         }
 
         [HttpPut("{id}")]
@@ -41,9 +53,20 @@ namespace FlowCus.Controllers
             task.TaskId = id;
             task.CreatedBy = userId;
 
-            var success = await _service.UpdateAsync(task);
-            if (!success) return NotFound(new { message = "Task not found" });
-            return Ok(new { message = "Task updated" });
+            try
+            {
+                var success = await _service.UpdateAsync(task);
+                if (!success) return NotFound(new { message = "Task not found" });
+                return Ok(new { message = "Task updated" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Npgsql.PostgresException ex)
+            {
+                return BadRequest(new { message = ex.MessageText });
+            }
         }
 
         [HttpDelete("{id}")]

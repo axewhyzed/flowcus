@@ -31,8 +31,15 @@ namespace FlowCus.Controllers
         [Authorize(Roles = "Admin")] // Only admins can create global categories
         public async Task<IActionResult> Create([FromBody] TaskCategory category)
         {
-            var newId = await _service.CreateAsync(category);
-            return Ok(new { id = newId, message = "Category created" });
+            try
+            {
+                var newId = await _service.CreateAsync(category);
+                return Ok(new { id = newId, message = "Category created" });
+            }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
+            {
+                return Conflict(new { message = "A category with this name already exists." });
+            }
         }
 
         [HttpDelete("{id}")]
@@ -53,10 +60,17 @@ namespace FlowCus.Controllers
                 return BadRequest(new { message = "Invalid category data" });
 
             category.Id = id; // Ensure ID matches
-            var success = await _service.UpdateAsync(category);
+            try
+            {
+                var success = await _service.UpdateAsync(category);
 
-            if (!success) return NotFound(new { message = "Category not found" });
-            return Ok(new { message = "Category updated" });
+                if (!success) return NotFound(new { message = "Category not found" });
+                return Ok(new { message = "Category updated" });
+            }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
+            {
+                return Conflict(new { message = "A category with this name already exists." });
+            }
         }
 
         [HttpGet("{id}")]

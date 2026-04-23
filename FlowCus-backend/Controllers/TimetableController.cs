@@ -118,7 +118,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                var id = await _service.CreateItemAsync(item);
+                var id = await _service.CreateItemAsync(item, userId);
                 return Ok(new { id });
             }
             catch (InvalidOperationException ex)
@@ -157,6 +157,10 @@ namespace FlowCus.Controllers
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { error = ex.Message });
+            }
+            catch (Npgsql.PostgresException ex)
+            {
+                return BadRequest(new { error = ex.MessageText });
             }
         }
 
