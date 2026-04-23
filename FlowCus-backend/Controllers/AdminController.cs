@@ -111,7 +111,7 @@ namespace FlowCus.Controllers
                 string sql = @"
                     INSERT INTO userlist (username, password_hash, name, is_admin, created_on, is_deleted, failed_attempts, lockout_until)
                     VALUES (@Username, @PasswordHash, @Name, @IsAdmin, now(), FALSE, 0, NULL)
-                    RETURNING id, username, name, created_on, is_admin
+                    RETURNING id as Id, username as Username, name as Name, created_on as CreatedOn, is_admin as IsAdmin
                 ";
 
                 var result = await _dbHelper.QuerySingleAsync<dynamic>(sql, new
@@ -122,7 +122,7 @@ namespace FlowCus.Controllers
                     IsAdmin = request.IsAdmin
                 });
 
-                return Ok(new { message = "User created successfully", user = result });
+                return Ok(result);
             }
             catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23505")
             {
@@ -176,7 +176,21 @@ namespace FlowCus.Controllers
 
                 if (rows == 0) return NotFound(new { error = "User not found" });
 
-                return Ok(new { message = "User updated successfully" });
+                var updatedUser = await _dbHelper.QuerySingleAsync<User>(
+                    "SELECT * FROM userlist WHERE id = @Id AND is_deleted = FALSE LIMIT 1",
+                    new { Id = id });
+
+                if (updatedUser == null) return NotFound(new { error = "User not found" });
+
+                return Ok(new
+                {
+                    updatedUser.Id,
+                    updatedUser.Username,
+                    updatedUser.Name,
+                    updatedUser.CreatedOn,
+                    updatedUser.UpdatedOn,
+                    updatedUser.IsAdmin
+                });
             }
             catch (Exception ex)
             {

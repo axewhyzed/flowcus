@@ -32,9 +32,17 @@ export class DashboardPage implements OnInit {
   }
 
   async loadDashboard() {
-    this.dashboardData = await this.dashboardService.getDashboardStats();
-    if (this.dashboardData?.todayTimetable) {
-      this.processedTimetable = this.processTimetableData(this.dashboardData.todayTimetable);
+    try {
+      this.dashboardData = await this.dashboardService.getDashboardStats();
+      if (this.dashboardData?.todayTimetable) {
+        this.processedTimetable = this.processTimetableData(this.dashboardData.todayTimetable);
+      } else {
+        this.processedTimetable = [];
+      }
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      this.dashboardData = null;
+      this.processedTimetable = [];
     }
   }
 

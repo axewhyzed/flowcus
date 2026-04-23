@@ -85,7 +85,7 @@ namespace FlowCus.Controllers
 
         // PUT api/user
         [HttpPut]
-        public async Task<IActionResult> UpdateProfile([FromBody] UpdateUserRequest request)
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Name))
                 return BadRequest(new { error = "Name cannot be empty" });
@@ -155,7 +155,7 @@ namespace FlowCus.Controllers
         }
     }
 
-    public class UpdateUserRequest { public string Name { get; set; } = ""; }
+    public class UpdateProfileRequest { public string Name { get; set; } = ""; }
     public class UserCreateRequest 
     { 
         public string Username { get; set; } = null!;

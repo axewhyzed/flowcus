@@ -6,6 +6,8 @@ import { User } from '../../core/models/user.model';
 import { AuthService } from '../../core/services/auth.service';
 import { FormsModule } from '@angular/forms';
 
+type UserFormModel = Partial<User> & { password?: string };
+
 @Component({
   selector: 'app-user-management',
   imports: [CommonModule, RouterModule, FormsModule],
@@ -17,7 +19,7 @@ export class UserManagementComponent implements OnInit {
   loading = true;
   showForm = false;
   editingUser: User | null = null;
-  userForm: Partial<User> = {};
+  userForm: UserFormModel = {};
   errorMessage = '';
   currentUser: User | null = null;
 
@@ -48,7 +50,7 @@ export class UserManagementComponent implements OnInit {
 
   openUserForm(user?: User) {
     this.editingUser = user || null;
-    this.userForm = user ? { ...user } : { isAdmin: false };
+    this.userForm = user ? { ...user, password: '' } : { isAdmin: false, username: '', password: '' };
     this.errorMessage = '';
     this.showForm = true;
   }
@@ -63,6 +65,11 @@ export class UserManagementComponent implements OnInit {
   async saveUser() {
     if (!this.userForm.username) {
       this.errorMessage = 'Username is required';
+      return;
+    }
+
+    if (!this.editingUser && !this.userForm.password?.trim()) {
+      this.errorMessage = 'Password is required for new users';
       return;
     }
 

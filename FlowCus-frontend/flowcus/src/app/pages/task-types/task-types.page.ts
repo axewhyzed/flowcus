@@ -47,7 +47,7 @@ export class TaskTypesPage implements OnInit {
     } catch {
       this.currentUser = null;
     }
-    this.loadCategoriesAndSubcategories();
+    await this.loadCategoriesAndSubcategories();
   }
 
   selectTab(tab: 'categories' | 'subcategories') {

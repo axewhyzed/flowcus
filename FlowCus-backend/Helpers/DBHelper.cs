@@ -27,9 +27,31 @@ namespace FlowCus.Helpers
             }
             else
             {
-                connectionString = configuration.GetConnectionString("DefaultConnection")
-                    ?? throw new InvalidOperationException("DefaultConnection string is not set in appsettings.json.");
-                _logger.LogInformation("Development environment detected - using plain-text connection string.");
+                string? defaultConnection = configuration.GetConnectionString("DefaultConnection");
+                string? localConnection = configuration.GetConnectionString("DBLocal");
+
+                if (!string.IsNullOrWhiteSpace(defaultConnection))
+                {
+                    connectionString = defaultConnection;
+                    _logger.LogInformation("Development environment detected - using DefaultConnection.");
+                }
+                else if (!string.IsNullOrWhiteSpace(localConnection))
+                {
+                    if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ENCRYPTION_KEY")))
+                    {
+                        _logger.LogInformation("Development environment detected - decrypting DBLocal connection string.");
+                        connectionString = CryptoHelper.Decrypt(localConnection, _logger);
+                    }
+                    else
+                    {
+                        connectionString = localConnection;
+                        _logger.LogInformation("Development environment detected - using DBLocal connection string as-is.");
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("Neither DefaultConnection nor DBLocal is set in appsettings.json.");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(connectionString))

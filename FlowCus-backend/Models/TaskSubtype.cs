@@ -41,6 +41,7 @@ namespace FlowCus.Models
 
         [Column("is_deleted")]
         public bool IsDeleted { get; set; }
+
         // Navigation
         public virtual ICollection<TaskEntity> TaskEntities { get; set; } = new List<TaskEntity>();
         public virtual ICollection<TimetableItem> TimetableItems { get; set; } = new List<TimetableItem>();

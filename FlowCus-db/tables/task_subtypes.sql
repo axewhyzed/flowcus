@@ -11,16 +11,19 @@ CREATE TABLE task_subtypes (
     color_hex VARCHAR(7), -- e.g. '#FFAA00'
     icon_name VARCHAR(150), -- e.g. 'fa-solid fa-book' (Font Awesome 6)
     created_on TIMESTAMPTZ NOT NULL DEFAULT now(),
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    UNIQUE (user_id, name)
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Existing indexes (automatically created)
 -- task_subtypes_pkey ON id (PRIMARY KEY)
--- task_subtypes_user_id_name_key ON (user_id, name) (UNIQUE)
 
 -- Existing index from original schema
 CREATE INDEX idx_task_subtypes_user ON task_subtypes (user_id) 
+    WHERE is_deleted = FALSE;
+
+-- Allow users to recreate a subtype name after soft-deleting the old one.
+CREATE UNIQUE INDEX idx_task_subtypes_unique_active_name
+    ON task_subtypes (user_id, name)
     WHERE is_deleted = FALSE;
 
 -- Trigger for enforcing max 5 subtypes per user

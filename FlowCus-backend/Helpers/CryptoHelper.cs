@@ -62,7 +62,7 @@ namespace FlowCus.Helpers
             }
         }
 
-        public static string Encrypt(string plainText, ILogger logger = null)
+        public static string Encrypt(string plainText, ILogger? logger = null)
         {
             logger?.LogDebug("Starting encryption process.");
             try
@@ -100,7 +100,7 @@ namespace FlowCus.Helpers
             }
         }
 
-        private static byte[] GetNormalizedKey(ILogger logger)
+        private static byte[] GetNormalizedKey(ILogger? logger)
         {
             string key = Environment.GetEnvironmentVariable("ENCRYPTION_KEY")
                 ?? throw new InvalidOperationException("ENCRYPTION_KEY environment variable not found");

@@ -39,6 +39,12 @@ namespace FlowCus.Models
         public string? TaskName { get; set; }
 
         [NotMapped]
+        public string? CategoryName { get; set; }
+
+        [NotMapped]
+        public string? SubtypeName { get; set; }
+
+        [NotMapped]
         public string? ColorHex { get; set; }
     }
 }

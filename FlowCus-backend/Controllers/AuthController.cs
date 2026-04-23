@@ -18,18 +18,20 @@ namespace FlowCus.Controllers
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
         private readonly IMemoryCache _cache;
+        private readonly IWebHostEnvironment _environment;
 
         private readonly int _ipRateLimitPerMinute;
         private readonly int _userRateLimitPerMinute;
         private readonly int _bcryptWorkFactor;
 
-        public AuthController(AuthService authService, DBHelper dbHelper, IConfiguration configuration, ILogger<AuthController> logger, IMemoryCache cache)
+        public AuthController(AuthService authService, DBHelper dbHelper, IConfiguration configuration, ILogger<AuthController> logger, IMemoryCache cache, IWebHostEnvironment environment)
         {
             _authService = authService;
             _dbHelper = dbHelper;
             _configuration = configuration;
             _logger = logger;
             _cache = cache;
+            _environment = environment;
 
             _ipRateLimitPerMinute = int.Parse(_configuration["AuthSettings:IpRateLimitPerMinute"] ?? "30");
             _userRateLimitPerMinute = int.Parse(_configuration["AuthSettings:UserRateLimitPerMinute"] ?? "10");
@@ -64,7 +66,7 @@ namespace FlowCus.Controllers
                     Expires = DateTime.UtcNow.AddDays(7) 
                 };
 
-                if (_configuration["Environment"] == "Development")
+                if (_environment.IsDevelopment())
                 {
                     cookieOptions.SameSite = SameSiteMode.Lax;
                     cookieOptions.Secure = false; 
@@ -176,11 +178,20 @@ namespace FlowCus.Controllers
         [Authorize] // SECURITY FIX: Require authorization to prevent unauthorized endpoint exposure
         public IActionResult Logout()
         {
-            Response.Cookies.Delete("auth_session", new CookieOptions { 
-                HttpOnly = true, 
-                Secure = true, 
-                SameSite = SameSiteMode.None 
-            });
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None
+            };
+
+            if (_environment.IsDevelopment())
+            {
+                cookieOptions.SameSite = SameSiteMode.Lax;
+                cookieOptions.Secure = false;
+            }
+
+            Response.Cookies.Delete("auth_session", cookieOptions);
             return Ok(new { message = "Logged out successfully" });
         }
 

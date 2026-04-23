@@ -33,12 +33,12 @@ export class AdminService {
     /**
    * Create a new user
    */
-    createUser(data: Partial<User>): Promise<User> {
+    createUser(data: Partial<User> & { password?: string }): Promise<User> {
         return this.api.post<User>('admin/users', data);
     }
 
     // Update an existing user
-    updateUser(id: number, data: Partial<User>): Promise<User> {
+    updateUser(id: number, data: Partial<User> & { password?: string }): Promise<User> {
         return this.api.put<User>(`admin/users/${id}`, data);
     }
 }

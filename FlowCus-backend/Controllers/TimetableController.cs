@@ -13,10 +13,12 @@ namespace FlowCus.Controllers
     public class TimetableController : ControllerBase
     {
         private readonly TimetableService _service;
+        private readonly ILogger<TimetableController> _logger;
 
-        public TimetableController(TimetableService service)
+        public TimetableController(TimetableService service, ILogger<TimetableController> logger)
         {
             _service = service;
+            _logger = logger;
         }
 
         // --- Timetable Endpoints ---
@@ -69,6 +71,11 @@ namespace FlowCus.Controllers
             var success = await _service.UpdateAsync(id, request.Name, userId);
             if (!success) return NotFound();
 
+            if (request.IsActive)
+            {
+                await _service.ActivateTimetableAsync(id, userId);
+            }
+
             return Ok(new { message = "Timetable updated successfully." });
         }
 
@@ -101,14 +108,12 @@ namespace FlowCus.Controllers
         [HttpPost("items")]
         public async Task<IActionResult> CreateItem([FromBody] TimetableItem item)
         {
-            // SECURITY FIX: Extract userId and verify timetable ownership
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            
-            // Verify that the timetable belongs to this user before creating an item
+
             var timetable = await _service.GetByIdAsync(item.TimetableId, userId);
             if (timetable == null)
             {
-                return Forbidden(new { error = "You do not have permission to add items to this timetable." });
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = "You do not have permission to add items to this timetable." });
             }
 
             try
@@ -118,23 +123,41 @@ namespace FlowCus.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                // VALIDATION FIX: Return 400 for overlap conflicts instead of 500
                 return BadRequest(new { error = ex.Message });
+            }
+            catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23502")
+            {
+                // NOT NULL constraint violated
+                return BadRequest(new { error = "Required field is missing or invalid." });
+            }
+            catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23503")
+            {
+                // Foreign key constraint violated
+                return BadRequest(new { error = "Invalid task category or subtype reference." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating timetable item");
+                return StatusCode(500, new { error = "Failed to create timetable item." });
             }
         }
 
         [HttpPut("items/{id}")]
         public async Task<IActionResult> UpdateItem(int id, [FromBody] TimetableItem item)
         {
-            // Add UpdateItemAsync to your TimetableService first if it's missing!
-            // Assuming strict layering:
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-            // You'll need to add UpdateItemAsync to TimetableService.cs
-            var success = await _service.UpdateItemAsync(id, item, userId);
-            if (!success) return NotFound();
+            try
+            {
+                var success = await _service.UpdateItemAsync(id, item, userId);
+                if (!success) return NotFound();
 
-            return Ok(new { message = "Item updated" });
+                return Ok(new { message = "Item updated" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpDelete("items/{id}")]
@@ -153,5 +176,6 @@ namespace FlowCus.Controllers
     public class UpdateTimetableRequest
     {
         public string Name { get; set; } = "";
+        public bool IsActive { get; set; }
     }
 }

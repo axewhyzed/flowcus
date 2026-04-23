@@ -39,7 +39,7 @@
             Profile
           </a>
           @if (isAdmin) {
-          <a routerLink="/admin/users" routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
+          <a routerLink="/users" routerLinkActive="bg-blue-50 text-blue-700 border-blue-700"
             [routerLinkActiveOptions]="{exact: false}"
             class="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-700 transition-colors border border-transparent text-decoration-none">
             User Management
@@ -136,7 +136,7 @@
         Profile
       </a>
       @if (isAdmin) {
-      <a routerLink="/admin/users" routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
+      <a routerLink="/users" routerLinkActive="bg-blue-50 text-blue-700 border-l-4 border-blue-700"
         [routerLinkActiveOptions]="{exact: false}" (click)="closeMenu()"
         class="block px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors border-l-4 border-transparent text-decoration-none">
         User Management

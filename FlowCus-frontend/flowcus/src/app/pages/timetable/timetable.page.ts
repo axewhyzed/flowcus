@@ -196,11 +196,19 @@ export class TimetablePage implements OnInit {
     }
 
     try {
+      let timetableId: number | null = this.editingTimetable?.id ?? null;
+
       if (this.editingTimetable) {
         await this.timetableService.update(this.editingTimetable.id, this.timetableForm);
       } else {
-        await this.timetableService.create(this.timetableForm);
+        const created = await this.timetableService.create(this.timetableForm);
+        timetableId = created.id;
       }
+
+      if (this.timetableForm.isActive && timetableId) {
+        await this.timetableService.activate(timetableId);
+      }
+
       await this.loadTimetables();
       this.closeTimetableForm();
     } catch (err: unknown) {
@@ -241,6 +249,7 @@ export class TimetablePage implements OnInit {
   closeTimetableForm(): void {
     this.showTimetableForm = false;
     this.editingTimetable = null;
+    this.timetableForm = { name: '', isActive: false };
     this.errorMessage = '';
   }
 

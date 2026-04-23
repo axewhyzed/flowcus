@@ -22,7 +22,7 @@ steps:
   workingDirectory: FlowCus-frontend/flowcus
 
 - script: |
-    sed -i "s|apiUrl:.*|apiUrl: '$(API_URL)',|" src/environments/environment.prod.ts
+    sed -i "s|\${API_URL}|$(API_URL)|g" src/environments/environment.prod.ts
   displayName: 'Replace API URL'
   workingDirectory: FlowCus-frontend/flowcus
 

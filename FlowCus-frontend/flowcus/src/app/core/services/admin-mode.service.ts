@@ -9,10 +9,11 @@ export class AdminModeService {
     adminMode$ = this.adminModeSubject.asObservable();
 
     constructor() {
-        // Load initial state from localStorage if available
-        const saved = localStorage.getItem('adminMode');
-        if (saved !== null) {
-            this.adminModeSubject.next(saved === 'true');
+        if (typeof localStorage !== 'undefined') {
+            const saved = localStorage.getItem('adminMode');
+            if (saved !== null) {
+                this.adminModeSubject.next(saved === 'true');
+            }
         }
     }
 
@@ -23,11 +24,15 @@ export class AdminModeService {
     toggle() {
         const newValue = !this.adminModeSubject.value;
         this.adminModeSubject.next(newValue);
-        localStorage.setItem('adminMode', String(newValue));
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('adminMode', String(newValue));
+        }
     }
 
     setAdminMode(value: boolean) {
         this.adminModeSubject.next(value);
-        localStorage.setItem('adminMode', String(value));
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('adminMode', String(value));
+        }
     }
 }
