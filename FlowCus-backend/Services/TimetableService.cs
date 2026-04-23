@@ -42,7 +42,8 @@ namespace FlowCus.Services
 
             string sql = @"
                 UPDATE timetables
-                SET is_active = CASE WHEN id = @Id THEN TRUE ELSE FALSE END
+                SET is_active = CASE WHEN id = @Id THEN TRUE ELSE FALSE END,
+                    updated_on = now()
                 WHERE user_id = @UserId AND is_deleted = FALSE";
 
             int rows = await _db.ExecuteAsync(sql, new { Id = timetableId, UserId = userId });
@@ -167,16 +168,28 @@ namespace FlowCus.Services
             return rows > 0;
         }
 
-        public async Task<bool> UpdateAsync(int id, string name, bool isActive, int userId)
+        public async Task<bool> UpdateAsync(int id, string name, int userId)
         {
             string sql = @"
                 UPDATE timetables 
                 SET name = @Name,
-                    is_active = @IsActive
+                    updated_on = now()
                 WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE
             ";
 
-            int rows = await _db.ExecuteAsync(sql, new { Id = id, Name = name, IsActive = isActive, UserId = userId });
+            int rows = await _db.ExecuteAsync(sql, new { Id = id, Name = name, UserId = userId });
+            return rows > 0;
+        }
+
+        public async Task<bool> DeactivateTimetableAsync(int timetableId, int userId)
+        {
+            string sql = @"
+                UPDATE timetables
+                SET is_active = FALSE,
+                    updated_on = now()
+                WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE";
+
+            int rows = await _db.ExecuteAsync(sql, new { Id = timetableId, UserId = userId });
             return rows > 0;
         }
 
@@ -214,7 +227,7 @@ namespace FlowCus.Services
             return rows > 0;
         }
 
-        private async Task ValidateItemReferencesAsync(int categoryId, int? subtypeId, int? userId = null)
+        private async Task ValidateItemReferencesAsync(int categoryId, int? subtypeId, int userId)
         {
             long categoryCount = await _db.ExecuteScalarAsync<long>(
                 "SELECT COUNT(*) FROM task_category WHERE id = @Id AND is_deleted = FALSE",
@@ -226,13 +239,9 @@ namespace FlowCus.Services
             if (!subtypeId.HasValue)
                 return;
 
-            TaskSubtype? subtype = userId.HasValue
-                ? await _db.QuerySingleAsync<TaskSubtype>(
-                    "SELECT * FROM task_subtypes WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",
-                    new { Id = subtypeId.Value, UserId = userId.Value })
-                : await _db.QuerySingleAsync<TaskSubtype>(
-                    "SELECT * FROM task_subtypes WHERE id = @Id AND is_deleted = FALSE",
-                    new { Id = subtypeId.Value });
+            TaskSubtype? subtype = await _db.QuerySingleAsync<TaskSubtype>(
+                "SELECT * FROM task_subtypes WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",
+                new { Id = subtypeId.Value, UserId = userId });
 
             if (subtype == null)
                 throw new InvalidOperationException("Selected task subtype does not exist.");

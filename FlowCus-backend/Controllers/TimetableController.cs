@@ -26,14 +26,14 @@ namespace FlowCus.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             return Ok(await _service.GetAllAsync(userId));
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Timetable t)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             t.UserId = userId;
             var id = await _service.CreateAsync(t);
             return Ok(new { id });
@@ -42,7 +42,7 @@ namespace FlowCus.Controllers
         [HttpPost("{id}/activate")]
         public async Task<IActionResult> Activate(int id)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
             var success = await _service.ActivateTimetableAsync(id, userId);
             if (!success) return NotFound(new { message = "Timetable not found." });
@@ -53,7 +53,7 @@ namespace FlowCus.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             var timetable = await _service.GetByIdAsync(id, userId);
             if (timetable == null) return NotFound();
             return Ok(timetable);
@@ -62,18 +62,21 @@ namespace FlowCus.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateTimetableRequest request)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             
-            // Verify ownership before updating
             var timetable = await _service.GetByIdAsync(id, userId);
             if (timetable == null) return NotFound(new { message = "Timetable not found." });
 
-            var success = await _service.UpdateAsync(id, request.Name, request.IsActive, userId);
+            var success = await _service.UpdateAsync(id, request.Name, userId);
             if (!success) return NotFound();
 
-            if (request.IsActive)
+            if (request.IsActive && !timetable.IsActive)
             {
                 await _service.ActivateTimetableAsync(id, userId);
+            }
+            else if (!request.IsActive && timetable.IsActive)
+            {
+                await _service.DeactivateTimetableAsync(id, userId);
             }
 
             return Ok(new { message = "Timetable updated successfully." });
@@ -82,9 +85,8 @@ namespace FlowCus.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            // Verify ownership before deleting
             var timetable = await _service.GetByIdAsync(id, userId);
             if (timetable == null) return NotFound(new { message = "Timetable not found." });
 
@@ -99,8 +101,7 @@ namespace FlowCus.Controllers
         [HttpGet("{timetableId}/items")]
         public async Task<IActionResult> GetItems(int timetableId)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            // Service ensures user owns the timetable before fetching items
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             var items = await _service.GetItemsAsync(timetableId, userId);
             return Ok(items);
         }
@@ -108,7 +109,7 @@ namespace FlowCus.Controllers
         [HttpPost("items")]
         public async Task<IActionResult> CreateItem([FromBody] TimetableItem item)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
             var timetable = await _service.GetByIdAsync(item.TimetableId, userId);
             if (timetable == null)
@@ -145,7 +146,7 @@ namespace FlowCus.Controllers
         [HttpPut("items/{id}")]
         public async Task<IActionResult> UpdateItem(int id, [FromBody] TimetableItem item)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
             try
             {
@@ -167,13 +168,18 @@ namespace FlowCus.Controllers
         [HttpDelete("items/{id}")]
         public async Task<IActionResult> DeleteItem(int id)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            // You'll need to add DeleteItemAsync to TimetableService.cs
             var success = await _service.DeleteItemAsync(id, userId);
             if (!success) return NotFound();
 
             return Ok(new { message = "Item deleted" });
+        }
+
+        private bool TryGetCurrentUserId(out int userId)
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(idClaim, out userId);
         }
     }
 

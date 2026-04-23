@@ -21,14 +21,14 @@ namespace FlowCus.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             return Ok(await _service.GetAllAsync(userId));
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] TaskEntity task)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             task.CreatedBy = userId;
 
             try
@@ -49,7 +49,7 @@ namespace FlowCus.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] TaskEntity task)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             task.TaskId = id;
             task.CreatedBy = userId;
 
@@ -72,7 +72,7 @@ namespace FlowCus.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             var success = await _service.DeleteAsync(id, userId);
             if (!success) return NotFound(new { message = "Task not found" });
             return Ok(new { message = "Task deleted" });
@@ -81,14 +81,18 @@ namespace FlowCus.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            // Extract current user's ID
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            // Pass BOTH id and userId to the service
             var task = await _service.GetByIdAsync(id, userId);
 
             if (task == null) return NotFound();
             return Ok(task);
+        }
+
+        private bool TryGetCurrentUserId(out int userId)
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(idClaim, out userId);
         }
     }
 }

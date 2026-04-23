@@ -19,6 +19,9 @@ namespace FlowCus.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; }
 
+        [Column("updated_on")]
+        public DateTime? UpdatedOn { get; set; }
+
         [Column("is_active")]
         public bool IsActive { get; set; }
 

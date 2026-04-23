@@ -111,9 +111,9 @@ export class TimetablePage implements OnInit {
     return this.formatTime24to12({ hour: hours, minute: minutes });
   }
 
-  convertTime12to24(time12: string): string {
-    const match = time12.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return '00:00';
+  convertTime12to24(time12: string): string | null {
+    const match = time12.trim().match(/^(0?[1-9]|1[0-2]):([0-5]\d)\s*(AM|PM)$/i);
+    if (!match) return null;
 
     let [, hours, minutes, period] = match;
     let hour = parseInt(hours);
@@ -288,7 +288,15 @@ export class TimetablePage implements OnInit {
     const startTime24 = this.convertTime12to24(this.itemForm.startTime);
     const endTime24 = this.convertTime12to24(this.itemForm.endTime);
 
-    if (startTime24 >= endTime24) {
+    if (!startTime24 || !endTime24) {
+      this.errorMessage = 'Please enter valid start and end times.';
+      return;
+    }
+
+    const startMinutes = this.timeToMinutes(startTime24);
+    const endMinutes = this.timeToMinutes(endTime24);
+
+    if (startMinutes >= endMinutes) {
       this.errorMessage = 'Start time must be before end time';
       return;
     }
@@ -345,18 +353,21 @@ export class TimetablePage implements OnInit {
   }
 
   hasOverlap(dayOfWeek: number, startTime: string, endTime: string, excludeId?: number): boolean {
+    const startMinutes = this.timeToMinutes(startTime);
+    const endMinutes = this.timeToMinutes(endTime);
+
     const itemsOnDay = this.timetableItems.filter(
       item => item.dayOfWeek === dayOfWeek && item.id !== excludeId
     );
 
     for (const item of itemsOnDay) {
-      const existingStart = item.startTime;
-      const existingEnd = item.endTime;
+      const existingStart = this.timeToMinutes(item.startTime);
+      const existingEnd = this.timeToMinutes(item.endTime);
 
       if (
-        (startTime >= existingStart && startTime < existingEnd) ||
-        (endTime > existingStart && endTime <= existingEnd) ||
-        (startTime <= existingStart && endTime >= existingEnd)
+        (startMinutes >= existingStart && startMinutes < existingEnd) ||
+        (endMinutes > existingStart && endMinutes <= existingEnd) ||
+        (startMinutes <= existingStart && endMinutes >= existingEnd)
       ) {
         return true;
       }

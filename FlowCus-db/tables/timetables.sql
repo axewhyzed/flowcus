@@ -8,7 +8,8 @@ CREATE TABLE timetables (
     name VARCHAR(100) NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT FALSE,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_on TIMESTAMPTZ
 );
 
 -- Existing indexes (automatically created)
