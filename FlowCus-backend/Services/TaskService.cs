@@ -68,7 +68,7 @@ namespace FlowCus.Services
             if (!subtypeId.HasValue)
                 return;
 
-            var subtype = await _db.QuerySingleAsync<TaskSubtype>(
+            var subtype = await _db.QuerySingleOrDefaultAsync<TaskSubtype>(
                 "SELECT * FROM task_subtypes WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",
                 new { Id = subtypeId.Value, UserId = userId });
 

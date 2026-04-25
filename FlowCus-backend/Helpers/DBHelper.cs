@@ -27,26 +27,12 @@ namespace FlowCus.Helpers
             }
             else
             {
-                string? defaultConnection = configuration.GetConnectionString("DefaultConnection");
                 string? localConnection = configuration.GetConnectionString("DBLocal");
 
-                if (!string.IsNullOrWhiteSpace(defaultConnection))
+                if (!string.IsNullOrWhiteSpace(localConnection))
                 {
-                    connectionString = defaultConnection;
-                    _logger.LogInformation("Development environment detected - using DefaultConnection.");
-                }
-                else if (!string.IsNullOrWhiteSpace(localConnection))
-                {
-                    if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ENCRYPTION_KEY")))
-                    {
-                        _logger.LogInformation("Development environment detected - decrypting DBLocal connection string.");
-                        connectionString = CryptoHelper.Decrypt(localConnection, _logger);
-                    }
-                    else
-                    {
-                        connectionString = localConnection;
-                        _logger.LogInformation("Development environment detected - using DBLocal connection string as-is.");
-                    }
+                    connectionString = localConnection;
+                    _logger.LogInformation("Development environment detected - using DBLocal connection string as-is.");
                 }
                 else
                 {
@@ -88,6 +74,12 @@ namespace FlowCus.Helpers
         {
             using var conn = new NpgsqlConnection(_connectionString);
             return await conn.ExecuteScalarAsync<T>(sql, param);
+        }
+
+        public async Task<T?> QuerySingleOrDefaultAsync<T>(string sql, object? param = null)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            return await conn.QueryFirstOrDefaultAsync<T>(sql, param);
         }
 
         // REMOVED: GetTableAsync, GetValueAsync, ExecuteQueryAsync
