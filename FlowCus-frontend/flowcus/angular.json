@@ -30,8 +30,7 @@
               "src/styles.css"
             ],
             "scripts": [],
-            "outputMode": "static",
-            "baseHref": "/flowcus/"
+            "outputMode": "static"
           },
           "configurations": {
             "production": {
@@ -105,8 +104,7 @@
           },
           "configurations": {
             "production": {
-              "dir": "dist/flowcus/browser",
-              "baseHref": "/flowcus/"
+              "dir": "dist/flowcus/browser"
             }
           }
         }

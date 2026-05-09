@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import { LoginRequest, RegisterRequest } from '../models/auth.model';
+import { LoginRequest, LoginResponse, RegisterRequest } from '../models/auth.model';
 import { API_ENDPOINTS } from '../constants/api-endpoints';
 import { BehaviorSubject } from 'rxjs';
 
@@ -25,10 +25,21 @@ export class AuthService {
 
   async login(data: LoginRequest) {
     // 1. Post credentials -> Server sets HttpOnly cookie
-    const res = await this.api.post<any>(API_ENDPOINTS.AUTH.LOGIN, data);
+    const res = await this.api.post<LoginResponse>(API_ENDPOINTS.AUTH.LOGIN, data);
+
+    if (res.token) {
+      this.api.setAuthToken(res.token);
+    }
+
+    this.currentUser = res.user;
+    this.isAuthenticatedSubject.next(true);
     
     // 2. Validate session immediately by fetching user profile
-    await this.checkAuthStatus();
+    const isSessionValid = await this.checkAuthStatus();
+    if (!isSessionValid) {
+      throw new Error('Login succeeded, but the session could not be restored.');
+    }
+
     return res;
   }
 
@@ -39,6 +50,7 @@ export class AuthService {
       // Ignore errors during logout
     } finally {
       this.currentUser = null;
+      this.api.clearAuthToken();
       this.isAuthenticatedSubject.next(false);
     }
   }
@@ -61,6 +73,7 @@ export class AuthService {
       return true;
     } catch (err) {
       this.currentUser = null;
+      this.api.clearAuthToken();
       this.isAuthenticatedSubject.next(false);
       return false;
     }

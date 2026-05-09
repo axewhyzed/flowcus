@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaskCategoryService } from '../../core/services/task-category.service';
 import { TaskCategory } from '../../core/models/task-category.model';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 
 @Component({
   selector: 'app-task-category',
@@ -38,7 +40,11 @@ export class TaskCategoryPage implements OnInit {
     { name: 'fa-solid fa-calendar', label: 'Event' }
   ];
 
-  constructor(private taskCategoryService: TaskCategoryService) {}
+  constructor(
+    private taskCategoryService: TaskCategoryService,
+    private toastService: ToastService,
+    private confirmService: ConfirmService
+  ) {}
 
   ngOnInit(): void {
     this.loadCategories();
@@ -87,11 +93,12 @@ export class TaskCategoryPage implements OnInit {
 
   async saveCategory() {
     if (!this.categoryForm.name?.trim()) {
-      alert('Please enter a category name.');
+      this.toastService.warning('Please enter a category name.');
       return;
     }
 
     try {
+      const isEditing = !!this.editingCategory;
       if (this.editingCategory) {
         await this.taskCategoryService.update(this.editingCategory.id, this.categoryForm);
       } else {
@@ -99,21 +106,27 @@ export class TaskCategoryPage implements OnInit {
       }
       await this.loadCategories();
       this.closeCategoryForm();
+      this.toastService.success(isEditing ? 'Category updated successfully.' : 'Category created successfully.');
     } catch (error) {
       console.error('Error saving category:', error);
-      alert('Failed to save category. Please try again.');
     }
   }
 
   async deleteCategory(id: number) {
-    if (!confirm('Are you sure you want to delete this category? This may affect existing tasks.')) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete category',
+      message: 'Are you sure you want to delete this category? This may affect existing tasks.',
+      confirmText: 'Delete',
+      danger: true
+    });
+    if (!confirmed) return;
     
     try {
       await this.taskCategoryService.delete(id);
       await this.loadCategories();
+      this.toastService.success('Category deleted successfully.');
     } catch (error) {
       console.error('Error deleting category:', error);
-      alert('Failed to delete category. Please try again.');
     }
   }
 }

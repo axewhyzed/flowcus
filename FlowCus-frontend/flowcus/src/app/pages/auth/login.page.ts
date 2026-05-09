@@ -8,6 +8,7 @@ import {
 } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-login',
@@ -24,7 +25,8 @@ export class LoginPage implements OnInit {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private toastService: ToastService
   ) {
     // strict minimal form: username & password only
     this.loginForm = this.fb.group({
@@ -52,6 +54,7 @@ export class LoginPage implements OnInit {
 
     try {
       await this.authService.login({ username, password });
+      this.toastService.success('Signed in successfully.');
       const navSuccess = await this.router.navigate(['/dashboard']);
       // Optional: If navigation failed (e.g. guard rejection), stop loading
       if (!navSuccess) {
@@ -66,6 +69,7 @@ export class LoginPage implements OnInit {
                        err?.error?.message || 
                        'Invalid username or password. Please try again.';
       this.errorMessage = errorMsg;
+      this.toastService.error(errorMsg);
       this.isLoading = false; // Only stop loading on error
     }
   }

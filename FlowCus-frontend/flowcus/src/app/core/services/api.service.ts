@@ -24,6 +24,15 @@ export class ApiService {
       },
     });
 
+    this.axiosInstance.interceptors.request.use((config) => {
+      const token = this.getStoredToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      return config;
+    });
+
     // Response Interceptor: Handle 401 Session Expiry globally
     this.axiosInstance.interceptors.response.use(
       (response) => response,
@@ -33,12 +42,16 @@ export class ApiService {
             // Failed login attempts also return 401, but we don't want to redirect
             const requestUrl = error.config?.url || '';
             if (!requestUrl.includes('auth/login')) {
+                this.clearAuthToken();
                 // Session cookie expired or invalid -> force login (for authenticated pages)
                 this.router.navigate(['/login']);
             }
         }
         
-        this.errorHandler.handleError(error);
+        const requestUrl = error.config?.url || '';
+        if (!requestUrl.includes('auth/login')) {
+          this.errorHandler.handleError(error);
+        }
         return Promise.reject(error);
       }
     );
@@ -64,5 +77,25 @@ export class ApiService {
   async delete<T>(url: string): Promise<T> {
     const response: AxiosResponse<T> = await this.axiosInstance.delete(url);
     return response.data;
+  }
+
+  setAuthToken(token: string): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('auth_token', token);
+    }
+  }
+
+  clearAuthToken(): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('auth_token');
+    }
+  }
+
+  private getStoredToken(): string | null {
+    if (typeof localStorage === 'undefined') {
+      return null;
+    }
+
+    return localStorage.getItem('auth_token');
   }
 }

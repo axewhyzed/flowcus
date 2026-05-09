@@ -5,6 +5,8 @@ import { AdminService } from '../../core/services/admin.service';
 import { User } from '../../core/models/user.model';
 import { AuthService } from '../../core/services/auth.service';
 import { FormsModule } from '@angular/forms';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 
 type UserFormModel = Partial<User> & { password?: string };
 
@@ -16,6 +18,8 @@ type UserFormModel = Partial<User> & { password?: string };
 })
 export class UserManagementComponent implements OnInit {
   users: User[] = [];
+  filteredUsers: User[] = [];
+  searchTerm: string = '';
   loading = true;
   showForm = false;
   editingUser: User | null = null;
@@ -26,23 +30,26 @@ export class UserManagementComponent implements OnInit {
   constructor(
     private adminService: AdminService,
     private authService: AuthService,
-    private router: Router
-  ) {}
+    private router: Router,
+    private toastService: ToastService,
+    private confirmService: ConfirmService
+  ) { }
 
   async ngOnInit() {
     try {
       const me = this.authService.user || await this.authService.me();
       this.currentUser = me;
-      
+
       if (!me?.isAdmin) {
-        alert('This page requires admin rights');
+        this.toastService.error('This page requires admin rights.');
         this.router.navigate(['/dashboard']);
         return;
       }
       this.users = await this.adminService.getAllUsers();
+      this.filteredUsers = [...this.users];
     } catch (err) {
       console.error(err);
-      alert('Error loading users');
+      this.toastService.error('Error loading users.');
     } finally {
       this.loading = false;
     }
@@ -65,11 +72,13 @@ export class UserManagementComponent implements OnInit {
   async saveUser() {
     if (!this.userForm.username) {
       this.errorMessage = 'Username is required';
+      this.toastService.warning(this.errorMessage);
       return;
     }
 
     if (!this.editingUser && !this.userForm.password?.trim()) {
       this.errorMessage = 'Password is required for new users';
+      this.toastService.warning(this.errorMessage);
       return;
     }
 
@@ -78,11 +87,13 @@ export class UserManagementComponent implements OnInit {
         const updated = await this.adminService.updateUser(this.editingUser.id, this.userForm);
         const index = this.users.findIndex(u => u.id === this.editingUser!.id);
         this.users[index] = updated;
-        alert('User updated successfully');
+        this.filteredUsers = [...this.users];
+        this.toastService.success('User updated successfully.');
       } else {
         const created = await this.adminService.createUser(this.userForm);
         this.users.unshift(created);
-        alert('User created successfully');
+        this.filteredUsers = [...this.users];
+        this.toastService.success('User created successfully.');
       }
       this.closeUserForm();
     } catch (err: any) {
@@ -92,14 +103,30 @@ export class UserManagementComponent implements OnInit {
   }
 
   async deleteUser(id: number) {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete user',
+      message: 'Are you sure you want to delete this user?',
+      confirmText: 'Delete',
+      danger: true
+    });
+    if (!confirmed) return;
+
     try {
       await this.adminService.deleteUser(id);
       this.users = this.users.filter(u => u.id !== id);
-      alert('User deleted successfully');
+      this.filteredUsers = [...this.users];
+      this.toastService.success('User deleted successfully.');
     } catch (err) {
       console.error(err);
-      alert('Failed to delete user');
     }
+  }
+
+  filterUsers(event: any) {
+    this.searchTerm = event.target.value.toLowerCase();
+
+    this.filteredUsers = this.users.filter(user =>
+      user.username?.toLowerCase().includes(this.searchTerm) ||
+      user.name?.toLowerCase().includes(this.searchTerm)
+    );
   }
 }

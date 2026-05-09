@@ -9,6 +9,8 @@ import { Timetable } from '../../core/models/timetable.model';
 import { TimetableItem } from '../../core/models/timetable-item.model';
 import { TaskCategory } from '../../core/models/task-category.model'
 import { TaskSubtype } from '../../core/models/task-subtype.model';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 
 interface TimetableItemDetail extends TimetableItem {
   categoryName?: string;
@@ -63,7 +65,9 @@ export class TimetablePage implements OnInit {
     private timetableService: TimetableService,
     private timetableItemService: TimetableItemService,
     private taskCategoryService: TaskCategoryService,
-    private taskSubtypeService: TaskSubtypeService
+    private taskSubtypeService: TaskSubtypeService,
+    private toastService: ToastService,
+    private confirmService: ConfirmService
   ) {
     this.generateTimeSlots();
   }
@@ -192,11 +196,13 @@ export class TimetablePage implements OnInit {
   async saveTimetable(): Promise<void> {
     if (!this.timetableForm.name.trim()) {
       this.errorMessage = 'Timetable name is required';
+      this.toastService.warning(this.errorMessage);
       return;
     }
 
     try {
       let timetableId: number | null = this.editingTimetable?.id ?? null;
+      const isEditing = !!this.editingTimetable;
 
       if (this.editingTimetable) {
         await this.timetableService.update(this.editingTimetable.id, this.timetableForm);
@@ -211,6 +217,7 @@ export class TimetablePage implements OnInit {
 
       await this.loadTimetables();
       this.closeTimetableForm();
+      this.toastService.success(isEditing ? 'Timetable updated successfully.' : 'Timetable created successfully.');
     } catch (err: unknown) {
       const error = err as Error;
       this.errorMessage = `Failed to ${this.editingTimetable ? 'update' : 'create'} timetable`;
@@ -219,19 +226,26 @@ export class TimetablePage implements OnInit {
   }
 
   async deleteTimetable(id: number): Promise<void> {
-    if (confirm('Are you sure you want to delete this timetable?')) {
-      try {
-        await this.timetableService.delete(id);
-        await this.loadTimetables();
-        if (this.selectedTimetable?.id === id) {
-          this.selectedTimetable = null;
-          this.timetableItems = [];
-        }
-      } catch (err: unknown) {
-        const error = err as Error;
-        this.errorMessage = 'Failed to delete timetable';
-        console.error('Error deleting timetable:', error);
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete timetable',
+      message: 'Are you sure you want to delete this timetable?',
+      confirmText: 'Delete',
+      danger: true
+    });
+    if (!confirmed) return;
+
+    try {
+      await this.timetableService.delete(id);
+      await this.loadTimetables();
+      if (this.selectedTimetable?.id === id) {
+        this.selectedTimetable = null;
+        this.timetableItems = [];
       }
+      this.toastService.success('Timetable deleted successfully.');
+    } catch (err: unknown) {
+      const error = err as Error;
+      this.errorMessage = 'Failed to delete timetable';
+      console.error('Error deleting timetable:', error);
     }
   }
 
@@ -239,6 +253,7 @@ export class TimetablePage implements OnInit {
     try {
       await this.timetableService.activate(id);
       await this.loadTimetables();
+      this.toastService.success('Timetable activated successfully.');
     } catch (err: unknown) {
       const error = err as Error;
       this.errorMessage = 'Failed to activate timetable';
@@ -282,6 +297,7 @@ export class TimetablePage implements OnInit {
   async saveItem(): Promise<void> {
     if (!this.selectedTimetable || !this.itemForm.taskCategoryId || !this.itemForm.startTime || !this.itemForm.endTime) {
       this.errorMessage = 'Please fill all required fields';
+      this.toastService.warning(this.errorMessage);
       return;
     }
 
@@ -290,6 +306,7 @@ export class TimetablePage implements OnInit {
 
     if (!startTime24 || !endTime24) {
       this.errorMessage = 'Please enter valid start and end times.';
+      this.toastService.warning(this.errorMessage);
       return;
     }
 
@@ -298,12 +315,14 @@ export class TimetablePage implements OnInit {
 
     if (startMinutes >= endMinutes) {
       this.errorMessage = 'Start time must be before end time';
+      this.toastService.warning(this.errorMessage);
       return;
     }
 
     // Check for overlapping time slots
     if (this.hasOverlap(this.itemForm.dayOfWeek, startTime24, endTime24, this.editingItem?.id)) {
       this.errorMessage = 'This time slot overlaps with an existing entry';
+      this.toastService.warning(this.errorMessage);
       return;
     }
 
@@ -317,6 +336,7 @@ export class TimetablePage implements OnInit {
     };
 
     try {
+      const isEditing = !!this.editingItem;
       if (this.editingItem) {
         await this.timetableItemService.update(this.editingItem.id, itemData);
       } else {
@@ -324,6 +344,7 @@ export class TimetablePage implements OnInit {
       }
       await this.loadTimetableItems(this.selectedTimetable.id);
       this.closeItemForm();
+      this.toastService.success(isEditing ? 'Time block updated successfully.' : 'Time block created successfully.');
     } catch (err: unknown) {
       const error = err as Error;
       this.errorMessage = `Failed to ${this.editingItem ? 'update' : 'create'} item`;
@@ -334,15 +355,22 @@ export class TimetablePage implements OnInit {
   async deleteItem(id: number): Promise<void> {
     if (!this.selectedTimetable) return;
 
-    if (confirm('Are you sure you want to delete this item?')) {
-      try {
-        await this.timetableItemService.delete(id);
-        await this.loadTimetableItems(this.selectedTimetable.id);
-      } catch (err: unknown) {
-        const error = err as Error;
-        this.errorMessage = 'Failed to delete item';
-        console.error('Error deleting item:', error);
-      }
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete time block',
+      message: 'Are you sure you want to delete this item?',
+      confirmText: 'Delete',
+      danger: true
+    });
+    if (!confirmed) return;
+
+    try {
+      await this.timetableItemService.delete(id);
+      await this.loadTimetableItems(this.selectedTimetable.id);
+      this.toastService.success('Time block deleted successfully.');
+    } catch (err: unknown) {
+      const error = err as Error;
+      this.errorMessage = 'Failed to delete item';
+      console.error('Error deleting item:', error);
     }
   }
 

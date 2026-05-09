@@ -25,7 +25,7 @@ export class DashboardPage implements OnInit {
   processedTimetable: TimetableSlot[] = [];
   todayDate: Date = new Date();
 
-  constructor(private dashboardService: DashboardService, private router: Router) {}
+  constructor(private dashboardService: DashboardService, private router: Router) { }
 
   ngOnInit(): void {
     this.loadDashboard();
@@ -49,8 +49,8 @@ export class DashboardPage implements OnInit {
   processTimetableData(timetable: any[]): TimetableSlot[] {
     return timetable.map(slot => ({
       ...slot,
-      displayTitle: slot.subtypeName 
-        ? `${slot.categoryName} - ${slot.subtypeName}` 
+      displayTitle: slot.subtypeName
+        ? `${slot.categoryName} - ${slot.subtypeName}`
         : slot.categoryName,
       displayTime: this.formatTimeRange(slot.startTime, slot.endTime)
     })).sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -88,8 +88,12 @@ export class DashboardPage implements OnInit {
   }
 
   quickAddTask() {
-  // Navigate to tasks page and trigger the modal via query param
-  this.router.navigate(['/tasks'], { queryParams: { action: 'create' } });
-}
+    // Navigate to tasks page and trigger the modal via query param
+    this.router.navigate(['/tasks'], { queryParams: { action: 'create' } });
+  }
+
+  goToTimetables() {
+    this.router.navigate(['/timetables']);
+  }
   // try to start using primeng in later versions - not now - ignore this comment
 }

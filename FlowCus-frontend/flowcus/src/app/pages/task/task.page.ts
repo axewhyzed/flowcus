@@ -8,6 +8,8 @@ import { TaskCategoryService } from '../../core/services/task-category.service';
 import { TaskSubtypeService } from '../../core/services/task-subtype.service';
 import { TaskSubtype } from '../../core/models/task-subtype.model';
 import { ActivatedRoute } from '@angular/router';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 
 @Component({
   selector: 'app-task',
@@ -40,7 +42,9 @@ export class TaskPage implements OnInit {
     private taskService: TaskService,
     private taskCategoryService: TaskCategoryService,
     private subtypeService: TaskSubtypeService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private toastService: ToastService,
+    private confirmService: ConfirmService
   ) { }
 
   async ngOnInit() {
@@ -129,11 +133,12 @@ export class TaskPage implements OnInit {
   async saveTask() {
     // FIX: Treat 0 and other falsy values as "not selected" for required category field
     if (!this.newTask.title?.trim() || !this.newTask.taskCategoryId || this.newTask.taskCategoryId <= 0) {
-      alert('Please enter a title and select a category.');
+      this.toastService.warning('Please enter a title and select a category.');
       return;
     }
 
     try {
+      const isEditing = !!this.editingTask;
       if (this.editingTask) {
         await this.taskService.update(this.editingTask.taskId, this.newTask);
       } else {
@@ -141,20 +146,27 @@ export class TaskPage implements OnInit {
       }
       await this.loadTasks();
       this.closeTaskForm();
+      this.toastService.success(isEditing ? 'Task updated successfully.' : 'Task created successfully.');
     } catch (error) {
       console.error('Error saving task:', error);
-      alert('Failed to save task. Please try again.');
     }
   }
 
   async deleteTask(id: number) {
-    if (!confirm('Are you sure you want to delete this task?')) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete task',
+      message: 'Are you sure you want to delete this task?',
+      confirmText: 'Delete',
+      danger: true
+    });
+    if (!confirmed) return;
+
     try {
       await this.taskService.delete(id);
       await this.loadTasks();
+      this.toastService.success('Task deleted successfully.');
     } catch (error) {
       console.error('Error deleting task:', error);
-      alert('Failed to delete task. Please try again.');
     }
   }
 

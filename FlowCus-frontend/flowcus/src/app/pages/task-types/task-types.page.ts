@@ -6,6 +6,8 @@ import { TaskSubtypeService } from '../../core/services/task-subtype.service';
 import { TaskCategory } from '../../core/models/task-category.model';
 import { TaskSubtype } from '../../core/models/task-subtype.model';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 
 @Component({
   selector: 'app-task-types',
@@ -38,7 +40,9 @@ export class TaskTypesPage implements OnInit {
   constructor(
     private categoryService: TaskCategoryService,
     private subtypeService: TaskSubtypeService,
-    private authService: AuthService
+    private authService: AuthService,
+    private toastService: ToastService,
+    private confirmService: ConfirmService
   ) { }
 
   async ngOnInit() {
@@ -112,11 +116,12 @@ export class TaskTypesPage implements OnInit {
 
   async saveSubcategory() {
     if (!this.subcategoryForm.name?.trim() || !this.subcategoryForm.categoryId) {
-      alert('Please enter a name and select a category.');
+      this.toastService.warning('Please enter a name and select a category.');
       return;
     }
 
     try {
+      const isEditing = !!this.editingSubcategory;
       if (this.editingSubcategory) {
         await this.subtypeService.update(this.editingSubcategory.id, this.subcategoryForm);
       } else {
@@ -124,21 +129,27 @@ export class TaskTypesPage implements OnInit {
       }
       await this.loadCategoriesAndSubcategories();
       this.closeSubcategoryForm();
+      this.toastService.success(isEditing ? 'Subcategory updated successfully.' : 'Subcategory created successfully.');
     } catch (error) {
       console.error('Error saving subcategory:', error);
-      alert('Failed to save subcategory. Please try again.');
     }
   }
 
   async deleteSubcategory(id: number) {
-    if (!confirm('Are you sure you want to delete this subcategory? This may affect existing tasks.')) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete subcategory',
+      message: 'Are you sure you want to delete this subcategory? This may affect existing tasks.',
+      confirmText: 'Delete',
+      danger: true
+    });
+    if (!confirmed) return;
 
     try {
       await this.subtypeService.delete(id);
       await this.loadCategoriesAndSubcategories();
+      this.toastService.success('Subcategory deleted successfully.');
     } catch (error) {
       console.error('Error deleting subcategory:', error);
-      alert('Failed to delete subcategory. Please try again.');
     }
   }
 
@@ -166,10 +177,11 @@ export class TaskTypesPage implements OnInit {
 
   async saveCategory() {
     if (!this.categoryForm.name?.trim()) {
-      alert('Please enter a category name.');
+      this.toastService.warning('Please enter a category name.');
       return;
     }
     try {
+      const isEditing = !!this.editingCategory;
       if (this.editingCategory) {
         await this.categoryService.update(this.editingCategory.id, this.categoryForm);
       } else {
@@ -177,20 +189,27 @@ export class TaskTypesPage implements OnInit {
       }
       await this.loadCategoriesAndSubcategories();
       this.closeCategoryForm();
+      this.toastService.success(isEditing ? 'Category updated successfully.' : 'Category created successfully.');
     } catch (error) {
       console.error(error);
-      alert('Failed to save category. Please try again.');
     }
   }
 
   async deleteCategory(id: number) {
-    if (!confirm('Are you sure you want to delete this category? This may affect existing tasks.')) return;
+    const confirmed = await this.confirmService.confirm({
+      title: 'Delete category',
+      message: 'Are you sure you want to delete this category? This may affect existing tasks.',
+      confirmText: 'Delete',
+      danger: true
+    });
+    if (!confirmed) return;
+
     try {
       await this.categoryService.delete(id);
       await this.loadCategoriesAndSubcategories();
+      this.toastService.success('Category deleted successfully.');
     } catch (error) {
       console.error(error);
-      alert('Failed to delete category. Please try again.');
     }
   }
 }

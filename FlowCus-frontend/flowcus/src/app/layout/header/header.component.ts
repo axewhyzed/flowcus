@@ -4,6 +4,7 @@ import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { Subscription } from 'rxjs';
 import { AdminModeService } from '../../core/services/admin-mode.service';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-header',
@@ -25,7 +26,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
   constructor(
     private router: Router,
     private authService: AuthService,
-    private adminModeService: AdminModeService
+    private adminModeService: AdminModeService,
+    private toastService: ToastService
   ) { }
 
  ngOnInit() {
@@ -65,14 +67,11 @@ export class HeaderComponent implements OnInit, OnDestroy {
   async logout() {
     try {
       await this.authService.logout();
+      this.toastService.success('Signed out successfully.');
       this.router.navigate(['/login']);
     } catch (error) {
       console.error('Error logging out:', error);
     }
-  }
-
-  login() {
-    this.router.navigate(['/login']);
   }
 
   onToggleAdminMode() {

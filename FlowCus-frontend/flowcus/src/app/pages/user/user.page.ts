@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../core/services/user.service';
 import { User } from '../../core/models/user.model';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-user',
@@ -13,10 +14,12 @@ import { User } from '../../core/models/user.model';
 })
 export class UserPage implements OnInit {
   user: User | null = null;
-  showSuccessMessage = false;
   errorMessage = '';
 
-  constructor(private userService: UserService) {}
+  constructor(
+    private userService: UserService,
+    private toastService: ToastService
+  ) {}
 
   ngOnInit(): void {
     this.loadUser();
@@ -24,19 +27,19 @@ export class UserPage implements OnInit {
 
   async loadUser() {
     try {
-      console.log('Fetching current user (auth/me)...');
       this.user = await this.userService.getMyUser();
-      console.log('User response:', this.user);
     } catch (err: unknown) {
       const error = err as Error;
       console.error('Error loading user:', error);
       this.errorMessage = 'Failed to load user profile';
+      this.toastService.error(this.errorMessage);
     }
   }
 
   async updateUser() {
     if (!this.user || !this.user.name?.trim()) {
       this.errorMessage = 'Name is required';
+      this.toastService.warning(this.errorMessage);
       return;
     }
 
@@ -47,6 +50,7 @@ export class UserPage implements OnInit {
       const error = err as Error;
       console.error('Error updating user:', error);
       this.errorMessage = 'Failed to update profile. Please try again.';
+      this.toastService.error(this.errorMessage);
       setTimeout(() => {
         this.errorMessage = '';
       }, 3000);
@@ -54,15 +58,8 @@ export class UserPage implements OnInit {
   }
 
   showSuccessNotification() {
-    this.showSuccessMessage = true;
     this.errorMessage = '';
-    setTimeout(() => {
-      this.showSuccessMessage = false;
-    }, 3000);
+    this.toastService.success('Profile updated successfully.');
   }
 
-  dismissNotification() {
-    this.showSuccessMessage = false;
-    this.errorMessage = '';
-  }
 }
