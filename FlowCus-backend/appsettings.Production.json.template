@@ -1,11 +1,24 @@
 {
-  "Logging": { "LogLevel": { "Default": "Information" } },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
   "ConnectionStrings": {
-    "DefaultConnection": "${DB_CONNECTION_ENCRYPTED}"  // From environment
+    "DefaultConnection": "Host=your-db-host;Port=5432;Database=flowcus;Username=your-db-user;Password=your-db-password;"
   },
   "Jwt": {
-    "Key": "${JWT_KEY}",  // From environment
+    "Key": "your-production-jwt-key-at-least-32-characters-long",
     "Issuer": "FlowcusAPI",
     "Audience": "FlowcusClient"
+  },
+  "AuthSettings": {
+    "MaxFailedAttempts": 3,
+    "LockoutMinutes": 2,
+    "IpRateLimitPerMinute": 30,
+    "UserRateLimitPerMinute": 10,
+    "BcryptWorkFactor": 12
   }
 }

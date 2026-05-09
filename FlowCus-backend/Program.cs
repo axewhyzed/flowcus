@@ -10,7 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. CORS: Ensure Credentials are allowed for Cookies to work
 string[] allowedOrigins = builder.Environment.IsDevelopment()
     ? new[] { "http://localhost:4200" }
-    : new[] { "https://axewhyzed.github.io" };
+    : new[] { "https://axewhyzed.github.io", "https://flowcus.axewhyzedlabs.co.in" };
 
 builder.Services.AddCors(options =>
 {

@@ -16,38 +16,23 @@ namespace FlowCus.Helpers
             _logger = logger;
             Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
-            string connectionString;
-            bool isProd = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
-            if (isProd)
-            {
-                string encryptedConnStr = Environment.GetEnvironmentVariable("DB_CONNECTION_ENCRYPTED")
-                    ?? throw new InvalidOperationException("DB_CONNECTION_ENCRYPTED environment variable is not set in Production.");
-                _logger.LogInformation("Production environment detected - decrypting connection string.");
-                connectionString = CryptoHelper.Decrypt(encryptedConnStr, _logger);
-            }
-            else
-            {
-                string? localConnection = configuration.GetConnectionString("DBLocal");
+            string? connectionString = configuration.GetConnectionString("DefaultConnection");
+            string connectionName = "DefaultConnection";
 
-                if (!string.IsNullOrWhiteSpace(localConnection))
-                {
-                    connectionString = localConnection;
-                    _logger.LogInformation("Development environment detected - using DBLocal connection string as-is.");
-                }
-                else
-                {
-                    throw new InvalidOperationException("Neither DefaultConnection nor DBLocal is set in appsettings.json.");
-                }
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                connectionString = configuration.GetConnectionString("DBLocal");
+                connectionName = "DBLocal";
             }
 
             if (string.IsNullOrWhiteSpace(connectionString))
             {
                 _logger.LogError("Connection string is null or empty.");
-                throw new InvalidOperationException("Connection string cannot be null or empty.");
+                throw new InvalidOperationException("Database connection string is missing. Set ConnectionStrings:DefaultConnection or ConnectionStrings:DBLocal.");
             }
 
             _connectionString = connectionString;
-            _logger.LogDebug("Database connection string decrypted successfully.");
+            _logger.LogInformation("Using database connection string: {ConnectionName}.", connectionName);
         }
 
         // --- Dapper Methods ---
