@@ -96,9 +96,13 @@ namespace FlowCus.Controllers
             {
                 int rows = await _userService.UpdateNameAsync(userId, request.Name.Trim());
                 if (rows == 1)
+                {
+                    _logger.LogInformation("Profile updated. UserId={UserId}", userId);
                     return Ok(new { message = "Profile updated successfully" });
-                else
-                    return NotFound(new { error = "User not found" });
+                }
+
+                _logger.LogWarning("Profile update target not found. UserId={UserId}", userId);
+                return NotFound(new { error = "User not found" });
             }
             catch (Exception ex)
             {
@@ -118,12 +122,16 @@ namespace FlowCus.Controllers
             try
             {
                 if (await _userService.CheckUsernameExistsAsync(request.Username))
+                {
+                    _logger.LogWarning("User create conflict. ActorUserId={ActorUserId}, Username={Username}", GetCurrentUserId(), request.Username);
                     return Conflict(new { error = "Username already exists" });
+                }
 
                 var user = await _userService.CreateUserAsync(request);
 
                 if (user != null)
                 {
+                    _logger.LogInformation("User created. ActorUserId={ActorUserId}, NewUserId={NewUserId}, Username={Username}", GetCurrentUserId(), user.Id, user.Username);
                     return Ok(new
                     {
                         user.Id,
@@ -134,6 +142,7 @@ namespace FlowCus.Controllers
                     });
                 }
 
+                _logger.LogError("User create failed without exception. ActorUserId={ActorUserId}, Username={Username}", GetCurrentUserId(), request.Username);
                 return StatusCode(500, new { error = "Failed to create user" });
             }
             catch (Exception ex)

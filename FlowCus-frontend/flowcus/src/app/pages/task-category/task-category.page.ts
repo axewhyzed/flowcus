@@ -99,14 +99,15 @@ export class TaskCategoryPage implements OnInit {
 
     try {
       const isEditing = !!this.editingCategory;
+      let response: unknown;
       if (this.editingCategory) {
-        await this.taskCategoryService.update(this.editingCategory.id, this.categoryForm);
+        response = await this.taskCategoryService.update(this.editingCategory.id, this.categoryForm);
       } else {
-        await this.taskCategoryService.create(this.categoryForm);
+        response = await this.taskCategoryService.create(this.categoryForm);
       }
       await this.loadCategories();
       this.closeCategoryForm();
-      this.toastService.success(isEditing ? 'Category updated successfully.' : 'Category created successfully.');
+      this.toastService.successFrom(response, isEditing ? 'Category updated successfully.' : 'Category created successfully.');
     } catch (error) {
       console.error('Error saving category:', error);
     }
@@ -122,9 +123,9 @@ export class TaskCategoryPage implements OnInit {
     if (!confirmed) return;
     
     try {
-      await this.taskCategoryService.delete(id);
+      const response = await this.taskCategoryService.delete(id);
       await this.loadCategories();
-      this.toastService.success('Category deleted successfully.');
+      this.toastService.successFrom(response, 'Category deleted successfully.');
     } catch (error) {
       console.error('Error deleting category:', error);
     }

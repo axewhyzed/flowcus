@@ -12,10 +12,12 @@ namespace FlowCus.Controllers
     public class TaskSubtypeController : ControllerBase
     {
         private readonly TaskSubtypeService _service;
+        private readonly ILogger<TaskSubtypeController> _logger;
 
-        public TaskSubtypeController(TaskSubtypeService service)
+        public TaskSubtypeController(TaskSubtypeService service, ILogger<TaskSubtypeController> logger)
         {
             _service = service;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -37,18 +39,22 @@ namespace FlowCus.Controllers
             try
             {
                 var newId = await _service.CreateAsync(subtype);
+                _logger.LogInformation("Task subtype created. UserId={UserId}, SubtypeId={SubtypeId}", userId, newId);
                 return Ok(new { id = newId, message = "Subtype created" });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Task subtype create rejected. UserId={UserId}, Reason={Reason}", userId, ex.Message);
                 return BadRequest(new { message = ex.Message });
             }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
             {
+                _logger.LogWarning("Task subtype create conflict. UserId={UserId}, Name={Name}", userId, subtype.Name);
                 return Conflict(new { message = "A subtype with this name already exists." });
             }
             catch (Npgsql.PostgresException ex)
             {
+                _logger.LogWarning(ex, "Task subtype create database error. UserId={UserId}", userId);
                 return BadRequest(new { message = ex.MessageText });
             }
         }
@@ -78,19 +84,28 @@ namespace FlowCus.Controllers
             {
                 var success = await _service.UpdateAsync(subtype);
 
-                if (!success) return NotFound(new { message = "Subtype not found" });
+                if (!success)
+                {
+                    _logger.LogWarning("Task subtype update target not found. UserId={UserId}, SubtypeId={SubtypeId}", userId, id);
+                    return NotFound(new { message = "Subtype not found" });
+                }
+
+                _logger.LogInformation("Task subtype updated. UserId={UserId}, SubtypeId={SubtypeId}", userId, id);
                 return Ok(new { message = "Subtype updated" });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Task subtype update rejected. UserId={UserId}, SubtypeId={SubtypeId}, Reason={Reason}", userId, id, ex.Message);
                 return BadRequest(new { message = ex.Message });
             }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
             {
+                _logger.LogWarning("Task subtype update conflict. UserId={UserId}, SubtypeId={SubtypeId}, Name={Name}", userId, id, subtype.Name);
                 return Conflict(new { message = "A subtype with this name already exists." });
             }
             catch (Npgsql.PostgresException ex)
             {
+                _logger.LogWarning(ex, "Task subtype update database error. UserId={UserId}, SubtypeId={SubtypeId}", userId, id);
                 return BadRequest(new { message = ex.MessageText });
             }
         }
@@ -102,7 +117,13 @@ namespace FlowCus.Controllers
 
             var success = await _service.DeleteAsync(id, userId);
 
-            if (!success) return NotFound(new { message = "Subtype not found" });
+            if (!success)
+            {
+                _logger.LogWarning("Task subtype delete target not found. UserId={UserId}, SubtypeId={SubtypeId}", userId, id);
+                return NotFound(new { message = "Subtype not found" });
+            }
+
+            _logger.LogInformation("Task subtype deleted. UserId={UserId}, SubtypeId={SubtypeId}", userId, id);
             return Ok(new { message = "Subtype deleted" });
         }
 

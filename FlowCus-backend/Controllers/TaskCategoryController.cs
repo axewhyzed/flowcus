@@ -13,10 +13,12 @@ namespace FlowCus.Controllers
     public class TaskCategoryController : ControllerBase
     {
         private readonly TaskCategoryService _service;
+        private readonly ILogger<TaskCategoryController> _logger;
 
-        public TaskCategoryController(TaskCategoryService service)
+        public TaskCategoryController(TaskCategoryService service, ILogger<TaskCategoryController> logger)
         {
             _service = service;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -34,14 +36,17 @@ namespace FlowCus.Controllers
             try
             {
                 var newId = await _service.CreateAsync(category);
+                _logger.LogInformation("Task category created. UserId={UserId}, CategoryId={CategoryId}", GetCurrentUserIdForLog(), newId);
                 return Ok(new { id = newId, message = "Category created" });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Task category create rejected. UserId={UserId}, Reason={Reason}", GetCurrentUserIdForLog(), ex.Message);
                 return BadRequest(new { message = ex.Message });
             }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
             {
+                _logger.LogWarning("Task category create conflict. UserId={UserId}, Name={Name}", GetCurrentUserIdForLog(), category.Name);
                 return Conflict(new { message = "A category with this name already exists." });
             }
         }
@@ -54,11 +59,18 @@ namespace FlowCus.Controllers
             {
                 var success = await _service.DeleteAsync(id);
 
-                if (!success) return NotFound(new { message = "Category not found" });
+                if (!success)
+                {
+                    _logger.LogWarning("Task category delete target not found. UserId={UserId}, CategoryId={CategoryId}", GetCurrentUserIdForLog(), id);
+                    return NotFound(new { message = "Category not found" });
+                }
+
+                _logger.LogInformation("Task category deleted. UserId={UserId}, CategoryId={CategoryId}", GetCurrentUserIdForLog(), id);
                 return Ok(new { message = "Category deleted" });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Task category delete rejected. UserId={UserId}, CategoryId={CategoryId}, Reason={Reason}", GetCurrentUserIdForLog(), id, ex.Message);
                 return BadRequest(new { message = ex.Message });
             }
         }
@@ -75,15 +87,23 @@ namespace FlowCus.Controllers
             {
                 var success = await _service.UpdateAsync(category);
 
-                if (!success) return NotFound(new { message = "Category not found" });
+                if (!success)
+                {
+                    _logger.LogWarning("Task category update target not found. UserId={UserId}, CategoryId={CategoryId}", GetCurrentUserIdForLog(), id);
+                    return NotFound(new { message = "Category not found" });
+                }
+
+                _logger.LogInformation("Task category updated. UserId={UserId}, CategoryId={CategoryId}", GetCurrentUserIdForLog(), id);
                 return Ok(new { message = "Category updated" });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Task category update rejected. UserId={UserId}, CategoryId={CategoryId}, Reason={Reason}", GetCurrentUserIdForLog(), id, ex.Message);
                 return BadRequest(new { message = ex.Message });
             }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
             {
+                _logger.LogWarning("Task category update conflict. UserId={UserId}, CategoryId={CategoryId}, Name={Name}", GetCurrentUserIdForLog(), id, category.Name);
                 return Conflict(new { message = "A category with this name already exists." });
             }
         }
@@ -95,6 +115,12 @@ namespace FlowCus.Controllers
             var category = await _service.GetByIdAsync(id);
             if (category == null) return NotFound();
             return Ok(category);
+        }
+
+        private int? GetCurrentUserIdForLog()
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(idClaim, out int userId) ? userId : null;
         }
     }
 }

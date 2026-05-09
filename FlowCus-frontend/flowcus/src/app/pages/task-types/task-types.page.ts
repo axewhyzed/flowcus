@@ -122,14 +122,15 @@ export class TaskTypesPage implements OnInit {
 
     try {
       const isEditing = !!this.editingSubcategory;
+      let response: unknown;
       if (this.editingSubcategory) {
-        await this.subtypeService.update(this.editingSubcategory.id, this.subcategoryForm);
+        response = await this.subtypeService.update(this.editingSubcategory.id, this.subcategoryForm);
       } else {
-        await this.subtypeService.create(this.subcategoryForm);
+        response = await this.subtypeService.create(this.subcategoryForm);
       }
       await this.loadCategoriesAndSubcategories();
       this.closeSubcategoryForm();
-      this.toastService.success(isEditing ? 'Subcategory updated successfully.' : 'Subcategory created successfully.');
+      this.toastService.successFrom(response, isEditing ? 'Subcategory updated successfully.' : 'Subcategory created successfully.');
     } catch (error) {
       console.error('Error saving subcategory:', error);
     }
@@ -145,9 +146,9 @@ export class TaskTypesPage implements OnInit {
     if (!confirmed) return;
 
     try {
-      await this.subtypeService.delete(id);
+      const response = await this.subtypeService.delete(id);
       await this.loadCategoriesAndSubcategories();
-      this.toastService.success('Subcategory deleted successfully.');
+      this.toastService.successFrom(response, 'Subcategory deleted successfully.');
     } catch (error) {
       console.error('Error deleting subcategory:', error);
     }
@@ -182,14 +183,15 @@ export class TaskTypesPage implements OnInit {
     }
     try {
       const isEditing = !!this.editingCategory;
+      let response: unknown;
       if (this.editingCategory) {
-        await this.categoryService.update(this.editingCategory.id, this.categoryForm);
+        response = await this.categoryService.update(this.editingCategory.id, this.categoryForm);
       } else {
-        await this.categoryService.create(this.categoryForm);
+        response = await this.categoryService.create(this.categoryForm);
       }
       await this.loadCategoriesAndSubcategories();
       this.closeCategoryForm();
-      this.toastService.success(isEditing ? 'Category updated successfully.' : 'Category created successfully.');
+      this.toastService.successFrom(response, isEditing ? 'Category updated successfully.' : 'Category created successfully.');
     } catch (error) {
       console.error(error);
     }
@@ -205,9 +207,9 @@ export class TaskTypesPage implements OnInit {
     if (!confirmed) return;
 
     try {
-      await this.categoryService.delete(id);
+      const response = await this.categoryService.delete(id);
       await this.loadCategoriesAndSubcategories();
-      this.toastService.success('Category deleted successfully.');
+      this.toastService.successFrom(response, 'Category deleted successfully.');
     } catch (error) {
       console.error(error);
     }

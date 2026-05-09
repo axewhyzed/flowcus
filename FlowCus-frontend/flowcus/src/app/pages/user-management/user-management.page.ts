@@ -49,7 +49,6 @@ export class UserManagementComponent implements OnInit {
       this.filteredUsers = [...this.users];
     } catch (err) {
       console.error(err);
-      this.toastService.error('Error loading users.');
     } finally {
       this.loading = false;
     }
@@ -88,12 +87,12 @@ export class UserManagementComponent implements OnInit {
         const index = this.users.findIndex(u => u.id === this.editingUser!.id);
         this.users[index] = updated;
         this.filteredUsers = [...this.users];
-        this.toastService.success('User updated successfully.');
+        this.toastService.successFrom(updated, 'User updated successfully.');
       } else {
         const created = await this.adminService.createUser(this.userForm);
         this.users.unshift(created);
         this.filteredUsers = [...this.users];
-        this.toastService.success('User created successfully.');
+        this.toastService.successFrom(created, 'User created successfully.');
       }
       this.closeUserForm();
     } catch (err: any) {
@@ -112,10 +111,10 @@ export class UserManagementComponent implements OnInit {
     if (!confirmed) return;
 
     try {
-      await this.adminService.deleteUser(id);
+      const response = await this.adminService.deleteUser(id);
       this.users = this.users.filter(u => u.id !== id);
       this.filteredUsers = [...this.users];
-      this.toastService.success('User deleted successfully.');
+      this.toastService.successFrom(response, 'User deleted successfully.');
     } catch (err) {
       console.error(err);
     }

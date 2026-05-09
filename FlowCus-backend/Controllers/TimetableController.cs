@@ -39,10 +39,12 @@ namespace FlowCus.Controllers
             try
             {
                 var id = await _service.CreateAsync(t);
+                _logger.LogInformation("Timetable created. UserId={UserId}, TimetableId={TimetableId}", userId, id);
                 return Ok(new { id, message = "Timetable created successfully." });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Timetable create rejected. UserId={UserId}, Reason={Reason}", userId, ex.Message);
                 return BadRequest(new { error = ex.Message });
             }
         }
@@ -53,8 +55,13 @@ namespace FlowCus.Controllers
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
             var success = await _service.ActivateTimetableAsync(id, userId);
-            if (!success) return NotFound(new { message = "Timetable not found." });
+            if (!success)
+            {
+                _logger.LogWarning("Timetable activate target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
+                return NotFound(new { message = "Timetable not found." });
+            }
 
+            _logger.LogInformation("Timetable activated. UserId={UserId}, TimetableId={TimetableId}", userId, id);
             return Ok(new { message = "Timetable activated successfully." });
         }
 
@@ -73,12 +80,20 @@ namespace FlowCus.Controllers
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             
             var timetable = await _service.GetByIdAsync(id, userId);
-            if (timetable == null) return NotFound(new { message = "Timetable not found." });
+            if (timetable == null)
+            {
+                _logger.LogWarning("Timetable update target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
+                return NotFound(new { message = "Timetable not found." });
+            }
 
             try
             {
                 var success = await _service.UpdateAsync(id, request.Name, userId);
-                if (!success) return NotFound();
+                if (!success)
+                {
+                    _logger.LogWarning("Timetable update target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
+                    return NotFound(new { message = "Timetable not found." });
+                }
 
                 if (request.IsActive && !timetable.IsActive)
                 {
@@ -89,10 +104,12 @@ namespace FlowCus.Controllers
                     await _service.DeactivateTimetableAsync(id, userId);
                 }
 
+                _logger.LogInformation("Timetable updated. UserId={UserId}, TimetableId={TimetableId}", userId, id);
                 return Ok(new { message = "Timetable updated successfully." });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Timetable update rejected. UserId={UserId}, TimetableId={TimetableId}, Reason={Reason}", userId, id, ex.Message);
                 return BadRequest(new { error = ex.Message });
             }
         }
@@ -103,11 +120,20 @@ namespace FlowCus.Controllers
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
             var timetable = await _service.GetByIdAsync(id, userId);
-            if (timetable == null) return NotFound(new { message = "Timetable not found." });
+            if (timetable == null)
+            {
+                _logger.LogWarning("Timetable delete target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
+                return NotFound(new { message = "Timetable not found." });
+            }
 
             var success = await _service.DeleteAsync(id, userId);
-            if (!success) return NotFound();
+            if (!success)
+            {
+                _logger.LogWarning("Timetable delete target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
+                return NotFound(new { message = "Timetable not found." });
+            }
 
+            _logger.LogInformation("Timetable deleted. UserId={UserId}, TimetableId={TimetableId}", userId, id);
             return Ok(new { message = "Timetable deleted successfully." });
         }
 
@@ -129,26 +155,31 @@ namespace FlowCus.Controllers
             var timetable = await _service.GetByIdAsync(item.TimetableId, userId);
             if (timetable == null)
             {
+                _logger.LogWarning("Timetable item create forbidden. UserId={UserId}, TimetableId={TimetableId}", userId, item.TimetableId);
                 return StatusCode(StatusCodes.Status403Forbidden, new { error = "You do not have permission to add items to this timetable." });
             }
 
             try
             {
                 var id = await _service.CreateItemAsync(item, userId);
-                return Ok(new { id });
+                _logger.LogInformation("Timetable item created. UserId={UserId}, TimetableId={TimetableId}, ItemId={ItemId}", userId, item.TimetableId, id);
+                return Ok(new { id, message = "Item created" });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Timetable item create rejected. UserId={UserId}, TimetableId={TimetableId}, Reason={Reason}", userId, item.TimetableId, ex.Message);
                 return BadRequest(new { error = ex.Message });
             }
             catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23502")
             {
                 // NOT NULL constraint violated
+                _logger.LogWarning(pgEx, "Timetable item create missing field. UserId={UserId}, TimetableId={TimetableId}", userId, item.TimetableId);
                 return BadRequest(new { error = "Required field is missing or invalid." });
             }
             catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23503")
             {
                 // Foreign key constraint violated
+                _logger.LogWarning(pgEx, "Timetable item create invalid reference. UserId={UserId}, TimetableId={TimetableId}", userId, item.TimetableId);
                 return BadRequest(new { error = "Invalid task category or subtype reference." });
             }
             catch (Exception ex)
@@ -166,16 +197,23 @@ namespace FlowCus.Controllers
             try
             {
                 var success = await _service.UpdateItemAsync(id, item, userId);
-                if (!success) return NotFound();
+                if (!success)
+                {
+                    _logger.LogWarning("Timetable item update target not found. UserId={UserId}, ItemId={ItemId}", userId, id);
+                    return NotFound(new { message = "Item not found" });
+                }
 
+                _logger.LogInformation("Timetable item updated. UserId={UserId}, ItemId={ItemId}", userId, id);
                 return Ok(new { message = "Item updated" });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning("Timetable item update rejected. UserId={UserId}, ItemId={ItemId}, Reason={Reason}", userId, id, ex.Message);
                 return BadRequest(new { error = ex.Message });
             }
             catch (Npgsql.PostgresException ex)
             {
+                _logger.LogWarning(ex, "Timetable item update database error. UserId={UserId}, ItemId={ItemId}", userId, id);
                 return BadRequest(new { error = ex.MessageText });
             }
         }
@@ -186,8 +224,13 @@ namespace FlowCus.Controllers
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
             var success = await _service.DeleteItemAsync(id, userId);
-            if (!success) return NotFound();
+            if (!success)
+            {
+                _logger.LogWarning("Timetable item delete target not found. UserId={UserId}, ItemId={ItemId}", userId, id);
+                return NotFound(new { message = "Item not found" });
+            }
 
+            _logger.LogInformation("Timetable item deleted. UserId={UserId}, ItemId={ItemId}", userId, id);
             return Ok(new { message = "Item deleted" });
         }
 

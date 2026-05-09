@@ -56,7 +56,11 @@ namespace FlowCus.Controllers
             {
                 var result = await _authService.AuthenticateAsync(request.Username, request.Password);
                 
-                if (result is null) return Unauthorized(new { error = "Invalid credentials." });
+                if (result is null)
+                {
+                    _logger.LogWarning("Login failed. Username={Username}, Ip={Ip}", request.Username, ip);
+                    return Unauthorized(new { error = "Invalid credentials." });
+                }
 
                 var cookieOptions = new CookieOptions
                 {
@@ -74,6 +78,7 @@ namespace FlowCus.Controllers
 
                 Response.Cookies.Append("auth_session", result.Token, cookieOptions);
 
+                _logger.LogInformation("Login succeeded. UserId={UserId}, Username={Username}, Ip={Ip}", result.User.Id, result.User.Username, ip);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -107,10 +112,12 @@ namespace FlowCus.Controllers
 
                 int newId = await _dbHelper.ExecuteScalarAsync<int>(sql, new { Username = request.Username, Hash = bcryptHash, Name = request.Name });
 
+                _logger.LogInformation("User registered. ActorUserId={ActorUserId}, NewUserId={NewUserId}, Username={Username}", currentUserId, newId, request.Username);
                 return Ok(new { message = "User registered successfully", userId = newId });
             }
             catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23505")
             {
+                _logger.LogWarning("User registration conflict. ActorUserId={ActorUserId}, Username={Username}", currentUserId, request.Username);
                 return Conflict(new ErrorResponse { Error = "Username already exists." });
             }
             catch (Exception ex)
@@ -143,13 +150,17 @@ namespace FlowCus.Controllers
                 if (string.IsNullOrEmpty(storedHash)) return NotFound("User not found");
 
                 if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, storedHash))
+                {
+                    _logger.LogWarning("Password change rejected. UserId={UserId}, Reason=InvalidCurrentPassword", userId);
                     return Unauthorized(new ErrorResponse { Error = "Current password is incorrect." });
+                }
 
                 string newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, _bcryptWorkFactor);
 
                 await _dbHelper.ExecuteAsync("UPDATE userlist SET password_hash = @Hash, updated_on = now() WHERE id = @Id",
                     new { Hash = newHash, Id = userId });
 
+                _logger.LogInformation("Password changed. UserId={UserId}", userId);
                 return Ok(new { message = "Password changed successfully." });
             }
             catch (Exception ex)
@@ -184,6 +195,7 @@ namespace FlowCus.Controllers
         [Authorize] // SECURITY FIX: Require authorization to prevent unauthorized endpoint exposure
         public IActionResult Logout()
         {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
@@ -198,6 +210,7 @@ namespace FlowCus.Controllers
             }
 
             Response.Cookies.Delete("auth_session", cookieOptions);
+            _logger.LogInformation("Logout succeeded. UserId={UserId}", idClaim ?? "unknown");
             return Ok(new { message = "Logged out successfully" });
         }
 

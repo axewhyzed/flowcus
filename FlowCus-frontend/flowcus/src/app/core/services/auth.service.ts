@@ -44,8 +44,9 @@ export class AuthService {
   }
 
   async logout() {
+    let response: unknown;
     try {
-      await this.api.post(API_ENDPOINTS.AUTH.LOGOUT, {});
+      response = await this.api.post(API_ENDPOINTS.AUTH.LOGOUT, {});
     } catch (e) {
       // Ignore errors during logout
     } finally {
@@ -53,6 +54,8 @@ export class AuthService {
       this.api.clearAuthToken();
       this.isAuthenticatedSubject.next(false);
     }
+
+    return response;
   }
 
   register(data: RegisterRequest) {

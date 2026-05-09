@@ -19,6 +19,10 @@ export class ToastService {
     this.show('success', message);
   }
 
+  successFrom(response: unknown, fallback: string): void {
+    this.success(this.messageFrom(response) ?? fallback);
+  }
+
   error(message: string): void {
     this.show('error', message);
   }
@@ -39,5 +43,14 @@ export class ToastService {
     const toast = { id: this.nextId++, type, message };
     this.toastsSubject.next([...this.toastsSubject.value, toast]);
     setTimeout(() => this.dismiss(toast.id), 4000);
+  }
+
+  private messageFrom(response: unknown): string | null {
+    if (response && typeof response === 'object' && 'message' in response) {
+      const message = (response as { message?: unknown }).message;
+      return typeof message === 'string' && message.trim() ? message : null;
+    }
+
+    return null;
   }
 }

@@ -203,11 +203,13 @@ export class TimetablePage implements OnInit {
     try {
       let timetableId: number | null = this.editingTimetable?.id ?? null;
       const isEditing = !!this.editingTimetable;
+      let response: unknown;
 
       if (this.editingTimetable) {
-        await this.timetableService.update(this.editingTimetable.id, this.timetableForm);
+        response = await this.timetableService.update(this.editingTimetable.id, this.timetableForm);
       } else {
         const created = await this.timetableService.create(this.timetableForm);
+        response = created;
         timetableId = created.id;
       }
 
@@ -217,7 +219,7 @@ export class TimetablePage implements OnInit {
 
       await this.loadTimetables();
       this.closeTimetableForm();
-      this.toastService.success(isEditing ? 'Timetable updated successfully.' : 'Timetable created successfully.');
+      this.toastService.successFrom(response, isEditing ? 'Timetable updated successfully.' : 'Timetable created successfully.');
     } catch (err: unknown) {
       const error = err as Error;
       this.errorMessage = `Failed to ${this.editingTimetable ? 'update' : 'create'} timetable`;
@@ -235,13 +237,13 @@ export class TimetablePage implements OnInit {
     if (!confirmed) return;
 
     try {
-      await this.timetableService.delete(id);
+      const response = await this.timetableService.delete(id);
       await this.loadTimetables();
       if (this.selectedTimetable?.id === id) {
         this.selectedTimetable = null;
         this.timetableItems = [];
       }
-      this.toastService.success('Timetable deleted successfully.');
+      this.toastService.successFrom(response, 'Timetable deleted successfully.');
     } catch (err: unknown) {
       const error = err as Error;
       this.errorMessage = 'Failed to delete timetable';
@@ -251,9 +253,9 @@ export class TimetablePage implements OnInit {
 
   async activateTimetable(id: number): Promise<void> {
     try {
-      await this.timetableService.activate(id);
+      const response = await this.timetableService.activate(id);
       await this.loadTimetables();
-      this.toastService.success('Timetable activated successfully.');
+      this.toastService.successFrom(response, 'Timetable activated successfully.');
     } catch (err: unknown) {
       const error = err as Error;
       this.errorMessage = 'Failed to activate timetable';
@@ -337,14 +339,15 @@ export class TimetablePage implements OnInit {
 
     try {
       const isEditing = !!this.editingItem;
+      let response: unknown;
       if (this.editingItem) {
-        await this.timetableItemService.update(this.editingItem.id, itemData);
+        response = await this.timetableItemService.update(this.editingItem.id, itemData);
       } else {
-        await this.timetableItemService.create(itemData);
+        response = await this.timetableItemService.create(itemData);
       }
       await this.loadTimetableItems(this.selectedTimetable.id);
       this.closeItemForm();
-      this.toastService.success(isEditing ? 'Time block updated successfully.' : 'Time block created successfully.');
+      this.toastService.successFrom(response, isEditing ? 'Time block updated successfully.' : 'Time block created successfully.');
     } catch (err: unknown) {
       const error = err as Error;
       this.errorMessage = `Failed to ${this.editingItem ? 'update' : 'create'} item`;
@@ -364,9 +367,9 @@ export class TimetablePage implements OnInit {
     if (!confirmed) return;
 
     try {
-      await this.timetableItemService.delete(id);
+      const response = await this.timetableItemService.delete(id);
       await this.loadTimetableItems(this.selectedTimetable.id);
-      this.toastService.success('Time block deleted successfully.');
+      this.toastService.successFrom(response, 'Time block deleted successfully.');
     } catch (err: unknown) {
       const error = err as Error;
       this.errorMessage = 'Failed to delete item';

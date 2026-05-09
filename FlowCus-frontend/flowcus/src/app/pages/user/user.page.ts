@@ -32,7 +32,6 @@ export class UserPage implements OnInit {
       const error = err as Error;
       console.error('Error loading user:', error);
       this.errorMessage = 'Failed to load user profile';
-      this.toastService.error(this.errorMessage);
     }
   }
 
@@ -44,22 +43,16 @@ export class UserPage implements OnInit {
     }
 
     try {
-      await this.userService.updateUser({ name: this.user.name });
-      this.showSuccessNotification();
+      const response = await this.userService.updateUser({ name: this.user.name });
+      this.errorMessage = '';
+      this.toastService.successFrom(response, 'Profile updated successfully.');
     } catch (err: unknown) {
       const error = err as Error;
       console.error('Error updating user:', error);
       this.errorMessage = 'Failed to update profile. Please try again.';
-      this.toastService.error(this.errorMessage);
       setTimeout(() => {
         this.errorMessage = '';
       }, 3000);
     }
   }
-
-  showSuccessNotification() {
-    this.errorMessage = '';
-    this.toastService.success('Profile updated successfully.');
-  }
-
 }

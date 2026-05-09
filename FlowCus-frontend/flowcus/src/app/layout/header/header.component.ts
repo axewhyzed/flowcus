@@ -66,8 +66,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   async logout() {
     try {
-      await this.authService.logout();
-      this.toastService.success('Signed out successfully.');
+      const response = await this.authService.logout();
+      this.toastService.successFrom(response, 'Signed out successfully.');
       this.router.navigate(['/login']);
     } catch (error) {
       console.error('Error logging out:', error);

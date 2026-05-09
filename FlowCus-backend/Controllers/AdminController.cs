@@ -103,6 +103,8 @@ namespace FlowCus.Controllers
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest(new { error = "Username and password are required." });
 
+            int? actorUserId = GetCurrentUserIdForLog();
+
             try
             {
                 // Hash the password
@@ -122,10 +124,29 @@ namespace FlowCus.Controllers
                     IsAdmin = request.IsAdmin
                 });
 
-                return Ok(result);
+                if (result == null)
+                {
+                    _logger.LogError("Admin user create failed without returned user. ActorUserId={ActorUserId}, Username={Username}", actorUserId, request.Username);
+                    return StatusCode(500, new { error = "Failed to create user" });
+                }
+
+                int newUserId = result.Id;
+                string newUsername = result.Username;
+
+                _logger.LogInformation("Admin user created. ActorUserId={ActorUserId}, NewUserId={NewUserId}, Username={Username}", actorUserId, newUserId, newUsername);
+                return Ok(new
+                {
+                    Id = newUserId,
+                    Username = newUsername,
+                    result.Name,
+                    result.CreatedOn,
+                    result.IsAdmin,
+                    message = "User created successfully"
+                });
             }
             catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23505")
             {
+                _logger.LogWarning("Admin user create conflict. ActorUserId={ActorUserId}, Username={Username}", actorUserId, request.Username);
                 return Conflict(new { error = "Username already exists." });
             }
             catch (Exception ex)
@@ -141,6 +162,8 @@ namespace FlowCus.Controllers
         {
             if (id <= 0 || request == null)
                 return BadRequest(new { error = "Invalid request data." });
+
+            int? actorUserId = GetCurrentUserIdForLog();
 
             try
             {
@@ -168,7 +191,10 @@ namespace FlowCus.Controllers
                                 new { Id = id });
 
                             if (otherAdminCount == 0)
+                            {
+                                _logger.LogWarning("Admin user update rejected. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}, Reason=LastAdmin", actorUserId, id);
                                 return BadRequest(new { error = "Cannot remove admin rights from the last admin account." });
+                            }
                         }
                     }
 
@@ -184,21 +210,33 @@ namespace FlowCus.Controllers
                 }
 
                 if (updates.Count == 0)
+                {
+                    _logger.LogWarning("Admin user update rejected. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}, Reason=NoFields", actorUserId, id);
                     return BadRequest(new { error = "No fields to update." });
+                }
 
                 updates.Add("updated_on = now()");
                 string sql = $"UPDATE userlist SET {string.Join(", ", updates)} WHERE id = @Id AND is_deleted = FALSE";
 
                 int rows = await _dbHelper.ExecuteAsync(sql, parameters);
 
-                if (rows == 0) return NotFound(new { error = "User not found" });
+                if (rows == 0)
+                {
+                    _logger.LogWarning("Admin user update target not found. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}", actorUserId, id);
+                    return NotFound(new { error = "User not found" });
+                }
 
                 var updatedUser = await _dbHelper.QuerySingleAsync<User>(
                     "SELECT * FROM userlist WHERE id = @Id AND is_deleted = FALSE LIMIT 1",
                     new { Id = id });
 
-                if (updatedUser == null) return NotFound(new { error = "User not found" });
+                if (updatedUser == null)
+                {
+                    _logger.LogWarning("Admin user update target missing after update. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}", actorUserId, id);
+                    return NotFound(new { error = "User not found" });
+                }
 
+                _logger.LogInformation("Admin user updated. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}", actorUserId, id);
                 return Ok(new
                 {
                     updatedUser.Id,
@@ -206,7 +244,8 @@ namespace FlowCus.Controllers
                     updatedUser.Name,
                     updatedUser.CreatedOn,
                     updatedUser.UpdatedOn,
-                    updatedUser.IsAdmin
+                    updatedUser.IsAdmin,
+                    message = "User updated successfully"
                 });
             }
             catch (Exception ex)
@@ -227,7 +266,10 @@ namespace FlowCus.Controllers
 
                 // PREVENT SELF-DELETE
                 if (id == currentUserId)
+                {
+                    _logger.LogWarning("Admin user delete rejected. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}, Reason=SelfDelete", currentUserId, id);
                     return BadRequest(new { error = "You cannot delete your own account. Ask another admin." });
+                }
 
                 // PREVENT DELETING THE LAST ADMIN
                 long adminCount = await _dbHelper.ExecuteScalarAsync<long>(
@@ -236,12 +278,21 @@ namespace FlowCus.Controllers
                 );
 
                 if (adminCount == 0)
+                {
+                    _logger.LogWarning("Admin user delete rejected. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}, Reason=LastAdmin", currentUserId, id);
                     return BadRequest(new { error = "Cannot delete the last admin account. Assign admin to another user first." });
+                }
 
                 string sql = "UPDATE userlist SET is_deleted = TRUE, updated_on = now() WHERE id = @Id";
                 int rows = await _dbHelper.ExecuteAsync(sql, new { Id = id });
 
-                if (rows == 1) return Ok(new { message = "User deleted successfully" });
+                if (rows == 1)
+                {
+                    _logger.LogInformation("Admin user deleted. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}", currentUserId, id);
+                    return Ok(new { message = "User deleted successfully" });
+                }
+
+                _logger.LogWarning("Admin user delete target not found. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}", currentUserId, id);
                 return NotFound(new { error = "User not found" });
             }
             catch (Exception ex)
@@ -255,6 +306,8 @@ namespace FlowCus.Controllers
         [HttpDelete("categories/{id}")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
+            int? actorUserId = GetCurrentUserIdForLog();
+
             try
             {
                 long referenceCount = await _dbHelper.ExecuteScalarAsync<long>(@"
@@ -265,12 +318,21 @@ namespace FlowCus.Controllers
                     new { Id = id });
 
                 if (referenceCount > 0)
+                {
+                    _logger.LogWarning("Admin category delete rejected. ActorUserId={ActorUserId}, CategoryId={CategoryId}, Reason=Referenced", actorUserId, id);
                     return BadRequest(new { error = "Category is still used by tasks, subcategories, or timetable items." });
+                }
 
                 string sql = "UPDATE task_category SET is_deleted = TRUE, updated_on = now() WHERE id = @Id";
                 int rows = await _dbHelper.ExecuteAsync(sql, new { Id = id });
 
-                if (rows == 1) return Ok(new { message = "Category deleted successfully" });
+                if (rows == 1)
+                {
+                    _logger.LogInformation("Admin category deleted. ActorUserId={ActorUserId}, CategoryId={CategoryId}", actorUserId, id);
+                    return Ok(new { message = "Category deleted successfully" });
+                }
+
+                _logger.LogWarning("Admin category delete target not found. ActorUserId={ActorUserId}, CategoryId={CategoryId}", actorUserId, id);
                 return NotFound(new { error = "Category not found" });
             }
             catch (Exception ex)
@@ -278,6 +340,12 @@ namespace FlowCus.Controllers
                 _logger.LogError(ex, "Error deleting category");
                 return StatusCode(500, new { error = "Internal server error" });
             }
+        }
+
+        private int? GetCurrentUserIdForLog()
+        {
+            var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(idClaim, out int userId) ? userId : null;
         }
     }
 

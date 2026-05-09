@@ -25,8 +25,8 @@ export class TaskPage implements OnInit {
     description: '',
     taskCategoryId: 0,
     taskSubtypeId: null,
-    startTime: new Date().toISOString(),  // Set current time as startTime
-    endTime: new Date(new Date().getTime() + 30 * 60000).toISOString()  // Set 30 minutes later as endTime
+    startTime: '',
+    endTime: ''
   };
   editingTask: Task | null = null;
   showTaskForm = false;
@@ -102,17 +102,14 @@ export class TaskPage implements OnInit {
   openTaskForm(task?: Task) {
     if (task) {
       this.editingTask = { ...task };
-      this.newTask = { ...task };
+      this.newTask = {
+        ...task,
+        startTime: this.toDateTimeLocalValue(task.startTime),
+        endTime: this.toDateTimeLocalValue(task.endTime)
+      };
     } else {
       this.editingTask = null;
-      this.newTask = {
-        title: '',
-        description: '',
-        taskCategoryId: 0,
-        taskSubtypeId: null,
-        startTime: new Date().toISOString(),  // Set current time as startTime
-        endTime: new Date(new Date().getTime() + 30 * 60000).toISOString()  // Set 30 minutes later as endTime
-      };
+      this.newTask = this.getEmptyTaskForm();
     }
     this.showTaskForm = true;
   }
@@ -120,14 +117,7 @@ export class TaskPage implements OnInit {
   closeTaskForm() {
     this.showTaskForm = false;
     this.editingTask = null;
-    this.newTask = {
-      title: '',
-      description: '',
-      taskCategoryId: 0,
-      taskSubtypeId: null,
-      startTime: new Date().toISOString(),  // Set current time as startTime
-      endTime: new Date(new Date().getTime() + 30 * 60000).toISOString()  // Set 30 minutes later as endTime
-    };
+    this.newTask = this.getEmptyTaskForm();
   }
 
   async saveTask() {
@@ -139,14 +129,15 @@ export class TaskPage implements OnInit {
 
     try {
       const isEditing = !!this.editingTask;
+      let response: unknown;
       if (this.editingTask) {
-        await this.taskService.update(this.editingTask.taskId, this.newTask);
+        response = await this.taskService.update(this.editingTask.taskId, this.newTask);
       } else {
-        await this.taskService.create(this.newTask);
+        response = await this.taskService.create(this.newTask);
       }
       await this.loadTasks();
       this.closeTaskForm();
-      this.toastService.success(isEditing ? 'Task updated successfully.' : 'Task created successfully.');
+      this.toastService.successFrom(response, isEditing ? 'Task updated successfully.' : 'Task created successfully.');
     } catch (error) {
       console.error('Error saving task:', error);
     }
@@ -162,9 +153,9 @@ export class TaskPage implements OnInit {
     if (!confirmed) return;
 
     try {
-      await this.taskService.delete(id);
+      const response = await this.taskService.delete(id);
       await this.loadTasks();
-      this.toastService.success('Task deleted successfully.');
+      this.toastService.successFrom(response, 'Task deleted successfully.');
     } catch (error) {
       console.error('Error deleting task:', error);
     }
@@ -185,6 +176,8 @@ export class TaskPage implements OnInit {
   formatDateTime(dateTimeString: string | null | undefined): string {
     if (!dateTimeString) return '';
     const date = new Date(dateTimeString);
+    if (Number.isNaN(date.getTime())) return '';
+
     return date.toLocaleString('en-IN', {
       year: 'numeric',
       month: 'short',
@@ -192,6 +185,28 @@ export class TaskPage implements OnInit {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  private getEmptyTaskForm(): Partial<Task> {
+    const now = new Date();
+    return {
+      title: '',
+      description: '',
+      taskCategoryId: 0,
+      taskSubtypeId: null,
+      startTime: this.toDateTimeLocalValue(now),
+      endTime: this.toDateTimeLocalValue(new Date(now.getTime() + 30 * 60000))
+    };
+  }
+
+  private toDateTimeLocalValue(value: string | Date | null | undefined): string {
+    if (!value) return '';
+
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+
+    const pad = (part: number) => part.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
   // Helper for template
