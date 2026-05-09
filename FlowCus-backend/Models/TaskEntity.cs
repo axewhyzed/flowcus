@@ -18,6 +18,7 @@ namespace FlowCus.Models
         public int? TaskSubtypeId { get; set; }
 
         [Column("title")]
+        [Required]
         public string? Title { get; set; }
 
         [Column("description")]

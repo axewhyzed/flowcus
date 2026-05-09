@@ -14,6 +14,7 @@ namespace FlowCus.Models
         public int UserId { get; set; }
 
         [Column("name")]
+        [Required]
         public string Name { get; set; } = "";
 
         [Column("created_at")]

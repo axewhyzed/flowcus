@@ -36,6 +36,10 @@ namespace FlowCus.Controllers
                 var newId = await _service.CreateAsync(category);
                 return Ok(new { id = newId, message = "Category created" });
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
             {
                 return Conflict(new { message = "A category with this name already exists." });
@@ -46,10 +50,17 @@ namespace FlowCus.Controllers
         [Authorize(Roles = "Admin")] // Only admins can delete global categories
         public async Task<IActionResult> Delete(int id)
         {
-            var success = await _service.DeleteAsync(id);
+            try
+            {
+                var success = await _service.DeleteAsync(id);
 
-            if (!success) return NotFound(new { message = "Category not found" });
-            return Ok(new { message = "Category deleted" });
+                if (!success) return NotFound(new { message = "Category not found" });
+                return Ok(new { message = "Category deleted" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPut("{id}")]
@@ -66,6 +77,10 @@ namespace FlowCus.Controllers
 
                 if (!success) return NotFound(new { message = "Category not found" });
                 return Ok(new { message = "Category updated" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
             {

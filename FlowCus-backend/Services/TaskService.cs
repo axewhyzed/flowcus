@@ -1,6 +1,5 @@
-﻿using FlowCus.Helpers;
+using FlowCus.Helpers;
 using FlowCus.Models;
-using Dapper;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -19,6 +18,7 @@ namespace FlowCus.Services
 
         public async Task<int> CreateAsync(TaskEntity task)
         {
+            ValidateTask(task);
             await ValidateReferencesAsync(task.CreatedBy, task.TaskCategoryId, task.TaskSubtypeId);
 
             string sql = @"
@@ -32,6 +32,7 @@ namespace FlowCus.Services
 
         public async Task<bool> UpdateAsync(TaskEntity task)
         {
+            ValidateTask(task);
             await ValidateReferencesAsync(task.CreatedBy, task.TaskCategoryId, task.TaskSubtypeId);
 
             string sql = @"
@@ -77,6 +78,15 @@ namespace FlowCus.Services
 
             if (subtype.CategoryId != categoryId)
                 throw new InvalidOperationException("Selected task subtype does not belong to the chosen category.");
+        }
+
+        private static void ValidateTask(TaskEntity task)
+        {
+            if (string.IsNullOrWhiteSpace(task.Title))
+                throw new InvalidOperationException("Task title is required.");
+
+            if (task.StartTime.HasValue && task.EndTime.HasValue && task.StartTime >= task.EndTime)
+                throw new InvalidOperationException("Task start time must be before end time.");
         }
     }
 }

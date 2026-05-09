@@ -1,6 +1,5 @@
-﻿using FlowCus.Helpers;
+using FlowCus.Helpers;
 using FlowCus.Models;
-using Dapper;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -19,6 +18,8 @@ namespace FlowCus.Services
 
         public async Task<int> CreateAsync(Timetable t)
         {
+            ValidateTimetableName(t.Name);
+
             string sql = @"
                 INSERT INTO timetables (user_id, name, is_active, created_at, is_deleted) 
                 VALUES (@UserId, @Name, FALSE, now(), FALSE) 
@@ -77,6 +78,7 @@ namespace FlowCus.Services
 
         public async Task<int> CreateItemAsync(TimetableItem item, int userId)
         {
+            ValidateItemShape(item);
             await ValidateItemReferencesAsync(item.TaskCategoryId, item.TaskSubtypeId, userId);
 
             // SECURITY FIX: Check for overlapping time slots on same day in this timetable
@@ -115,7 +117,21 @@ namespace FlowCus.Services
 
         public async Task<bool> UpdateItemAsync(int id, TimetableItem item, int userId)
         {
+            ValidateItemShape(item);
             await ValidateItemReferencesAsync(item.TaskCategoryId, item.TaskSubtypeId, userId);
+
+            var existingItem = await _db.QuerySingleAsync<TimetableItem>(@"
+                SELECT i.*
+                FROM timetable_items i
+                JOIN timetables t ON i.timetable_id = t.id
+                WHERE i.id = @Id
+                AND t.user_id = @UserId
+                AND i.is_deleted = FALSE
+                AND t.is_deleted = FALSE",
+                new { Id = id, UserId = userId });
+
+            if (existingItem == null)
+                return false;
 
             // CHECK FOR OVERLAPS (excluding current item)
             string overlapSql = @"
@@ -129,7 +145,7 @@ namespace FlowCus.Services
 
             long overlapCount = await _db.ExecuteScalarAsync<long>(overlapSql, new
             {
-                TimetableId = item.TimetableId,
+                TimetableId = existingItem.TimetableId,
                 DayOfWeek = item.DayOfWeek,
                 StartTime = item.StartTime,
                 EndTime = item.EndTime,
@@ -170,6 +186,8 @@ namespace FlowCus.Services
 
         public async Task<bool> UpdateAsync(int id, string name, int userId)
         {
+            ValidateTimetableName(name);
+
             string sql = @"
                 UPDATE timetables 
                 SET name = @Name,
@@ -248,6 +266,24 @@ namespace FlowCus.Services
 
             if (subtype.CategoryId != categoryId)
                 throw new InvalidOperationException("Selected task subtype does not belong to the chosen category.");
+        }
+
+        private static void ValidateTimetableName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new InvalidOperationException("Timetable name is required.");
+        }
+
+        private static void ValidateItemShape(TimetableItem item)
+        {
+            if (item.TaskCategoryId <= 0)
+                throw new InvalidOperationException("Task category is required.");
+
+            if (item.DayOfWeek < 0 || item.DayOfWeek > 6)
+                throw new InvalidOperationException("Day of week must be between 0 and 6.");
+
+            if (item.StartTime >= item.EndTime)
+                throw new InvalidOperationException("Start time must be before end time.");
         }
     }
 }

@@ -39,6 +39,10 @@ namespace FlowCus.Controllers
                 var newId = await _service.CreateAsync(subtype);
                 return Ok(new { id = newId, message = "Subtype created" });
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
             {
                 return Conflict(new { message = "A subtype with this name already exists." });
@@ -76,6 +80,10 @@ namespace FlowCus.Controllers
 
                 if (!success) return NotFound(new { message = "Subtype not found" });
                 return Ok(new { message = "Subtype updated" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
             {

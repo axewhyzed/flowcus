@@ -35,8 +35,16 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             t.UserId = userId;
-            var id = await _service.CreateAsync(t);
-            return Ok(new { id });
+
+            try
+            {
+                var id = await _service.CreateAsync(t);
+                return Ok(new { id, message = "Timetable created successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpPost("{id}/activate")]
@@ -67,19 +75,26 @@ namespace FlowCus.Controllers
             var timetable = await _service.GetByIdAsync(id, userId);
             if (timetable == null) return NotFound(new { message = "Timetable not found." });
 
-            var success = await _service.UpdateAsync(id, request.Name, userId);
-            if (!success) return NotFound();
-
-            if (request.IsActive && !timetable.IsActive)
+            try
             {
-                await _service.ActivateTimetableAsync(id, userId);
-            }
-            else if (!request.IsActive && timetable.IsActive)
-            {
-                await _service.DeactivateTimetableAsync(id, userId);
-            }
+                var success = await _service.UpdateAsync(id, request.Name, userId);
+                if (!success) return NotFound();
 
-            return Ok(new { message = "Timetable updated successfully." });
+                if (request.IsActive && !timetable.IsActive)
+                {
+                    await _service.ActivateTimetableAsync(id, userId);
+                }
+                else if (!request.IsActive && timetable.IsActive)
+                {
+                    await _service.DeactivateTimetableAsync(id, userId);
+                }
+
+                return Ok(new { message = "Timetable updated successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpDelete("{id}")]

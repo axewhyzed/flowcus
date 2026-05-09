@@ -257,6 +257,16 @@ namespace FlowCus.Controllers
         {
             try
             {
+                long referenceCount = await _dbHelper.ExecuteScalarAsync<long>(@"
+                    SELECT
+                        (SELECT COUNT(*) FROM tasks WHERE task_category_id = @Id AND is_deleted = FALSE) +
+                        (SELECT COUNT(*) FROM task_subtypes WHERE category_id = @Id AND is_deleted = FALSE) +
+                        (SELECT COUNT(*) FROM timetable_items WHERE task_category_id = @Id AND is_deleted = FALSE)",
+                    new { Id = id });
+
+                if (referenceCount > 0)
+                    return BadRequest(new { error = "Category is still used by tasks, subcategories, or timetable items." });
+
                 string sql = "UPDATE task_category SET is_deleted = TRUE, updated_on = now() WHERE id = @Id";
                 int rows = await _dbHelper.ExecuteAsync(sql, new { Id = id });
 

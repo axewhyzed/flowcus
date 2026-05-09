@@ -1,6 +1,5 @@
-﻿using FlowCus.Helpers;
+using FlowCus.Helpers;
 using FlowCus.Models;
-using Dapper;
 
 namespace FlowCus.Services
 {
@@ -9,19 +8,10 @@ namespace FlowCus.Services
         private readonly DBHelper _db;
         public TaskSubtypeService(DBHelper db) { _db = db; }
 
-        public async Task<IEnumerable<TaskSubtype>> GetByStartLetterAsync(string letter, int userId)
-        {
-            string sql = @"
-                SELECT * FROM task_subtypes 
-                WHERE user_id = @UserId 
-                AND is_deleted = FALSE 
-                AND name ILIKE @Pattern 
-                ORDER BY name";
-            return await _db.QueryAsync<TaskSubtype>(sql, new { UserId = userId, Pattern = $"{letter}%" });
-        }
-
         public async Task<int> CreateAsync(TaskSubtype subtype)
         {
+            await ValidateAsync(subtype);
+
             string sql = @"
                 INSERT INTO task_subtypes (user_id, category_id, name, color_hex, icon_name, created_on, is_deleted)
                 VALUES (@UserId, @CategoryId, @Name, @ColorHex, @IconName, now(), FALSE)
@@ -43,6 +33,8 @@ namespace FlowCus.Services
 
         public async Task<bool> UpdateAsync(TaskSubtype subtype)
         {
+            await ValidateAsync(subtype);
+
             string sql = @"
                 UPDATE task_subtypes 
                 SET category_id = @CategoryId,
@@ -61,6 +53,19 @@ namespace FlowCus.Services
             string sql = "UPDATE task_subtypes SET is_deleted = TRUE WHERE id = @Id AND user_id = @UserId";
             int rows = await _db.ExecuteAsync(sql, new { Id = id, UserId = userId });
             return rows > 0;
+        }
+
+        private async Task ValidateAsync(TaskSubtype subtype)
+        {
+            if (string.IsNullOrWhiteSpace(subtype.Name))
+                throw new InvalidOperationException("Subtype name is required.");
+
+            long categoryCount = await _db.ExecuteScalarAsync<long>(
+                "SELECT COUNT(*) FROM task_category WHERE id = @Id AND is_deleted = FALSE",
+                new { Id = subtype.CategoryId });
+
+            if (categoryCount == 0)
+                throw new InvalidOperationException("Selected task category does not exist.");
         }
     }
 }

@@ -253,8 +253,6 @@ namespace FlowCus.Controllers
     public class RegisterRequest { public string Username { get; set; } = ""; public string Password { get; set; } = ""; public string? Name { get; set; } }
     public class ChangePasswordRequest { public string CurrentPassword { get; set; } = ""; public string NewPassword { get; set; } = ""; }
     public class ErrorResponse { public string Error { get; set; } = ""; }
-    public class RefreshTokenRequest { public string Token { get; set; } = ""; }
-
     // FIXED: Renamed to LoginResponse to prevent namespace collision
     public class LoginResponse
     {

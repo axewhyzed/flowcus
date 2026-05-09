@@ -20,6 +20,7 @@ namespace FlowCus.Models
         public int? TaskSubtypeId { get; set; }
 
         [Column("day_of_week")]
+        [Range(0, 6, ErrorMessage = "Day of week must be between 0 and 6.")]
         public int DayOfWeek { get; set; } // 0=Sunday, 1=Monday, etc.
 
         [Column("start_time")]
