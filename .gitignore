@@ -38,3 +38,5 @@ logs/
 .env.*.json
 .angular/
 *.orig
+
+flowcus_vps_deployment_and_maintenance_guide.md

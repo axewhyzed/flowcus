@@ -102,11 +102,12 @@ Create or update the appsettings configuration file. If appsettings.Development.
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=flowcus;Username=postgres;Password=your_postgres_password"
+    "DBLocal": "Host=localhost;Port=5432;Database=flowcus;Username=postgres;Password=your_postgres_password;"
   },
-  "JwtSettings": {
-    "SecretKey": "your-super-secret-key-minimum-32-characters-long-for-security",
-    "ExpirationMinutes": 1440
+  "Jwt": {
+    "Key": "your-super-secret-key-minimum-32-characters-long-for-security",
+    "Issuer": "FlowcusAPI",
+    "Audience": "FlowcusClient"
   },
   "AuthSettings": {
     "MaxFailedAttempts": 3,
@@ -114,9 +115,6 @@ Create or update the appsettings configuration file. If appsettings.Development.
     "BcryptWorkFactor": 12,
     "IpRateLimitPerMinute": 30,
     "UserRateLimitPerMinute": 10
-  },
-  "Cors": {
-    "AllowedOrigins": "http://localhost:4200"
   },
   "Logging": {
     "LogLevel": {
@@ -138,7 +136,7 @@ Run the backend:
 dotnet run
 ```
 
-The backend will start on http://localhost:5000 and https://localhost:5001
+The backend will start on http://localhost:7176 or https://localhost:7176, depending on the launch profile.
 
 ### Step 5: Frontend Setup
 
@@ -156,19 +154,13 @@ npm install
 yarn install
 ```
 
-Update the API base URL if needed. Edit `src/app/core/constants/api-endpoints.ts`:
+Update the API base URL if needed. Edit `src/environments/environment.ts`:
 
 ```typescript
-const API_BASE_URL = 'http://localhost:5000/api';
-export const API_ENDPOINTS = {
-  AUTH: API_BASE_URL + '/auth',
-  TASKS: API_BASE_URL + '/tasks',
-  CATEGORIES: API_BASE_URL + '/categories',
-  SUBTYPES: API_BASE_URL + '/subtypes',
-  TIMETABLE: API_BASE_URL + '/timetable',
-  DASHBOARD: API_BASE_URL + '/dashboard',
-  USER: API_BASE_URL + '/user',
-  ADMIN: API_BASE_URL + '/admin'
+export const environment = {
+  production: false,
+  apiUrl: 'http://localhost:7176/api',
+  appName: 'FlowCus'
 };
 ```
 
@@ -191,7 +183,7 @@ The application uses the following tables:
 **userlist** - User accounts and authentication
 - id (primary key)
 - username (unique)
-- password_hash (BCrypt encrypted)
+- password_hash (BCrypt hashed)
 - name (display name)
 - is_admin (boolean)
 - created_on (timestamp)
@@ -265,11 +257,15 @@ psql -U postgres -d flowcus < flowcus_backup.sql
 ### appsettings.json Properties
 
 **ConnectionStrings**
-- DefaultConnection: PostgreSQL connection string with host, port, database, username, and password
+- DefaultConnection: production PostgreSQL connection string with host, port, database, username, and password
+- DBLocal: local development PostgreSQL connection string
 
-**JwtSettings**
-- SecretKey: Secret key for signing JWT tokens (must be at least 32 characters)
-- ExpirationMinutes: Token expiration time in minutes (default: 1440 = 24 hours)
+The backend reads `DefaultConnection` first and falls back to `DBLocal`. The old encrypted connection-string flow has been removed; do not set `DB_CONNECTION_ENCRYPTED` or `ENCRYPTION_KEY`.
+
+**Jwt**
+- Key: Secret key for signing JWT tokens (must be at least 32 characters)
+- Issuer: JWT issuer, usually `FlowcusAPI`
+- Audience: JWT audience, usually `FlowcusClient`
 
 **AuthSettings**
 - MaxFailedAttempts: Number of failed login attempts before lockout (default: 3)
@@ -278,30 +274,48 @@ psql -U postgres -d flowcus < flowcus_backup.sql
 - IpRateLimitPerMinute: Rate limit for IP addresses per minute (default: 30)
 - UserRateLimitPerMinute: Rate limit for user accounts per minute (default: 10)
 
-**Cors**
-- AllowedOrigins: Frontend URL(s) allowed to make requests to the API
+**CORS**
+- Allowed origins are currently configured in `FlowCus-backend/Program.cs`
+- Development allows `http://localhost:4200`
+- Production allows `https://axewhyzed.github.io` and `https://flowcus.axewhyzedlabs.co.in`
 
 **Logging**
 - LogLevel: Set logging levels for different components
 
 ### Environment Variables
 
-For production, use environment variables instead of appsettings.json:
+For production, use either `appsettings.Production.json` on the server or environment variables. Do not commit `appsettings.Production.json`; keep `appsettings.Production.json.template` in Git as the example.
+
+Production appsettings example:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=prod-db;Port=5432;Database=flowcus;Username=dbuser;Password=dbpassword;"
+  },
+  "Jwt": {
+    "Key": "your-production-secret-key-minimum-32-characters",
+    "Issuer": "FlowcusAPI",
+    "Audience": "FlowcusClient"
+  }
+}
+```
+
+Equivalent environment variables:
 
 ```bash
 # Database
-export ConnectionStrings__DefaultConnection="Host=prod-db;Port=5432;Database=flowcus;Username=dbuser;Password=dbpassword"
+export ConnectionStrings__DefaultConnection="Host=prod-db;Port=5432;Database=flowcus;Username=dbuser;Password=dbpassword;"
 
 # JWT
-export JwtSettings__SecretKey="your-production-secret-key-minimum-32-characters"
+export Jwt__Key="your-production-secret-key-minimum-32-characters"
+export Jwt__Issuer="FlowcusAPI"
+export Jwt__Audience="FlowcusClient"
 
 # Auth
 export AuthSettings__MaxFailedAttempts="3"
 export AuthSettings__LockoutMinutes="30"
 export AuthSettings__BcryptWorkFactor="14"
-
-# CORS
-export Cors__AllowedOrigins="https://yourdomain.com"
 ```
 
 ## Frontend Configuration
@@ -314,7 +328,8 @@ Create environment configuration files for different deployments:
 ```typescript
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:5000'
+  apiUrl: 'http://localhost:7176/api',
+  appName: 'FlowCus'
 };
 ```
 
@@ -328,32 +343,24 @@ export const environment = {
 
 ### API Configuration
 
-Update API endpoints in `src/app/core/constants/api-endpoints.ts`:
+For production, update `src/environments/environment.prod.ts`:
 
 ```typescript
-import { environment } from '../../environments/environment';
-
-const API_BASE_URL = environment.apiUrl + '/api';
-export const API_ENDPOINTS = {
-  AUTH: API_BASE_URL + '/auth',
-  TASKS: API_BASE_URL + '/tasks',
-  CATEGORIES: API_BASE_URL + '/categories',
-  SUBTYPES: API_BASE_URL + '/subtypes',
-  TIMETABLE: API_BASE_URL + '/timetable',
-  DASHBOARD: API_BASE_URL + '/dashboard',
-  USER: API_BASE_URL + '/user',
-  ADMIN: API_BASE_URL + '/admin'
+export const environment = {
+  production: true,
+  apiUrl: 'https://api-flowcus.axewhyzedlabs.co.in/api',
+  appName: 'FlowCus'
 };
 ```
 
 ### CORS Configuration
 
-The frontend must be registered in the backend's CORS settings:
+The frontend must be registered in the backend's CORS settings in `FlowCus-backend/Program.cs`:
 
-```json
-"Cors": {
-  "AllowedOrigins": "http://localhost:4200,https://yourdomain.com"
-}
+```csharp
+string[] allowedOrigins = builder.Environment.IsDevelopment()
+    ? new[] { "http://localhost:4200" }
+    : new[] { "https://axewhyzed.github.io", "https://flowcus.axewhyzedlabs.co.in" };
 ```
 
 ## Running the Application
@@ -399,24 +406,25 @@ Note: Generate the BCrypt hash using a tool or the application's authentication 
 Create a Dockerfile in the FlowCus-backend directory:
 
 ```dockerfile
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
-WORKDIR /src
-COPY . .
-RUN dotnet build -c Release
-RUN dotnet publish -c Release -o /app/publish
-
-FROM mcr.microsoft.com/dotnet/aspnet:7.0
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
-COPY --from=build /app/publish .
-EXPOSE 5000
-ENTRYPOINT ["dotnet", "FlowCus.dll"]
+COPY . ./
+RUN dotnet restore
+RUN dotnet publish -c Release -o out
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app/out .
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+CMD ["dotnet", "FlowCus.dll"]
 ```
 
 Build and run:
 
 ```bash
 docker build -t flowcus-backend .
-docker run -p 5000:5000 -e ConnectionStrings__DefaultConnection="..." flowcus-backend
+docker run -p 8080:8080 -e ConnectionStrings__DefaultConnection="..." -e Jwt__Key="your-secret-key-here" flowcus-backend
 ```
 
 ### Docker Compose
@@ -439,10 +447,12 @@ services:
   backend:
     build: ./FlowCus-backend
     ports:
-      - "5000:5000"
+      - "8080:8080"
     environment:
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=flowcus;Username=postgres;Password=postgres"
-      JwtSettings__SecretKey: "your-secret-key-here"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=flowcus;Username=postgres;Password=postgres;"
+      Jwt__Key: "your-secret-key-here"
+      Jwt__Issuer: "FlowcusAPI"
+      Jwt__Audience: "FlowcusClient"
     depends_on:
       - db
 
@@ -524,11 +534,11 @@ Before deploying to production, ensure:
 - Test connection: `psql -U postgres -d flowcus`
 
 **Port already in use:**
-- Change port in appsettings.json: `"Urls": "http://localhost:5001"`
-- Or kill the process: `lsof -i :5000` then `kill <PID>`
+- Change the launch profile port in `FlowCus-backend/Properties/launchSettings.json`
+- Or kill the process using the current backend port, for example `lsof -i :7176` then `kill <PID>`
 
 **JWT errors:**
-- Verify SecretKey is at least 32 characters
+- Verify `Jwt:Key` is at least 32 characters
 - Check token expiration time
 - Ensure frontend sends token in Authorization header
 
