@@ -5,6 +5,9 @@ import { AuthService } from '../../core/services/auth.service';
 import { Subscription } from 'rxjs';
 import { AdminModeService } from '../../core/services/admin-mode.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ActiveBlockService } from '../../core/services/active-block.service';
+import { DailyRitualService } from '../../core/services/daily-ritual.service';
+import { CommandPaletteService } from '../../core/services/command-palette.service';
 
 @Component({
   selector: 'app-header',
@@ -27,11 +30,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private authSubscription?: Subscription;
   private adminModeSubscription?: Subscription;
 
+  activeBlock: any = null;
+  private activeBlockSub?: Subscription;
+
   constructor(
     public router: Router,
     private authService: AuthService,
     private adminModeService: AdminModeService,
-    private toastService: ToastService
+    private toastService: ToastService,
+    private activeBlockService: ActiveBlockService,
+    private ritualService: DailyRitualService,
+    private commandPaletteService: CommandPaletteService
   ) { }
 
   ngOnInit() {
@@ -53,11 +62,32 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.adminModeSubscription = this.adminModeService.adminMode$.subscribe(v => {
       this.isAdminMode = v;
     });
+
+    this.activeBlockSub = this.activeBlockService.activeBlock$.subscribe(b => {
+      this.activeBlock = b;
+    });
   }
 
   ngOnDestroy() {
     if (this.authSubscription) this.authSubscription.unsubscribe();
     if (this.adminModeSubscription) this.adminModeSubscription.unsubscribe();
+    if (this.activeBlockSub) this.activeBlockSub.unsubscribe();
+  }
+
+  openFocusMode(): void {
+    this.activeBlockService.openFocusMode();
+  }
+
+  openCommandPalette(): void {
+    this.commandPaletteService.open();
+  }
+
+  openMorningKickoff(): void {
+    this.ritualService.openMorningKickoff();
+  }
+
+  openEveningShutdown(): void {
+    this.ritualService.openEveningShutdown();
   }
 
   toggleMenu() {

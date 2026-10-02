@@ -6,6 +6,8 @@ import { User } from '../../core/models/user.model';
 import { ToastService } from '../../core/services/toast.service';
 import { ApiService } from '../../core/services/api.service';
 import { API_ENDPOINTS } from '../../core/constants/api-endpoints';
+import { DataPortabilityService } from '../../core/services/data-portability.service';
+import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
 
 @Component({
   selector: 'app-user',
@@ -28,8 +30,34 @@ export class UserPage implements OnInit {
   constructor(
     private userService: UserService,
     private apiService: ApiService,
-    private toastService: ToastService
+    private toastService: ToastService,
+    public dataPortability: DataPortabilityService,
+    public soundService: SoundFeedbackService
   ) {}
+
+  get soundEnabled(): boolean {
+    return this.soundService.enabled;
+  }
+
+  toggleSound(): void {
+    this.soundService.enabled = !this.soundService.enabled;
+    if (this.soundService.enabled) {
+      this.soundService.playSuccess();
+      this.toastService.success('Audio feedback enabled');
+    } else {
+      this.toastService.info('Audio feedback muted');
+    }
+  }
+
+  exportJson(): void {
+    this.soundService.playClick();
+    this.dataPortability.exportJson();
+  }
+
+  exportMarkdown(): void {
+    this.soundService.playClick();
+    this.dataPortability.exportMarkdown();
+  }
 
   ngOnInit(): void {
     this.loadUser();

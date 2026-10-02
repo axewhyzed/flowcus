@@ -11,6 +11,9 @@ import { TaskCategory } from '../../core/models/task-category.model'
 import { TaskSubtype } from '../../core/models/task-subtype.model';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
+import { TaskService } from '../../core/services/task.service';
+import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
+import { Task } from '../../core/models/task.model';
 
 interface TimetableItemDetail extends TimetableItem {
   categoryName?: string;
@@ -63,6 +66,8 @@ export class TimetablePage implements OnInit {
 
   windowWidth: number = 1024;
   activeMobileDayIndex: number = new Date().getDay();
+  tasks: Task[] = [];
+  expandedBlockId: number | null = null;
 
   constructor(
     @Inject(PLATFORM_ID) private platformId: Object,
@@ -71,7 +76,9 @@ export class TimetablePage implements OnInit {
     private taskCategoryService: TaskCategoryService,
     private taskSubtypeService: TaskSubtypeService,
     private toastService: ToastService,
-    private confirmService: ConfirmService
+    private confirmService: ConfirmService,
+    private taskService: TaskService,
+    public soundService: SoundFeedbackService
   ) {
     if (isPlatformBrowser(this.platformId) && typeof window !== 'undefined') {
       this.windowWidth = window.innerWidth;
@@ -87,6 +94,40 @@ export class TimetablePage implements OnInit {
     await this.loadTimetables();
     await this.loadTaskCategories();
     await this.loadTaskSubtypes();
+    this.loadTasks();
+  }
+
+  async loadTasks(): Promise<void> {
+    try {
+      const tasks = await this.taskService.getAll();
+      this.tasks = tasks || [];
+    } catch {
+      this.tasks = [];
+    }
+  }
+
+  getTasksForCategory(categoryId: number): Task[] {
+    return this.tasks.filter(t => !t.isDeleted && !t.isCompleted && t.taskCategoryId === categoryId);
+  }
+
+  toggleBlockTasks(blockId: number, event: MouseEvent): void {
+    event.stopPropagation();
+    this.expandedBlockId = this.expandedBlockId === blockId ? null : blockId;
+  }
+
+  async toggleTaskComplete(task: Task, event: any): Promise<void> {
+    event.stopPropagation();
+    task.isCompleted = !task.isCompleted;
+    if (task.isCompleted) {
+      this.soundService.playSuccess();
+    } else {
+      this.soundService.playClick();
+    }
+    try {
+      await this.taskService.toggleComplete(task.taskId, task.isCompleted);
+    } catch {
+      task.isCompleted = !task.isCompleted;
+    }
   }
 
   generateTimeSlots(): void {

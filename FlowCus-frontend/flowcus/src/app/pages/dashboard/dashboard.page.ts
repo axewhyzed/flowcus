@@ -6,6 +6,10 @@ import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
+import { ActiveBlockService } from '../../core/services/active-block.service';
+import { DailyRitualService } from '../../core/services/daily-ritual.service';
+import { CommandPaletteService } from '../../core/services/command-palette.service';
+import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
 
 interface TimetableSlot {
   id: number;
@@ -47,8 +51,36 @@ export class DashboardPage implements OnInit, OnDestroy {
     private timetableService: TimetableService,
     private toast: ToastService,
     private confirmService: ConfirmService,
-    private router: Router
+    private router: Router,
+    public activeBlockService: ActiveBlockService,
+    public ritualService: DailyRitualService,
+    public paletteService: CommandPaletteService,
+    public soundService: SoundFeedbackService
   ) { }
+
+  openZenFocus(): void {
+    this.activeBlockService.openFocusMode();
+  }
+
+  openMorningKickoff(): void {
+    this.ritualService.openMorningKickoff();
+  }
+
+  openEveningShutdown(): void {
+    this.ritualService.openEveningShutdown();
+  }
+
+  openWeeklyReview(): void {
+    this.ritualService.openWeeklyReview();
+  }
+
+  get isMorningDone(): boolean {
+    return this.ritualService.isMorningKickoffCompletedToday();
+  }
+
+  get isEveningDone(): boolean {
+    return this.ritualService.isEveningShutdownCompletedToday();
+  }
 
   ngOnInit(): void {
     this.loadDashboard();

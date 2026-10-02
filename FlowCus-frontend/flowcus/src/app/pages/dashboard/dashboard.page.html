@@ -68,9 +68,15 @@
           </div>
         </div>
 
-        <div class="flex items-center shrink-0">
+        <div class="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+          <button (click)="openZenFocus()" title="Zen Distraction-Free Fullscreen Focus Mode"
+            class="h-10 px-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer">
+            <i class="fa-solid fa-bullseye text-[11px] text-sky-400"></i>
+            <span>Zen Mode</span>
+          </button>
+
           <button (click)="startFocusSession(25)"
-            class="h-10 px-5 bg-white text-slate-950 hover:bg-slate-100 active:scale-95 rounded-lg text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-all w-full sm:w-auto">
+            class="h-10 px-4 bg-white text-slate-950 hover:bg-slate-100 active:scale-95 rounded-lg text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer">
             <i class="fa-solid fa-play text-[10px]"></i>
             <span>Start 25m Focus</span>
             <kbd class="hidden sm:inline-block ml-1 px-1.5 py-0.2 text-[9px] font-mono font-semibold bg-slate-100 text-slate-700 rounded border border-slate-300">Space</kbd>
@@ -128,6 +134,64 @@
         </div>
       </div>
       }
+    </div>
+
+    <!-- Daily Bookends & Retrospective Strip -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <!-- Morning Kickoff Card -->
+      <div (click)="openMorningKickoff()"
+        class="bg-white rounded-xl border border-slate-200/80 p-3.5 hover:border-amber-300 hover:shadow-2xs transition-all cursor-pointer flex items-center justify-between group">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs"
+            [ngClass]="isMorningDone ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
+            <i [class]="isMorningDone ? 'fa-solid fa-check' : 'fa-regular fa-sun'"></i>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold text-slate-900 group-hover:text-amber-800 transition-colors">Morning Kickoff</h4>
+            <p class="text-[11px] text-slate-500">{{ isMorningDone ? 'Focus committed today' : 'Select top 3 daily priorities' }}</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded font-medium"
+          [ngClass]="isMorningDone ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'">
+          {{ isMorningDone ? 'Done' : 'Start' }}
+        </span>
+      </div>
+
+      <!-- Evening Shutdown Card -->
+      <div (click)="openEveningShutdown()"
+        class="bg-white rounded-xl border border-slate-200/80 p-3.5 hover:border-indigo-300 hover:shadow-2xs transition-all cursor-pointer flex items-center justify-between group">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs"
+            [ngClass]="isEveningDone ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'">
+            <i [class]="isEveningDone ? 'fa-solid fa-check' : 'fa-solid fa-moon'"></i>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold text-slate-900 group-hover:text-indigo-800 transition-colors">Evening Shutdown</h4>
+            <p class="text-[11px] text-slate-500">{{ isEveningDone ? 'Day closed peacefully' : 'Review & triage open loops' }}</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded font-medium"
+          [ngClass]="isEveningDone ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-indigo-50 text-indigo-800 border border-indigo-200'">
+          {{ isEveningDone ? 'Done' : 'Review' }}
+        </span>
+      </div>
+
+      <!-- Weekly Retrospective Card -->
+      <div (click)="openWeeklyReview()"
+        class="bg-white rounded-xl border border-slate-200/80 p-3.5 hover:border-emerald-300 hover:shadow-2xs transition-all cursor-pointer flex items-center justify-between group">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
+            <i class="fa-solid fa-chart-line"></i>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold text-slate-900 group-hover:text-emerald-800 transition-colors">Weekly Review</h4>
+            <p class="text-[11px] text-slate-500">Summary & routine calibration</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+          Open
+        </span>
+      </div>
     </div>
 
     <!-- Quick Actions Bar -->
