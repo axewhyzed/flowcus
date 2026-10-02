@@ -183,6 +183,10 @@ export class TimetablePage implements OnInit {
     try {
       this.loading = true;
       this.timetables = await this.timetableService.getAll();
+      if (this.timetables.length > 0 && !this.selectedTimetable) {
+        const active = this.timetables.find(t => t.isActive) || this.timetables[0];
+        this.selectTimetable(active);
+      }
     } catch (err: unknown) {
       const error = err as Error;
       this.errorMessage = 'Failed to load timetables';
@@ -368,7 +372,7 @@ export class TimetablePage implements OnInit {
   }
 
   // Timetable Item CRUD
-  openItemForm(item?: TimetableItemDetail): void {
+  openItemForm(item?: TimetableItemDetail, defaultDay?: number): void {
     if (!this.selectedTimetable) return;
 
     if (item) {
@@ -385,7 +389,7 @@ export class TimetablePage implements OnInit {
       this.itemForm = {
         taskCategoryId: 0,
         taskSubtypeId: null,
-        dayOfWeek: 0,
+        dayOfWeek: defaultDay !== undefined ? defaultDay : (this.activeMobileDayIndex ?? 0),
         startTime: '',
         endTime: ''
       };
