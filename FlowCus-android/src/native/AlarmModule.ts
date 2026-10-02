@@ -58,3 +58,26 @@ export async function canScheduleExactAlarms(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Calculate the next trigger timestamp (ms) for a weekly timetable block
+ * triggering reminderMinutes before the block starts.
+ */
+export function calculateNextTriggerMillis(dayOfWeek: number, startTimeStr: string, reminderMinutes: number = 5): number {
+  const now = new Date();
+  const parts = startTimeStr.split(':').map(Number);
+  const hours = parts[0] || 0;
+  const minutes = parts[1] || 0;
+
+  const target = new Date(now);
+  target.setHours(hours, minutes, 0, 0);
+  target.setMinutes(target.getMinutes() - reminderMinutes);
+
+  const currentDay = now.getDay();
+  let dayOffset = dayOfWeek - currentDay;
+  if (dayOffset < 0 || (dayOffset === 0 && target.getTime() <= now.getTime())) {
+    dayOffset += 7;
+  }
+  target.setDate(now.getDate() + dayOffset);
+  return target.getTime();
+}

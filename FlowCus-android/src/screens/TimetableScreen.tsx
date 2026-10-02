@@ -11,6 +11,7 @@ import { fetchCategories } from '../redux/slices/categories';
 import { fetchSubtypes } from '../redux/slices/subtypes';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import apiClient from '../services/apiClient';
+import { scheduleBlockReminder, cancelBlockReminder, calculateNextTriggerMillis } from '../native/AlarmModule';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -129,6 +130,19 @@ const TimetableScreen = ({ navigation }: any) => {
             endTime: formatTimeForAPI(endTime),
         })).then((action) => {
             if (createTimetableItem.fulfilled.match(action)) {
+                const newItem = action.payload;
+                if (newItem && newItem.id) {
+                    const selectedCat = categories.find(c => c.id === selectedCategoryId);
+                    const selectedSub = subtypes.find(s => s.id === selectedSubtypeId);
+                    const title = selectedSub?.name || selectedCat?.name || 'Upcoming Focus Block';
+                    const triggerAtMillis = calculateNextTriggerMillis(selectedDay, formatTimeForAPI(startTime), 5);
+                    scheduleBlockReminder({
+                        id: newItem.id,
+                        title,
+                        message: `Scheduled focus block starts in 5 minutes (${formatTimeForAPI(startTime)} - ${formatTimeForAPI(endTime)}).`,
+                        triggerAtMillis
+                    });
+                }
                 setModalVisible(false);
                 dispatch(fetchTimetableItems(activeTimetableId));
             } else {
@@ -144,7 +158,9 @@ const TimetableScreen = ({ navigation }: any) => {
                 text: "Delete", 
                 style: 'destructive', 
                 onPress: () => {
-                    dispatch(deleteTimetableItem(id));
+                    dispatch(deleteTimetableItem(id)).then(() => {
+                        cancelBlockReminder(id);
+                    });
                 }
             }
         ]);
