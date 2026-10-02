@@ -6,7 +6,7 @@
 CREATE TABLE tasks (
     task_id SERIAL PRIMARY KEY,
     task_category_id INT NOT NULL REFERENCES task_category(id), -- always required
-    task_subtype_id INT REFERENCES task_subtypes(id) DEFAULT NULL, -- optional
+    task_subtype_id INT REFERENCES task_subtypes(id) ON DELETE SET NULL DEFAULT NULL, -- optional
     title VARCHAR(200),
     description TEXT,
     priority INTEGER,
@@ -16,11 +16,12 @@ CREATE TABLE tasks (
     start_time TIMESTAMPTZ,
     end_time TIMESTAMPTZ,
     duration_seconds INTEGER GENERATED ALWAYS AS (CASE WHEN end_time IS NOT NULL AND start_time IS NOT NULL THEN EXTRACT(EPOCH FROM (end_time - start_time))::INTEGER ELSE NULL END) STORED, -- auto-computed from timestamps
+    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     
     -- CHECK constraints for data integrity
     CONSTRAINT chk_priority CHECK (priority BETWEEN 1 AND 5),
-    CONSTRAINT chk_time_order CHECK (end_time IS NULL OR start_time IS NULL OR end_time > start_time)
+    CONSTRAINT chk_time_order CHECK (end_time IS NULL OR start_time IS NULL OR end_time >= start_time)
 );
 
 -- Existing indexes (automatically created)
@@ -41,4 +42,7 @@ CREATE INDEX idx_tasks_created_on ON tasks(created_on DESC)
     WHERE is_deleted = false;
 
 CREATE INDEX idx_tasks_user_category ON tasks(created_by, task_category_id) 
+    WHERE is_deleted = false;
+
+CREATE INDEX idx_tasks_is_completed ON tasks(created_by, is_completed)
     WHERE is_deleted = false;

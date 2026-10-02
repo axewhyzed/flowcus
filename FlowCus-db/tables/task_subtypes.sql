@@ -11,6 +11,7 @@ CREATE TABLE task_subtypes (
     color_hex VARCHAR(7), -- e.g. '#FFAA00'
     icon_name VARCHAR(150), -- e.g. 'fa-solid fa-book' (Font Awesome 6)
     created_on TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_on TIMESTAMPTZ,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 

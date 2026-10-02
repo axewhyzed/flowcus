@@ -11,6 +11,7 @@ CREATE TABLE userlist (
     updated_on TIMESTAMPTZ,
     failed_attempts INTEGER NOT NULL DEFAULT 0, -- number of failed login attempts
     lockout_until TIMESTAMPTZ NULL, -- account lockout until time
+    lockout_count INTEGER NOT NULL DEFAULT 0, -- progressive lockout level (1=5m, 2=15m, 3+=60m)
     is_admin BOOLEAN NOT NULL DEFAULT FALSE, -- admin status indicator
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE -- soft delete flag
 );
