@@ -1,7 +1,7 @@
 <div class="h-screen w-full flex flex-col overflow-hidden bg-slate-50 text-slate-900 font-sans">
   <app-header class="shrink-0"></app-header>
   <app-loading-spinner *ngIf="isLoading"></app-loading-spinner>
-  <main class="flex-1 min-h-0 overflow-y-auto relative flex flex-col">
+  <main class="flex-1 min-h-0 overflow-hidden relative flex flex-col">
     <router-outlet></router-outlet>
   </main>
   <app-toast-container></app-toast-container>

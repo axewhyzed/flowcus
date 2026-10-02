@@ -8,13 +8,17 @@ import { RouterOutlet } from '@angular/router';
   standalone: true,
   imports: [CommonModule, RouterOutlet],
   template: `
-    <div class="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
-      <!-- Main Content Area -->
-      <main class="flex-1 w-full relative">
-        <router-outlet></router-outlet>
-      </main>
-    </div>
+    <router-outlet></router-outlet>
   `,
-  styles: []
+  styles: [`
+    :host {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      height: 100%;
+    }
+  `]
 })
 export class MainLayoutComponent {}

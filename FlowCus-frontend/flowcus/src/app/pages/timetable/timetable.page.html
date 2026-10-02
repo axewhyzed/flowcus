@@ -151,13 +151,13 @@
       </div>
 
       <!-- Weekly Schedule View -->
-      <div class="flex-1 overflow-y-auto p-3 md:p-5">
+      <div class="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col">
         
         <!-- Desktop 7-Column Grid -->
-        <div class="hidden md:grid grid-cols-7 gap-2.5 w-full">
+        <div class="hidden md:grid grid-cols-7 gap-2.5 w-full flex-1 min-h-[480px]">
           @for (day of daysOfWeek; track day; let dayIndex = $index) {
-            <div class="min-w-0 flex-1">
-              <div class="bg-white rounded-lg border border-slate-200/80 shadow-2xs overflow-hidden h-full flex flex-col">
+            <div class="min-w-0 flex-1 h-full flex flex-col">
+              <div class="bg-white rounded-lg border border-slate-200/80 shadow-2xs overflow-hidden h-full flex flex-col flex-1">
                 <div class="bg-slate-50/70 p-2.5 border-b border-slate-100 flex items-center justify-between">
                   <div class="min-w-0">
                     <h3 class="font-semibold text-slate-800 text-xs truncate">{{ day }}</h3>
