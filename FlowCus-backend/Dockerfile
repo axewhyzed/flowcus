@@ -3,20 +3,19 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
 # Copy project files and restore dependencies
+COPY FlowCus.csproj ./
+RUN dotnet restore FlowCus.csproj
+
+# Copy source code and publish
 COPY . ./
-RUN dotnet restore
+RUN dotnet publish FlowCus.csproj -c Release -o out
 
-# Build the app
-RUN dotnet publish -c Release -o out
-
-# Use the official runtime image to run the app
+# Use the official ASP.NET runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/out .
 
-# Set environment variables (optional)
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
-# Run the app
-CMD ["dotnet", "FlowCus.dll"]
+ENTRYPOINT ["dotnet", "FlowCus.dll"]

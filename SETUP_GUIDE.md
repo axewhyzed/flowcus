@@ -1,58 +1,42 @@
 # Flowcus Setup Guide
 
-Complete instructions for setting up and deploying the Flowcus application in various environments.
+Complete instructions for setting up, developing, testing, and deploying the Flowcus application across all layers: Database, Backend API, Web Frontend, and Mobile (Android).
 
 ## Table of Contents
-1. Prerequisites
-2. Local Development Setup
-3. Database Setup
-4. Backend Configuration
-5. Frontend Configuration
-6. Running the Application
-7. Docker Deployment
-8. Cloud Deployment
-9. Production Checklist
-10. Troubleshooting
+1. [Prerequisites](#prerequisites)
+2. [Database Setup (PostgreSQL)](#database-setup-postgresql)
+3. [Backend API Setup (.NET 8)](#backend-api-setup-net-8)
+4. [Web Frontend Setup (Angular 19)](#web-frontend-setup-angular-19)
+5. [Mobile Setup (React Native Android)](#mobile-setup-react-native-android)
+6. [Testing & Verification](#testing--verification)
+7. [Docker & Containerized Deployment](#docker--containerized-deployment)
+8. [Production Deployment & Checklist](#production-deployment--checklist)
+9. [Troubleshooting](#troubleshooting)
+
+---
 
 ## Prerequisites
 
 ### Required Software
-- .NET 7.0 SDK or later
-- Node.js 16+ with npm or yarn
-- PostgreSQL 12 or later
-- Git
-- A code editor (Visual Studio Code recommended)
-
-### Required Knowledge
-- Basic understanding of .NET and Angular
-- SQL basics for database management
-- Command line/terminal usage
-- Git version control
+- **.NET 8.0 SDK or later** (for FlowCus-backend)
+- **Node.js 18.x or 20.x LTS** with npm (for Angular web frontend & React Native)
+- **PostgreSQL 14 or later** (tested on PostgreSQL 14–17)
+- **Git**
+- **Java Development Kit (JDK) 17** & **Android SDK** (for Android app builds)
+- A code editor (VS Code, Visual Studio 2022, or Android Studio)
 
 ### System Requirements
-- Minimum 2GB RAM
-- At least 500MB free disk space
-- Windows, macOS, or Linux operating system
+- Minimum 4GB RAM (8GB+ recommended if running backend, Angular, and Android Emulator simultaneously)
+- At least 2GB free disk space
+- Supported OS: Windows 10/11, macOS, Linux
 
-## Local Development Setup
+---
 
-### Step 1: Clone the Repository
+## Database Setup (PostgreSQL)
 
-Open your terminal and clone the project:
-
+### 1. Create the Database
 ```bash
-git clone https://github.com/axewhyzed/flowcus.git
-cd flowcus
-```
-
-### Step 2: Setup PostgreSQL Database
-
-Download and install PostgreSQL from https://www.postgresql.org/download/
-
-After installation, create the database:
-
-```bash
-# Connect to PostgreSQL (you'll be prompted for the postgres user password)
+# Connect to PostgreSQL
 psql -U postgres
 
 # Create the database
@@ -62,47 +46,50 @@ CREATE DATABASE flowcus;
 \q
 ```
 
-### Step 3: Initialize Database Schema
-
-Navigate to the database folder and execute the schema scripts:
+### 2. Apply Schema & Triggers
+Navigate to the `FlowCus-db` directory and execute the table and function definitions:
 
 ```bash
 cd FlowCus-db
-# Execute each SQL file in tables/ directory
+
+# 1. Base Tables
 psql -U postgres -d flowcus -f tables/userlist.sql
 psql -U postgres -d flowcus -f tables/task_category.sql
 psql -U postgres -d flowcus -f tables/task_subtypes.sql
 psql -U postgres -d flowcus -f tables/tasks.sql
 psql -U postgres -d flowcus -f tables/timetables.sql
 psql -U postgres -d flowcus -f tables/timetable_items.sql
+
+# 2. Limit Enforcement Functions & Triggers
+psql -U postgres -d flowcus -f functions/user_data_functions/enforce_subtype_limit.sql
+psql -U postgres -d flowcus -f functions/user_data_functions/enforce_timetable_limit.sql
+psql -U postgres -d flowcus -f functions/user_data_functions/fn_update_task.sql
 ```
 
-Verify the tables were created:
+### 3. Database Schema Highlights
+- **`userlist`**: Includes `failed_attempts (int)`, `lockout_until (timestamptz)`, and `lockout_count (int)` to enforce progressive brute-force lockout tiers.
+- **`tasks`**: Includes `is_completed (boolean NOT NULL DEFAULT false)` to isolate task completion from deletion (`is_deleted`), and `chk_time_order (end_time >= start_time)` to support instantaneous milestone entries.
+- **`timetable_items`**: Includes `updated_on (timestamptz DEFAULT now())`.
+- **Advisory Locks**: Limit triggers execute `pg_advisory_xact_lock(user_id)` to prevent race condition bypasses when creating subtypes or timetables concurrently up to the 5-item limit.
 
-```bash
-psql -U postgres -d flowcus -c "\dt"
-```
+---
 
-### Step 4: Backend Setup
+## Backend API Setup (.NET 8)
 
-Navigate to the backend directory:
+### 1. Restore & Configuration
+Navigate to `FlowCus-backend`:
 
 ```bash
 cd FlowCus-backend
-```
-
-Restore NuGet packages:
-
-```bash
 dotnet restore
 ```
 
-Create or update the appsettings configuration file. If appsettings.Development.json doesn't exist, create it:
+Verify or configure `appsettings.Development.json` (or `appsettings.json`):
 
 ```json
 {
   "ConnectionStrings": {
-    "DBLocal": "Host=localhost;Port=5432;Database=flowcus;Username=postgres;Password=your_postgres_password;"
+    "DBLocal": "Host=localhost;Port=5432;Database=flowcus;Username=postgres;Password=your_password;"
   },
   "Jwt": {
     "Key": "your-super-secret-key-minimum-32-characters-long-for-security",
@@ -111,51 +98,47 @@ Create or update the appsettings configuration file. If appsettings.Development.
   },
   "AuthSettings": {
     "MaxFailedAttempts": 3,
-    "LockoutMinutes": 15,
     "BcryptWorkFactor": 12,
     "IpRateLimitPerMinute": 30,
     "UserRateLimitPerMinute": 10
   },
   "Logging": {
     "LogLevel": {
-      "Default": "Information"
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
     }
   }
 }
 ```
 
-Build the backend:
+> [!NOTE]
+> The backend prioritizes `ConnectionStrings:DefaultConnection`. If empty or null, it falls back to `ConnectionStrings:DBLocal`.
 
-```bash
-dotnet build
-```
+### 2. Progressive Lockout Policy
+FlowCus features a progressive tiered lockout algorithm:
+- **Tier 1 (Attempts 1–3 fail):** Account locks for **5 minutes**.
+- **Tier 2 (Attempts 4–6 fail):** Account locks for **15 minutes**.
+- **Tier 3+ (Attempts 7+ fail):** Account locks for **60 minutes**, repeating on subsequent failures.
+- **Reset:** Successful password authentication immediately resets both `failed_attempts` and `lockout_count` to 0.
 
-Run the backend:
-
+### 3. Run the Backend
 ```bash
 dotnet run
 ```
+API endpoints will listen on `http://localhost:7176` (or `https://localhost:7176`).
 
-The backend will start on http://localhost:7176 or https://localhost:7176, depending on the launch profile.
+---
 
-### Step 5: Frontend Setup
+## Web Frontend Setup (Angular 19)
 
-Open a new terminal window and navigate to the frontend directory:
-
+### 1. Install Dependencies
 ```bash
 cd FlowCus-frontend/flowcus
-```
-
-Install dependencies:
-
-```bash
 npm install
-# or if you use yarn
-yarn install
 ```
 
-Update the API base URL if needed. Edit `src/environments/environment.ts`:
-
+### 2. Environment Configuration
+Verify `src/environments/environment.ts`:
 ```typescript
 export const environment = {
   production: false,
@@ -164,281 +147,100 @@ export const environment = {
 };
 ```
 
-Start the development server:
-
+### 3. Start Development Server
 ```bash
-ng serve
-# or
+npm start
+# or ng serve
+```
+Open your browser at `http://localhost:4200`.
+
+---
+
+## Mobile Setup (React Native Android)
+
+The FlowCus Android application is located in `FlowCus-android`.
+
+### 1. Install Dependencies
+```bash
+cd FlowCus-android
+npm install
+```
+
+### 2. Environment Configuration
+Configure `FlowCus-android/.env`:
+```env
+# For Android Emulator communicating with localhost backend:
+API_BASE_URL=http://10.0.2.2:7176/api
+
+# For Physical Android Device on same local network:
+# API_BASE_URL=http://192.168.1.XXX:7176/api
+```
+
+### 3. Start Metro Bundler
+```bash
 npm start
 ```
 
-The frontend will be available at http://localhost:4200
-
-## Database Setup
-
-### Database Structure
-
-The application uses the following tables:
-
-**userlist** - User accounts and authentication
-- id (primary key)
-- username (unique)
-- password_hash (BCrypt hashed)
-- name (display name)
-- is_admin (boolean)
-- created_on (timestamp)
-- updated_on (timestamp)
-- failed_attempts (login attempt counter)
-- lockout_until (lockout timestamp)
-- is_deleted (soft delete flag)
-
-**task_category** - Task categories for organization
-- id (primary key)
-- name (category name)
-- created_on (timestamp)
-- is_deleted (soft delete flag)
-
-**task_subtypes** - Specific task types within categories
-- id (primary key)
-- user_id (foreign key to userlist)
-- category_id (foreign key to task_category)
-- name (subtype name)
-- color_hex (color code for UI)
-- icon_name (icon identifier)
-- created_on (timestamp)
-- is_deleted (soft delete flag)
-
-**tasks** - User tasks
-- task_id (primary key)
-- created_by (foreign key to userlist)
-- title (task title)
-- description (task description)
-- created_on (timestamp)
-- updated_on (timestamp)
-- is_deleted (soft delete flag)
-
-**timetables** - Weekly schedules
-- id (primary key)
-- user_id (foreign key to userlist)
-- name (timetable name)
-- is_active (currently active timetable)
-- created_on (timestamp)
-- updated_on (timestamp)
-- is_deleted (soft delete flag)
-
-**timetable_items** - Scheduled time slots within timetables
-- id (primary key)
-- timetable_id (foreign key to timetables)
-- task_category_id (foreign key to task_category)
-- task_subtype_id (foreign key to task_subtypes, nullable)
-- day_of_week (0-6, Monday-Sunday)
-- start_time (time in HH:MM:SS format)
-- end_time (time in HH:MM:SS format)
-- specific_date (override date for one-time entries)
-- created_on (timestamp)
-- is_deleted (soft delete flag)
-
-### Backup and Restore
-
-Backup the database:
-
+### 4. Build & Launch on Android
+In a separate terminal:
 ```bash
-pg_dump -U postgres flowcus > flowcus_backup.sql
+npm run android
 ```
 
-Restore from backup:
+---
 
-```bash
-psql -U postgres -d flowcus < flowcus_backup.sql
-```
+## Testing & Verification
 
-## Backend Configuration
+FlowCus includes automated test suites across all application tiers:
 
-### appsettings.json Properties
-
-**ConnectionStrings**
-- DefaultConnection: production PostgreSQL connection string with host, port, database, username, and password
-- DBLocal: local development PostgreSQL connection string
-
-The backend reads `DefaultConnection` first and falls back to `DBLocal`. The old encrypted connection-string flow has been removed; do not set `DB_CONNECTION_ENCRYPTED` or `ENCRYPTION_KEY`.
-
-**Jwt**
-- Key: Secret key for signing JWT tokens (must be at least 32 characters)
-- Issuer: JWT issuer, usually `FlowcusAPI`
-- Audience: JWT audience, usually `FlowcusClient`
-
-**AuthSettings**
-- MaxFailedAttempts: Number of failed login attempts before lockout (default: 3)
-- LockoutMinutes: Duration of account lockout in minutes (default: 15)
-- BcryptWorkFactor: Password hashing strength (10-12 recommended, default: 12)
-- IpRateLimitPerMinute: Rate limit for IP addresses per minute (default: 30)
-- UserRateLimitPerMinute: Rate limit for user accounts per minute (default: 10)
-
-**CORS**
-- Allowed origins are currently configured in `FlowCus-backend/Program.cs`
-- Development allows `http://localhost:4200`
-- Production allows `https://axewhyzed.github.io` and `https://flowcus.axewhyzedlabs.co.in`
-
-**Logging**
-- LogLevel: Set logging levels for different components
-
-### Environment Variables
-
-For production, use either `appsettings.Production.json` on the server or environment variables. Do not commit `appsettings.Production.json`; keep `appsettings.Production.json.template` in Git as the example.
-
-Production appsettings example:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=prod-db;Port=5432;Database=flowcus;Username=dbuser;Password=dbpassword;"
-  },
-  "Jwt": {
-    "Key": "your-production-secret-key-minimum-32-characters",
-    "Issuer": "FlowcusAPI",
-    "Audience": "FlowcusClient"
-  }
-}
-```
-
-Equivalent environment variables:
-
-```bash
-# Database
-export ConnectionStrings__DefaultConnection="Host=prod-db;Port=5432;Database=flowcus;Username=dbuser;Password=dbpassword;"
-
-# JWT
-export Jwt__Key="your-production-secret-key-minimum-32-characters"
-export Jwt__Issuer="FlowcusAPI"
-export Jwt__Audience="FlowcusClient"
-
-# Auth
-export AuthSettings__MaxFailedAttempts="3"
-export AuthSettings__LockoutMinutes="30"
-export AuthSettings__BcryptWorkFactor="14"
-```
-
-## Frontend Configuration
-
-### Environment Files
-
-Create environment configuration files for different deployments:
-
-**environment.ts** (development)
-```typescript
-export const environment = {
-  production: false,
-  apiUrl: 'http://localhost:7176/api',
-  appName: 'FlowCus'
-};
-```
-
-**environment.prod.ts** (production)
-```typescript
-export const environment = {
-  production: true,
-  apiUrl: 'https://api.yourdomain.com'
-};
-```
-
-### API Configuration
-
-For production, update `src/environments/environment.prod.ts`:
-
-```typescript
-export const environment = {
-  production: true,
-  apiUrl: 'https://api-flowcus.axewhyzedlabs.co.in/api',
-  appName: 'FlowCus'
-};
-```
-
-### CORS Configuration
-
-The frontend must be registered in the backend's CORS settings in `FlowCus-backend/Program.cs`:
-
-```csharp
-string[] allowedOrigins = builder.Environment.IsDevelopment()
-    ? new[] { "http://localhost:4200" }
-    : new[] { "https://axewhyzed.github.io", "https://flowcus.axewhyzedlabs.co.in" };
-```
-
-## Running the Application
-
-### Development Mode
-
-Terminal 1 - Start the backend:
+### 1. Backend Automated Tests (xUnit)
+Run the 22 automated unit and integration tests covering authentication, progressive lockout tiers, task constraints, and timetable overlap logic:
 ```bash
 cd FlowCus-backend
-dotnet run
+dotnet test FlowCus.sln
 ```
 
-Terminal 2 - Start the frontend:
+### 2. Web Frontend Build Verification
+Verify production bundling and lazy-loaded route chunking:
 ```bash
 cd FlowCus-frontend/flowcus
-ng serve
+npm run build
 ```
 
-Terminal 3 (optional) - Monitor the database:
+### 3. Android Mobile Unit Tests & Typecheck
+Verify Redux slices, components, native bridge mocks, and strict TypeScript types:
 ```bash
-psql -U postgres -d flowcus
+cd FlowCus-android
+npm test
+npx tsc --noEmit
 ```
 
-Access the application at http://localhost:4200
+---
 
-### Test User Account
+## Docker & Containerized Deployment
 
-After database initialization, create a test account through the registration page, or insert directly:
-
+### 1. Backend Dockerfile
+The backend includes a production-ready multi-stage `Dockerfile`:
 ```bash
-psql -U postgres -d flowcus
-
-INSERT INTO userlist (username, password_hash, name, is_admin, created_on, updated_on, is_deleted)
-VALUES ('admin', '$2a$12$...bcrypt_hash...', 'Administrator', true, now(), now(), false);
-```
-
-Note: Generate the BCrypt hash using a tool or the application's authentication service.
-
-## Docker Deployment
-
-### Dockerfile for Backend
-
-Create a Dockerfile in the FlowCus-backend directory:
-
-```dockerfile
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /app
-COPY . ./
-RUN dotnet restore
-RUN dotnet publish -c Release -o out
-
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
-WORKDIR /app
-COPY --from=build /app/out .
-ENV ASPNETCORE_URLS=http://+:8080
-EXPOSE 8080
-CMD ["dotnet", "FlowCus.dll"]
-```
-
-Build and run:
-
-```bash
+cd FlowCus-backend
 docker build -t flowcus-backend .
-docker run -p 8080:8080 -e ConnectionStrings__DefaultConnection="..." -e Jwt__Key="your-secret-key-here" flowcus-backend
+docker run -p 8080:8080 \
+  -e ConnectionStrings__DefaultConnection="Host=host.docker.internal;Port=5432;Database=flowcus;Username=postgres;Password=your_password;" \
+  -e Jwt__Key="production-secret-key-at-least-32-characters" \
+  flowcus-backend
 ```
 
-### Docker Compose
-
-Create docker-compose.yml for full stack:
-
+### 2. Docker Compose
+Run the entire stack with Docker Compose:
 ```yaml
 version: '3.8'
 services:
   db:
-    image: postgres:15
+    image: postgres:15-alpine
     environment:
       POSTGRES_DB: flowcus
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
     ports:
       - "5432:5432"
     volumes:
@@ -449,190 +251,57 @@ services:
     ports:
       - "8080:8080"
     environment:
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=flowcus;Username=postgres;Password=postgres;"
-      Jwt__Key: "your-secret-key-here"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=flowcus;Username=postgres;Password=postgrespassword;"
+      Jwt__Key: "your-production-secret-key-minimum-32-characters"
       Jwt__Issuer: "FlowcusAPI"
       Jwt__Audience: "FlowcusClient"
     depends_on:
       - db
 
-  frontend:
-    build: ./FlowCus-frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-
 volumes:
   postgres_data:
 ```
 
-Run with Docker Compose:
-
+Launch with:
 ```bash
 docker-compose up -d
 ```
 
-## Cloud Deployment
+---
 
-### Azure App Service
+## Production Deployment & Checklist
 
-1. Create App Service and PostgreSQL Flexible Server
-2. Update connection string in App Service Configuration
-3. Deploy using Azure CLI or GitHub Actions:
+Before deploying FlowCus to production:
+1. **Database Secrets:** Provide connection strings via environment variables (`ConnectionStrings__DefaultConnection`). Never commit production credentials.
+2. **JWT Secret:** Configure a cryptographically strong 256-bit key in `Jwt__Key`.
+3. **CORS:** Ensure `Program.cs` CORS origins only whitelist your production domains (`https://flowcus.axewhyzedlabs.co.in`, `https://axewhyzed.github.io`).
+4. **Timezone Header:** Clients automatically inject `X-Timezone-Offset` in minutes. Verify reverse proxies / load balancers forward this header.
+5. **Rate Limiting:** Set appropriate thresholds in `AuthSettings` for public-facing deployments.
+6. **HTTPS / SSL:** Terminate TLS using a reverse proxy (Nginx, Caddy, Cloudflare, or Azure App Gateway).
 
-```bash
-az webapp deployment source config-zip \
-  --resource-group mygroup \
-  --name myapp \
-  --src deploy.zip
-```
-
-### Render.com
-
-1. Create PostgreSQL database on Render
-2. Deploy backend from GitHub to Render Web Service
-3. Deploy frontend to Render Static Site
-4. Update API URL in frontend environment variables
-
-### AWS
-
-1. Create RDS PostgreSQL instance
-2. Deploy backend to Elastic Beanstalk
-3. Deploy frontend to S3 + CloudFront
-4. Configure security groups and IAM roles
-
-## Production Checklist
-
-Before deploying to production, ensure:
-
-- Database backups are configured
-- SSL/TLS certificates are installed
-- JWT secret key is securely stored
-- Environment variables are properly set
-- Rate limiting is configured appropriately
-- CORS is configured for your domain only
-- Password hashing work factor is set to 12+
-- Error logging is configured
-- Database connection pooling is enabled
-- Security headers are configured
-- API documentation is available to frontend team
-- Database migrations are tested
-- Load testing has been performed
-- Security scanning has been completed
-- Monitoring and alerting are configured
-- Incident response plan is in place
+---
 
 ## Troubleshooting
 
 ### Backend Issues
-
-**Database connection error:**
-- Verify PostgreSQL is running
-- Check connection string in appsettings.json
-- Verify database and user exist
-- Test connection: `psql -U postgres -d flowcus`
-
-**Port already in use:**
-- Change the launch profile port in `FlowCus-backend/Properties/launchSettings.json`
-- Or kill the process using the current backend port, for example `lsof -i :7176` then `kill <PID>`
-
-**JWT errors:**
-- Verify `Jwt:Key` is at least 32 characters
-- Check token expiration time
-- Ensure frontend sends token in Authorization header
-
-**Rate limit locked:**
-- Wait for lockout period (default 15 minutes)
-- Or clear in database: `UPDATE userlist SET failed_attempts = 0, lockout_until = NULL WHERE username = 'user'`
+- **Account Locked:**
+  - If locked during testing, wait for the lockout period (5, 15, or 60 minutes) or reset directly in the database:
+    ```sql
+    UPDATE userlist SET failed_attempts = 0, lockout_until = NULL, lockout_count = 0 WHERE username = 'testuser';
+    ```
+- **Database Connection Refused:**
+  - Verify PostgreSQL service is running and listening on port 5432.
+  - Test connectivity with `psql -U postgres -d flowcus`.
 
 ### Frontend Issues
+- **CORS Errors:**
+  - Confirm the backend's allowed origins list contains the frontend URL and port.
+- **Client Route Hydration:**
+  - Authenticated routes are configured with `RenderMode.Client` in `app.routes.server.ts` to prevent SSR prerender failures for unauthenticated states.
 
-**Blank page or 404 error:**
-- Verify ng serve is running
-- Check browser console for errors
-- Clear browser cache and reload
-- Verify API_ENDPOINTS are correct
-
-**API connection errors:**
-- Verify backend is running on correct port
-- Check CORS configuration in backend
-- Verify API URL in environment files
-- Check browser console for specific errors
-
-**Time display issues:**
-- Verify browser timezone is correct
-- Check frontend time conversion logic
-- Verify database stores times in UTC
-
-### Database Issues
-
-**Table doesn't exist:**
-- Verify all SQL files were executed
-- Check for errors during schema creation
-- Re-run the schema scripts if needed
-
-**Performance issues:**
-- Check for missing indexes
-- Verify query optimization
-- Monitor database resource usage
-- Consider connection pooling settings
-
-### General Issues
-
-**Logs location:**
-- Backend: Console output and application event logs
-- Frontend: Browser developer console (F12)
-- Database: PostgreSQL logs in data directory
-
-**Getting help:**
-- Check application logs for error messages
-- Review API responses with developer tools
-- Consult PostgreSQL documentation
-- Review Angular documentation for frontend issues
-
-## Performance Optimization
-
-### Backend
-- Enable query result caching
-- Use connection pooling
-- Implement pagination for large datasets
-- Monitor slow queries with EXPLAIN
-
-### Frontend
-- Lazy load modules
-- Enable production build optimization: `ng build --configuration production`
-- Implement virtual scrolling for large lists
-- Cache API responses appropriately
-
-### Database
-- Create indexes on frequently queried columns
-- Regular vacuum and analyze operations
-- Monitor table sizes
-- Archive old soft-deleted data periodically
-
-## Security Best Practices
-
-1. Always use HTTPS in production
-2. Store secrets in environment variables, not in code
-3. Regularly update dependencies
-4. Implement API rate limiting
-5. Enable database encryption at rest
-6. Use strong password requirements
-7. Implement audit logging
-8. Regular security scanning and penetration testing
-9. Keep PostgreSQL and .NET updated
-10. Monitor authentication logs for suspicious activity
-
-## Next Steps
-
-After successful setup:
-1. Create additional user accounts
-2. Explore task management features
-3. Create task categories and subtypes
-4. Build your first timetable
-5. Check dashboard for statistics
-6. Review admin features if you have admin access
-7. Configure backup and monitoring for production
-
-For additional help, refer to the README.md file or contact the development team.
+### Android Issues
+- **Cannot Connect to Backend:**
+  - If running in Android Emulator, make sure `.env` points to `http://10.0.2.2:7176/api`, NOT `http://localhost:7176/api`.
+  - If running on a physical Android device, connect phone and workstation to the same Wi-Fi network and set `.env` to your workstation's LAN IP address.
+- **Native ScreenTimeModule Permission:**
+  - Querying usage stats requires Android `PACKAGE_USAGE_STATS` permission. The user must grant "Usage Access" in Android System Settings when prompted.

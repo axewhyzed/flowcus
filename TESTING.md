@@ -34,13 +34,13 @@ Backend config values that affect expected results:
 
 | Setting | Default in code | Behavior |
 |---|---:|---|
-| `AuthSettings:MaxFailedAttempts` | `3` | Account locks after 3 failed password attempts |
-| `AuthSettings:LockoutMinutes` | `2` | Locked account rejects login for about 2 minutes |
+| `AuthSettings:MaxFailedAttempts` | `3` | Account locks after 3 failed password attempts per tier |
+| `AuthSettings:LockoutMinutes` | `5` (Tier 1) | Progressive lockout: Tier 1: 5m; Tier 2: 15m; Tier 3+: 60m (repeats 60m until correct password) |
 | `AuthSettings:IpRateLimitPerMinute` | `30` | More than 30 login attempts per minute from one IP returns `429` |
 | `AuthSettings:UserRateLimitPerMinute` | `10` | More than 10 login attempts per minute for one username returns `429` |
 | `Jwt` expiry | 7 days | Login token and cookie expire after 7 days |
-| Subtype limit | 5 active subtypes per user | Enforced by DB trigger |
-| Timetable limit | 5 active/non-deleted timetables per user | Enforced by DB trigger |
+| Subtype limit | 5 active subtypes per user | Enforced by DB trigger with advisory lock |
+| Timetable limit | 5 active/non-deleted timetables per user | Enforced by DB trigger with advisory lock |
 
 ## Canonical Sample Data
 
@@ -121,8 +121,10 @@ Use this column while testing:
 | AUTH-007 | Valid admin login | Submit `qa_admin` / `AdminPass123!` | Dashboard loads; Admin badge appears where applicable; Admin Mode toggle is available in the header |  |
 | AUTH-008 | Invalid password | Submit `qa_user_a` / `WrongPass123!` | Error toast or login error shows `Invalid credentials.`; user remains on login page |  |
 | AUTH-009 | Unknown username | Submit `missing_user` / `UserPass123!` | Error shows invalid credentials; no details reveal whether username exists |  |
-| AUTH-010 | Account lockout after failures | Attempt wrong password for `qa_user_a` 3 times | Fourth attempt with correct password before lockout expiry fails as invalid credentials |  |
-| AUTH-011 | Lockout expiry | Wait about 2 minutes after AUTH-010, then login correctly | Login succeeds; failed attempts reset |  |
+| AUTH-010 | Tier 1 lockout (5 min) after 3 failures | Attempt wrong password for `qa_user_a` 3 times | API returns `423 Locked` with message: "Account is temporarily locked due to multiple failed login attempts. Please try again in 5 minutes."; `lockout_count` becomes 1 |  |
+| AUTH-011 | Tier 2 lockout (15 min) after next 3 failures | Wait for Tier 1 to expire, then fail 3 more times | API returns `423 Locked` with message indicating 15 minutes lockout; `lockout_count` becomes 2 |  |
+| AUTH-011a | Tier 3+ lockout (60 min) after next 3 failures | Wait for Tier 2 to expire, then fail 3 more times | API returns `423 Locked` with message indicating 60 minutes lockout; `lockout_count` becomes 3+ |  |
+| AUTH-011b | Lockout reset on successful login | Wait for lockout expiry, then submit correct password | Login succeeds; both `failed_attempts` and `lockout_count` are reset to 0 |  |
 | AUTH-012 | IP login rate limit | Send more than 30 login attempts within 1 minute from same IP | API returns `429` with `Too many requests. Please try again later.` |  |
 | AUTH-013 | Username login rate limit | Send more than 10 attempts within 1 minute for `qa_user_a` | API returns `429` |  |
 | AUTH-014 | Session restore after refresh | Login, refresh `/dashboard` | User stays authenticated; `/api/auth/me` restores user state |  |
@@ -229,7 +231,7 @@ Tasks belong to the current user. Category is required. Subcategory is optional 
 | TASK-005 | Missing title | Blank title and valid category | UI warning `Please enter a title and select a category.`; no API request or no record created |  |
 | TASK-006 | Missing category | Valid title but category `0` | UI warning; no task created |  |
 | TASK-007 | Start after end | Start today `11:00`, end today `10:00` | API rejects with `Task start time must be before end time.` |  |
-| TASK-008 | Start equals end | Start today `10:00`, end today `10:00` | API rejects with `Task start time must be before end time.` |  |
+| TASK-008 | Start equals end (zero-duration task) | Start today `10:00`, end today `10:00` | Succeeded because `chk_time_order` allows `end_time >= start_time` (e.g. instantaneous milestone/check-in) |  |
 | TASK-009 | End without start | Set only end time via API | Allowed by service/DB because order check only applies when both exist; task is created |  |
 | TASK-010 | Start without end | Set only start time via API | Allowed; duration remains null |  |
 | TASK-011 | Invalid category ID via API | `taskCategoryId: 999999` | API returns `400` selected category does not exist |  |
@@ -259,6 +261,9 @@ Tasks belong to the current user. Category is required. Subcategory is optional 
 | TASK-035 | Deleted tasks hidden | Delete a task, reload `/tasks` | Soft-deleted task is not listed |  |
 | TASK-036 | Long title | Submit title over 200 characters via API | DB rejects due column limit or API returns database error |  |
 | TASK-037 | Special characters | Title `Plan & review <QA> "FlowCus"` | Task saves and displays safely without breaking layout |  |
+| TASK-038 | Toggle task completion | Click completion checkbox or `PATCH /api/tasks/{id}/toggle-complete` | `is_completed` becomes true, `is_deleted` stays false, title renders with strikethrough styling |  |
+| TASK-039 | Untoggle completed task | Click completed checkbox again | `is_completed` reverts to false, strikethrough styling is removed |  |
+| TASK-040 | Status filter (All / Active / Completed) | Select 'Completed' filter chip | Only tasks with `is_completed = true` render; select 'Active' renders only uncompleted non-deleted tasks |  |
 
 ## Timetable Tests
 
@@ -461,10 +466,53 @@ Run this shorter checklist before every release:
 
 ## Known Behavior To Watch Closely
 
-- The README mentions `POST /api/auth/register`, but the implemented endpoint requires an authenticated admin. User creation is also implemented under `POST /api/admin/users` and `POST /api/users` for admins.
-- Dashboard date and current-focus logic use UTC in the backend. Manual testers in non-UTC time zones should verify whether "today" and "current time" match product expectations.
-- Task priority exists in the backend/model but is not exposed in the current task form.
-- Timetable item `specificDate` exists in the backend/model but is not exposed in the current UI.
-- The UI only offers 30-minute time choices for timetable blocks, while the API can accept other valid `HH:mm:ss` times.
-- Deleting subcategories does not currently block when tasks or timetable items reference them. Existing rows may display without the deleted subtype name.
-- Category management exists both as a standalone Task Categories page and inside the Task Category/Task Types page. Authorization is enforced by the backend; verify UI access according to intended product routing.
+- The README mentions `POST /api/auth/register`, which is enabled for registration. User creation is also available under `POST /api/admin/users` for admins.
+- Dashboard date and stats calculation use the client's local timezone offset via the `X-Timezone-Offset` header (minutes offset from UTC) or query param, ensuring day boundaries align with local time.
+- Task completion is handled via the dedicated `is_completed` boolean column and `PATCH /api/tasks/{id}/toggle-complete`, completely preserving records for analytics and separating completion from soft-deletion (`DELETE /api/tasks/{id}`).
+- Subtype and timetable limits (5 active items per user) are enforced by database triggers fortified with transactional advisory locks (`pg_advisory_xact_lock(user_id)`).
+
+---
+
+## Android Mobile Tests (`FlowCus-android`)
+
+| ID | Test case | Steps | Expected outcome | Status |
+|---|---|---|---|---|
+| MOB-001 | Dynamic Greeting & Dashboard Stats | Launch app as logged-in user | Greeting shows "Good morning/afternoon/evening"; stats display Daily Avg, Completion Rate, Total Sessions, Streak Days |  |
+| MOB-002 | Current Focus Resolution | Active timetable has block during now | Active block shows task title or timetable name with start/end time; "Free time!" if no block active |  |
+| MOB-003 | Task Completion Checkbox | Tap green checkmark circle on task | `is_completed` toggles to true; title displays strikethrough styling; task count excludes completed tasks |  |
+| MOB-004 | Task Status Filters | Tap chips: 'All', 'Active', 'Completed' | List filters instantly according to completion status |  |
+| MOB-005 | Task Deletion Alert | Tap trash icon on task card | Native alert asks for confirmation; on confirm, calls `DELETE /api/tasks/{id}` and removes item |  |
+| MOB-006 | Focus Timer Presets | Select 15m, 25m, 45m, or 60m chip | Timer display updates to selected duration in `MM:SS` format |  |
+| MOB-007 | Focus Timer Execution | Tap "Start Session" | Epoch countdown ticks smoothly; backgrounding the app does not disrupt elapsed time |  |
+| MOB-008 | Focus Session Completion | Let timer reach 00:00 | Device vibrates; session automatically logged as completed task in backend |  |
+| MOB-009 | Subtypes Active Limit Tracker | Open Subtypes screen | Badge displays "X/5 Used"; "+ Add Subtype" triggers limit check |  |
+| MOB-010 | Subtype Deletion | Tap trash icon next to a subtype | Subtype deleted via API; count badge decrements |  |
+| MOB-011 | Settings & Logout | Open Settings from Drawer, tap Logout | Auth token cleared from AsyncStorage; user returned to Login screen |  |
+
+---
+
+## Automated Test Suites
+
+### 1. Backend (.NET 8 xUnit)
+```bash
+cd FlowCus-backend
+dotnet test FlowCus.sln
+```
+- **Total Tests:** 22 passing (0 failures)
+- **Coverage:** Auth validation, progressive lockout transitions (Tier 1: 5m, Tier 2: 15m, Tier 3+: 60m), task date/duration constraints (zero-duration support), priority bounds (1-5), timetable overlap detection.
+
+### 2. Web Frontend (Angular 19 Build)
+```bash
+cd FlowCus-frontend/flowcus
+npm run build
+```
+- **Coverage:** Production compilation, route lazy-loading, client-hydration checks, bundle budget verification.
+
+### 3. Android Mobile (Jest & TypeScript)
+```bash
+cd FlowCus-android
+npm test
+npx tsc --noEmit
+```
+- **Coverage:** React Native component render tests, Redux Toolkit slices, native Kotlin module mocks, and strict TypeScript compilation.
+

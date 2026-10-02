@@ -1,10 +1,6 @@
 # Docker
-# Build a Docker image
+# Build and test FlowCus backend image
 # https://docs.microsoft.com/azure/devops/pipelines/languages/docker
-
-# commenting trigger to prevent auto deploys
-# trigger:
-# - Current
 
 resources:
 - repo: self
@@ -14,24 +10,36 @@ variables:
 
 stages:
 - stage: Build
-  displayName: Build image
+  displayName: Build and Test
   jobs:
   - job: Build
     displayName: Build
     pool:
       vmImage: ubuntu-latest
     steps:
+    - task: UseDotNet@2
+      displayName: 'Install .NET Core SDK'
+      inputs:
+        version: '8.x'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run Unit Tests'
+      inputs:
+        command: 'test'
+        projects: 'FlowCus-backend/FlowCus.sln'
+        arguments: '-c Release'
+
     - task: Docker@2
-      displayName: Build an image
+      displayName: 'Build Docker Image'
       inputs:
         command: build
-        dockerfile: '$(Build.SourcesDirectory)/FlowCus-backend/DockerFile'
+        dockerfile: '$(Build.SourcesDirectory)/FlowCus-backend/Dockerfile'
         tags: |
           $(tag)
 
 - stage: Deploy
   displayName: Deploy Docker image
-  dependsOn: Build  # Ensure deployment happens after build
+  dependsOn: Build
   jobs:
   - job: Deploy
     displayName: Deploy
@@ -39,9 +47,7 @@ stages:
       vmImage: ubuntu-latest
     steps:
     - script: |
-        echo "Deploying Docker image to your deployment platform"
-        # Add deployment commands here (Render, AKS, etc.)
-        # For example, using curl to trigger Render deployment:
+        echo "Deploying Docker image to deployment platform"
         curl -X POST \
         -H "Authorization: Bearer ${RENDER_API_KEY}" \
         -d '{"branch":"main"}' \
