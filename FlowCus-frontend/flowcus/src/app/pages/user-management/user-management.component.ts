@@ -13,7 +13,7 @@ type UserFormModel = Partial<User> & { password?: string };
 @Component({
   selector: 'app-user-management',
   imports: [CommonModule, RouterModule, FormsModule],
-  templateUrl: './user-management.page.html',
+  templateUrl: './user-management.component.html',
   standalone: true
 })
 export class UserManagementComponent implements OnInit {

@@ -14,10 +14,10 @@ import { ToastService } from '../../core/services/toast.service';
   selector: 'app-login',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterModule],
-  templateUrl: './login.page.html',
+  templateUrl: './login.component.html',
   styles: []
 })
-export class LoginPage implements OnInit {
+export class LoginComponent implements OnInit {
   loginForm: FormGroup;
   isLoading = false;
   errorMessage: string | null = null;

@@ -11,10 +11,10 @@ import { ConfirmService } from '../../core/services/confirm.service';
 
 @Component({
   selector: 'app-task-types',
-  templateUrl: './task-types.page.html',
+  templateUrl: './task-types.component.html',
   imports: [CommonModule, FormsModule]
 })
-export class TaskTypesPage implements OnInit {
+export class TaskTypesComponent implements OnInit {
   categories: TaskCategory[] | null = null;
   subcategories: TaskSubtype[] = [];
   selectedTab: 'categories' | 'subcategories' = 'categories';

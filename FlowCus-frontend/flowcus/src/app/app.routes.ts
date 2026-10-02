@@ -7,7 +7,7 @@ export const routes: Routes = [
   // 1. Public Routes (No Layout, No Guard)
   { 
     path: 'login', 
-    loadComponent: () => import('./pages/auth/login.page').then(m => m.LoginPage) 
+    loadComponent: () => import('./pages/auth/login.component').then(m => m.LoginComponent) 
   },
 
   // 2. Protected Routes (Wrapped in MainLayout)
@@ -19,11 +19,11 @@ export const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { 
         path: 'dashboard', 
-        loadComponent: () => import('./pages/dashboard/dashboard.page').then(m => m.DashboardPage) 
+        loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent) 
       },
       { 
         path: 'user', 
-        loadComponent: () => import('./pages/user/user.page').then(m => m.UserPage) 
+        loadComponent: () => import('./pages/user/user-profile.component').then(m => m.UserProfileComponent) 
       },
       { 
         path: 'task-categories', 
@@ -32,19 +32,19 @@ export const routes: Routes = [
       },
       { 
         path: 'task-types', 
-        loadComponent: () => import('./pages/task-types/task-types.page').then(m => m.TaskTypesPage) 
+        loadComponent: () => import('./pages/task-types/task-types.component').then(m => m.TaskTypesComponent) 
       },
       { 
         path: 'tasks', 
-        loadComponent: () => import('./pages/task/task.page').then(m => m.TaskPage) 
+        loadComponent: () => import('./pages/tasks/tasks.component').then(m => m.TasksComponent) 
       },
       { 
         path: 'timetables', 
-        loadComponent: () => import('./pages/timetable/timetable.page').then(m => m.TimetablePage) 
+        loadComponent: () => import('./pages/timetables/timetables.component').then(m => m.TimetablesComponent) 
       },
       { 
         path: 'users', 
-        loadComponent: () => import('./pages/user-management/user-management.page').then(m => m.UserManagementComponent), 
+        loadComponent: () => import('./pages/user-management/user-management.component').then(m => m.UserManagementComponent), 
         canActivate: [AdminGuard] 
       },
     ]

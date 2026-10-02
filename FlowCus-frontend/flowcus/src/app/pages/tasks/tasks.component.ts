@@ -14,13 +14,13 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { NlpTaskParserService, ParsedTaskDraft } from '../../core/services/nlp-task-parser.service';
 
 @Component({
-  selector: 'app-task',
-  templateUrl: './task.page.html',
+  selector: 'app-tasks',
+  templateUrl: './tasks.component.html',
   imports: [CommonModule, FormsModule, RouterModule],
-  styleUrls: ['./task.page.css'],
+  styleUrls: ['./tasks.component.css'],
   standalone: true
 })
-export class TaskPage implements OnInit {
+export class TasksComponent implements OnInit {
   @ViewChild('quickAddInputEl') quickAddInputEl?: ElementRef<HTMLInputElement>;
 
   tasks: Task[] = [];

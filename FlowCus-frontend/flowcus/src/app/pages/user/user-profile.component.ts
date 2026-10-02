@@ -10,13 +10,13 @@ import { DataPortabilityService } from '../../core/services/data-portability.ser
 import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
 
 @Component({
-  selector: 'app-user',
+  selector: 'app-user-profile',
   standalone: true,
-  templateUrl: './user.page.html',
-  styleUrls: ['./user.page.css'],
+  templateUrl: './user-profile.component.html',
+  styleUrls: ['./user-profile.component.css'],
   imports: [CommonModule, FormsModule],
 })
-export class UserPage implements OnInit {
+export class UserProfileComponent implements OnInit {
   user: User | null = null;
   errorMessage = '';
 

@@ -23,12 +23,12 @@ interface TimetableSlot {
 
 @Component({
   selector: 'app-dashboard',
-  templateUrl: './dashboard.page.html',
+  templateUrl: './dashboard.component.html',
   standalone: true,
   imports: [CommonModule, RouterModule],
-  styleUrls: ['./dashboard.page.css']
+  styleUrls: ['./dashboard.component.css']
 })
-export class DashboardPage implements OnInit, OnDestroy {
+export class DashboardComponent implements OnInit, OnDestroy {
   dashboardData: any;
   processedTimetable: TimetableSlot[] = [];
   todayDate: Date = new Date();

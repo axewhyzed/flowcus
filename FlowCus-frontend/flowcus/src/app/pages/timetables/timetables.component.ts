@@ -26,12 +26,12 @@ interface DaySummary {
 }
 
 @Component({
-  selector: 'app-timetable',
+  selector: 'app-timetables',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './timetable.page.html'
+  templateUrl: './timetables.component.html'
 })
-export class TimetablePage implements OnInit {
+export class TimetablesComponent implements OnInit {
   timetables: Timetable[] = [];
   selectedTimetable: Timetable | null = null;
   timetableItems: TimetableItemDetail[] = [];
