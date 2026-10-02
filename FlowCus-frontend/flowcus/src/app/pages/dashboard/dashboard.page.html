@@ -42,61 +42,59 @@
       </div>
     </header>
 
-    <!-- Hero Card: Current Focus & 1-Tap Focus Timer -->
-    <div class="rounded-2xl border border-blue-200/80 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-6 shadow-md relative overflow-hidden">
-      <div class="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
-
+    <!-- Focus Engine: Current Focus & 1-Tap Launcher -->
+    <div class="rounded-xl border border-slate-800 bg-slate-900 text-white p-6 shadow-sm relative overflow-hidden">
       @if (!isTimerActive) {
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
         <div class="space-y-2">
           <div class="flex items-center gap-2">
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-xs font-medium backdrop-blur-sm">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              Current Schedule Focus
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800 text-[11px] font-medium text-slate-300 border border-slate-700">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              Scheduled Focus
             </span>
           </div>
-          <h2 class="text-2xl font-bold tracking-tight">
+          <h2 class="text-xl font-bold tracking-tight text-white">
             {{ dashboardData.currentFocus?.taskName || 'Free Time / No Block Active' }}
           </h2>
-          <p class="text-sm text-blue-100 max-w-lg">
-            {{ dashboardData.currentFocus ? 'Ready to dive into deep work? Launch a focus session with one tap.' : 'No scheduled timetable block active right now. Start a quick custom focus session!' }}
+          <p class="text-xs text-slate-400 max-w-lg leading-relaxed">
+            {{ dashboardData.currentFocus ? 'Ready to dive into deep work? Launch a focus sprint with a single click.' : 'No scheduled timetable block active right now. Start an ad-hoc focus session anytime.' }}
           </p>
 
           <!-- Quick Duration Presets -->
-          <div class="flex flex-wrap items-center gap-2 pt-2">
-            <span class="text-xs text-blue-200 mr-1">Quick Presets:</span>
-            <button (click)="startFocusSession(15)" class="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-xs font-semibold backdrop-blur-sm transition-all">15m</button>
-            <button (click)="startFocusSession(25)" class="px-2.5 py-1 rounded-lg bg-white/25 hover:bg-white/35 active:scale-95 text-xs font-semibold backdrop-blur-sm transition-all border border-white/30">25m (Pomodoro)</button>
-            <button (click)="startFocusSession(45)" class="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-xs font-semibold backdrop-blur-sm transition-all">45m</button>
-            <button (click)="startFocusSession(60)" class="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-xs font-semibold backdrop-blur-sm transition-all">60m</button>
+          <div class="flex flex-wrap items-center gap-1.5 pt-2">
+            <span class="text-[11px] font-medium text-slate-400 mr-1">Presets:</span>
+            <button (click)="startFocusSession(15)" class="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 hover:text-white active:scale-95 text-xs font-medium text-slate-300 border border-slate-700 transition-all">15m</button>
+            <button (click)="startFocusSession(25)" class="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 hover:text-white active:scale-95 text-xs font-semibold text-white border border-slate-600 transition-all">25m Pomodoro</button>
+            <button (click)="startFocusSession(45)" class="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 hover:text-white active:scale-95 text-xs font-medium text-slate-300 border border-slate-700 transition-all">45m</button>
+            <button (click)="startFocusSession(60)" class="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 hover:text-white active:scale-95 text-xs font-medium text-slate-300 border border-slate-700 transition-all">60m</button>
           </div>
         </div>
 
-        <div class="flex flex-col sm:flex-row items-center gap-3">
+        <div class="flex items-center">
           <button (click)="startFocusSession(25)"
-            class="w-full sm:w-auto px-6 py-3.5 bg-white text-blue-700 hover:bg-blue-50 active:scale-95 rounded-xl font-bold shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 transition-all">
-            <i class="fa-solid fa-play"></i>
+            class="px-5 py-3 bg-white text-slate-950 hover:bg-slate-100 active:scale-95 rounded-lg text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-all">
+            <i class="fa-solid fa-play text-[11px]"></i>
             <span>Start 25m Focus</span>
-            <kbd class="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono font-bold bg-blue-50 text-blue-700 rounded border border-blue-200">Space</kbd>
+            <kbd class="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-slate-100 text-slate-700 rounded border border-slate-300">Space</kbd>
           </button>
         </div>
       </div>
       } @else {
-      <!-- Active Running Focus Timer -->
-      <div class="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10 py-2">
-        <div class="space-y-1 text-center md:text-left">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 text-xs font-medium border border-emerald-400/30">
-            <i class="fa-solid fa-fire text-amber-300"></i> Deep Focus in Progress
+      <!-- Active Focus Timer -->
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10 py-1">
+        <div class="space-y-1.5 text-center md:text-left">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[11px] font-medium border border-emerald-500/20">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Focus Sprint Active
           </span>
-          <h2 class="text-xl font-bold">{{ timerTitle }}</h2>
-          <p class="text-xs text-blue-200">Stay locked in. Auto-saves as completed task upon completion.</p>
+          <h2 class="text-lg font-bold text-white tracking-tight">{{ timerTitle }}</h2>
+          <p class="text-xs text-slate-400">Completed sprints automatically save as finished tasks.</p>
         </div>
 
         <div class="flex flex-col items-center">
-          <div class="text-5xl font-mono font-extrabold tracking-wider drop-shadow-sm">
+          <div class="text-5xl font-mono font-medium tracking-tight text-white tabular-nums drop-shadow-xs">
             {{ formattedTimer }}
           </div>
-          <div class="w-48 bg-white/20 h-1.5 rounded-full mt-2 overflow-hidden">
+          <div class="w-56 bg-slate-800 h-1 rounded-full mt-2.5 overflow-hidden">
             <div class="bg-emerald-400 h-full rounded-full transition-all duration-1000" [style.width.%]="timerProgressPercent"></div>
           </div>
         </div>
@@ -104,31 +102,30 @@
         <div class="flex items-center gap-2">
           @if (isTimerRunning) {
           <button (click)="pauseFocusSession()"
-            class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-semibold backdrop-blur-sm transition-all flex items-center gap-1.5">
-            <i class="fa-solid fa-pause"></i>
+            class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium border border-slate-700 transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-pause text-[11px]"></i>
             <span>Pause</span>
-            <kbd class="text-[10px] font-mono px-1.5 py-0.5 bg-white/20 text-white rounded">Space</kbd>
+            <kbd class="text-[10px] font-mono px-1 py-0.5 bg-slate-700 text-slate-300 rounded">Space</kbd>
           </button>
           } @else {
           <button (click)="resumeFocusSession()"
-            class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5">
-            <i class="fa-solid fa-play"></i>
+            class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 shadow-xs">
+            <i class="fa-solid fa-play text-[11px]"></i>
             <span>Resume</span>
-            <kbd class="text-[10px] font-mono px-1.5 py-0.5 bg-emerald-700/60 text-white rounded">Space</kbd>
+            <kbd class="text-[10px] font-mono px-1 py-0.5 bg-emerald-700 text-white rounded">Space</kbd>
           </button>
           }
 
           <button (click)="finishFocusSession()"
-            class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-semibold shadow transition-all flex items-center gap-1.5">
-            <i class="fa-solid fa-check"></i>
-            <span>Finish & Log</span>
-            <kbd class="text-[10px] font-mono px-1.5 py-0.5 bg-emerald-700/60 text-emerald-100 rounded">Ctrl+↵</kbd>
+            class="px-3.5 py-2 bg-white text-slate-950 hover:bg-slate-100 rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-check text-[11px]"></i>
+            <span>Finish</span>
+            <kbd class="text-[10px] font-mono px-1 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-300">Ctrl+↵</kbd>
           </button>
 
           <button (click)="cancelFocusSession()" title="Cancel Focus Session [Esc]"
-            class="px-3 py-2 bg-white/10 hover:bg-red-500/30 text-red-200 rounded-lg text-sm transition-all flex items-center gap-1">
-            <i class="fa-solid fa-xmark"></i>
-            <span class="text-[10px] font-mono opacity-80">Esc</span>
+            class="p-2 bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg text-xs transition-all flex items-center justify-center">
+            <i class="fa-solid fa-xmark text-sm"></i>
           </button>
         </div>
       </div>
@@ -139,24 +136,25 @@
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <div class="flex gap-2">
         <button (click)="quickAddTask()"
-          class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-sm hover:bg-blue-700 active:scale-95 transition-all text-sm font-medium">
-          <i class="fa-solid fa-plus"></i>
-          <span>Quick Task</span>
-          <kbd class="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono font-bold bg-blue-700/60 text-blue-100 rounded border border-blue-400/30">Q</kbd>
+          class="flex items-center gap-2 px-3.5 py-2 bg-slate-900 text-white rounded-lg shadow-xs hover:bg-slate-800 active:scale-95 transition-all text-xs font-semibold">
+          <i class="fa-solid fa-plus text-[11px]"></i>
+          <span>New Task</span>
+          <kbd class="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-slate-800 text-slate-300 rounded border border-slate-700">Q</kbd>
         </button>
 
         <button (click)="goToTimetables()"
-          class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl shadow-sm hover:bg-slate-50 active:scale-95 transition-all text-sm font-medium">
-          <i class="fa-solid fa-calendar"></i> View Timetables
+          class="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg shadow-xs hover:bg-slate-50 active:scale-95 transition-all text-xs font-medium">
+          <i class="fa-regular fa-calendar text-[11px] text-slate-500"></i>
+          <span>Timetable</span>
         </button>
       </div>
 
       <!-- Schedule Shift Actions (Self-healing schedule) -->
-      <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm text-xs text-slate-600">
-        <span class="font-medium mr-1 text-slate-500"><i class="fa-solid fa-clock mr-1"></i>Running Late?</span>
-        <button (click)="shiftToday(15)" class="px-2 py-1 rounded bg-slate-100 hover:bg-blue-50 hover:text-blue-700 active:scale-95 font-semibold transition-all">+15m</button>
-        <button (click)="shiftToday(30)" class="px-2 py-1 rounded bg-slate-100 hover:bg-blue-50 hover:text-blue-700 active:scale-95 font-semibold transition-all">+30m</button>
-        <button (click)="shiftToday(60)" class="px-2 py-1 rounded bg-slate-100 hover:bg-blue-50 hover:text-blue-700 active:scale-95 font-semibold transition-all">+1h</button>
+      <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-3 py-1 shadow-2xs text-xs text-slate-600">
+        <span class="font-medium mr-1 text-slate-500 text-[11px]"><i class="fa-regular fa-clock mr-1 text-slate-400"></i>Shift Schedule:</span>
+        <button (click)="shiftToday(15)" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-slate-700 transition-all text-xs">+15m</button>
+        <button (click)="shiftToday(30)" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-slate-700 transition-all text-xs">+30m</button>
+        <button (click)="shiftToday(60)" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-slate-700 transition-all text-xs">+1h</button>
       </div>
     </div>
 
@@ -178,43 +176,45 @@
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
       <!-- Today's Schedule Card -->
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="rounded-xl border border-slate-200/80 bg-white p-5 shadow-2xs">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
-            <h2 class="text-base font-bold text-slate-900">Today's Schedule</h2>
+            <h2 class="text-sm font-bold text-slate-900 tracking-tight">Today's Schedule</h2>
             @if (processedTimetable.length > 0) {
-            <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold font-mono">
               {{ processedTimetable.length }} {{ processedTimetable.length === 1 ? 'block' : 'blocks' }}
             </span>
             }
           </div>
-          <button (click)="goToTimetables()" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Edit Timetable &rarr;</button>
+          <button (click)="goToTimetables()" class="text-xs text-slate-500 hover:text-slate-900 font-medium transition-colors">
+            Edit Timetable &rarr;
+          </button>
         </div>
 
         @if (processedTimetable.length > 0) {
         <div class="relative">
-          <div class="absolute left-4 top-2 bottom-2 w-0.5 bg-slate-200"></div>
+          <div class="absolute left-3.5 top-2 bottom-2 w-px bg-slate-200"></div>
 
-          <div class="space-y-3">
+          <div class="space-y-2.5">
             @for (slot of processedTimetable; track slot.id) {
-            <div class="relative pl-9 pb-2">
-              <div class="absolute left-2.5 top-3 w-3 h-3 rounded-full border-2 border-blue-500 bg-white z-10"></div>
+            <div class="relative pl-8">
+              <div class="absolute left-2.5 top-3.5 w-2 h-2 rounded-full border-2 border-slate-900 bg-white z-10"></div>
 
               <div
-                class="rounded-xl border p-3 {{ getCategoryColor(slot.categoryName) }} transition-all hover:shadow-md flex items-center justify-between gap-3">
+                class="rounded-lg border border-slate-200/70 p-3 bg-white hover:border-slate-300 transition-all flex items-center justify-between gap-3 shadow-2xs group">
                 <div class="flex-1 min-w-0">
-                  <h3 class="text-sm font-semibold truncate">{{ slot.displayTitle }}</h3>
-                  <div class="flex items-center gap-2 text-xs text-slate-600 mt-0.5">
-                    <i class="fa-regular fa-clock"></i>
-                    <span class="font-medium">{{ slot.displayTime }}</span>
+                  <h3 class="text-xs font-semibold text-slate-900 truncate">{{ slot.displayTitle }}</h3>
+                  <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5 font-mono">
+                    <i class="fa-regular fa-clock text-[10px] text-slate-400"></i>
+                    <span>{{ slot.displayTime }}</span>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="text-xs px-2 py-0.5 rounded-md bg-white/70 font-medium whitespace-nowrap">
+                  <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
                     {{ getTimeIndicator(slot.startTime) }}
                   </span>
                   <button (click)="startFocusSession(25, slot.displayTitle)" title="Start Focus on this block"
-                    class="w-7 h-7 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center text-xs shadow-sm active:scale-95 transition-all">
+                    class="w-6 h-6 rounded-md bg-slate-100 hover:bg-slate-900 text-slate-600 hover:text-white flex items-center justify-center text-[10px] transition-colors">
                     <i class="fa-solid fa-play"></i>
                   </button>
                 </div>
@@ -225,12 +225,12 @@
         </div>
         } @else {
         <div class="py-12 text-center">
-          <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3 text-lg">
-            <i class="fa-solid fa-calendar-xmark"></i>
+          <div class="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 text-slate-400 flex items-center justify-center mx-auto mb-2.5 text-sm">
+            <i class="fa-regular fa-calendar-xmark"></i>
           </div>
-          <p class="text-sm font-medium text-slate-600">No events scheduled for today</p>
-          <p class="text-xs text-slate-400 mt-1">Set up a weekly timetable to structure your day.</p>
-          <button (click)="goToTimetables()" class="mt-3 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-all">
+          <p class="text-xs font-semibold text-slate-700">No events scheduled for today</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">Set up a weekly routine to organize your day.</p>
+          <button (click)="goToTimetables()" class="mt-3 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-medium transition-colors">
             Configure Timetable
           </button>
         </div>
@@ -238,47 +238,49 @@
       </div>
 
       <!-- Today's Tasks Card with Completion Toggle -->
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="rounded-xl border border-slate-200/80 bg-white p-5 shadow-2xs">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
-            <h2 class="text-base font-bold text-slate-900">Today's Tasks</h2>
+            <h2 class="text-sm font-bold text-slate-900 tracking-tight">Today's Tasks</h2>
             @if (dashboardData.todayTasks?.length > 0) {
-            <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold font-mono">
               {{ dashboardData.todayTasks.length }}
             </span>
             }
           </div>
-          <a routerLink="/tasks" class="text-xs text-blue-600 hover:text-blue-800 font-medium">View All &rarr;</a>
+          <a routerLink="/tasks" class="text-xs text-slate-500 hover:text-slate-900 font-medium transition-colors text-decoration-none">
+            View All &rarr;
+          </a>
         </div>
 
         @if (dashboardData.todayTasks?.length) {
-        <ul class="space-y-2.5">
+        <ul class="space-y-2">
           @for (task of dashboardData.todayTasks; track $index) {
-          <li class="p-3 rounded-xl border border-slate-200 hover:border-blue-200 hover:bg-blue-50/20 transition-all flex items-center justify-between gap-3"
-            [class.opacity-60]="task.isCompleted" [class.bg-slate-50]="task.isCompleted">
+          <li class="p-2.5 rounded-lg border border-slate-200/70 hover:border-slate-300 hover:bg-slate-50/50 transition-all flex items-center justify-between gap-3"
+            [class.opacity-50]="task.isCompleted" [class.bg-slate-50]="task.isCompleted">
             
-            <div class="flex items-center gap-3 flex-1 min-w-0">
+            <div class="flex items-center gap-2.5 flex-1 min-w-0">
               <!-- Quick Complete Checkbox -->
               <button (click)="toggleTaskComplete(task)" 
-                class="w-5 h-5 rounded-md border flex items-center justify-center transition-all flex-shrink-0"
-                [ngClass]="task.isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 hover:border-emerald-500 bg-white'">
+                class="w-4 h-4 rounded-full border flex items-center justify-center transition-all flex-shrink-0"
+                [ngClass]="task.isCompleted ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 hover:border-emerald-600 bg-white'">
                 @if (task.isCompleted) {
-                <i class="fa-solid fa-check text-xs"></i>
+                <i class="fa-solid fa-check text-[9px]"></i>
                 }
               </button>
 
               <div class="min-w-0 flex-1">
-                <p class="text-sm font-medium text-slate-800 truncate" [class.line-through]="task.isCompleted" [class.text-slate-400]="task.isCompleted">
+                <p class="text-xs font-medium text-slate-800 truncate" [class.line-through]="task.isCompleted" [class.text-slate-400]="task.isCompleted">
                   {{ task?.title ?? task }}
                 </p>
                 @if (task?.subtitle) {
-                <p class="text-xs text-slate-400 truncate mt-0.5">{{ task.subtitle }}</p>
+                <p class="text-[10px] text-slate-400 truncate mt-0.5">{{ task.subtitle }}</p>
                 }
               </div>
             </div>
 
             @if (task?.status) {
-            <span class="text-xs px-2 py-0.5 rounded-full border border-slate-200 text-slate-600 bg-slate-50 whitespace-nowrap text-xs">
+            <span class="text-[10px] font-medium font-mono px-2 py-0.5 rounded-md border border-slate-200 text-slate-600 bg-slate-50 whitespace-nowrap">
               {{ task.status }}
             </span>
             }
@@ -287,13 +289,13 @@
         </ul>
         } @else {
         <div class="py-12 text-center">
-          <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3 text-lg">
-            <i class="fa-solid fa-clipboard-check"></i>
+          <div class="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 text-slate-400 flex items-center justify-center mx-auto mb-2.5 text-sm">
+            <i class="fa-solid fa-check text-xs"></i>
           </div>
-          <p class="text-sm font-medium text-slate-600">All caught up for today!</p>
-          <p class="text-xs text-slate-400 mt-1">No tasks remaining on your schedule.</p>
-          <button (click)="quickAddTask()" class="mt-3 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-all">
-            + Add Task
+          <p class="text-xs font-semibold text-slate-700">All caught up for today</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">No tasks remaining on your schedule.</p>
+          <button (click)="quickAddTask()" class="mt-3 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-medium transition-colors shadow-2xs">
+            + New Task
           </button>
         </div>
         }
