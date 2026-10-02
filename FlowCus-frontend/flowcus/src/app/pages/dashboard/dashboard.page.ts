@@ -255,6 +255,25 @@ export class DashboardPage implements OnInit, OnDestroy {
     return 'Night';
   }
 
+  formatDateTime(dateStr: string): string {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return dateStr;
+    }
+  }
+
+  getPriorityBadgeClass(priority: number): string {
+    switch (priority) {
+      case 1: return 'bg-rose-50 text-rose-700 border-rose-200';
+      case 2: return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 3: return 'bg-sky-50 text-sky-700 border-sky-200';
+      default: return 'bg-slate-50 text-slate-600 border-slate-200';
+    }
+  }
+
   @HostListener('window:keydown', ['$event'])
   handleGlobalShortcuts(event: KeyboardEvent) {
     const tag = (event.target as HTMLElement)?.tagName?.toLowerCase();
