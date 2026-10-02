@@ -213,21 +213,21 @@ namespace FlowCus.Services
 
         public async Task<bool> DeleteAsync(int id, int userId)
         {
-            // 1. Cascade delete items first
-            string deleteItemsSql = @"
-            UPDATE timetable_items 
-            SET is_deleted = TRUE 
-            WHERE timetable_id = @Id AND is_deleted = FALSE
-        ";
-            await _db.ExecuteAsync(deleteItemsSql, new { Id = id });
+            // Atomically soft-delete items belonging to the user's timetable, then the timetable itself
+            string deleteSql = @"
+                UPDATE timetable_items 
+                SET is_deleted = TRUE, updated_on = now()
+                FROM timetables t
+                WHERE timetable_items.timetable_id = t.id 
+                  AND t.id = @Id 
+                  AND t.user_id = @UserId 
+                  AND timetable_items.is_deleted = FALSE;
 
-            // 2. Then delete timetable
-            string deleteTimetableSql = @"
-            UPDATE timetables 
-            SET is_deleted = TRUE 
-            WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE
-        ";
-            int rows = await _db.ExecuteAsync(deleteTimetableSql, new { Id = id, UserId = userId });
+                UPDATE timetables 
+                SET is_deleted = TRUE, updated_on = now() 
+                WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE;";
+
+            int rows = await _db.ExecuteAsync(deleteSql, new { Id = id, UserId = userId });
             return rows > 0;
         }
 
@@ -266,6 +266,139 @@ namespace FlowCus.Services
 
             if (subtype.CategoryId != categoryId)
                 throw new InvalidOperationException("Selected task subtype does not belong to the chosen category.");
+        }
+
+        public async Task<object> ApplyTemplateAsync(string templateName, int userId)
+        {
+            string routineName = (templateName ?? "general").Trim().ToLowerInvariant() switch
+            {
+                "student" => "University Semester Routine",
+                "developer" => "Software Engineering Routine",
+                "freelancer" => "Freelance & Creator Routine",
+                _ => "Balanced Productivity Routine"
+            };
+
+            var categories = (await _db.QueryAsync<TaskCategory>(
+                "SELECT * FROM task_category WHERE is_deleted = FALSE")).ToList();
+
+            int GetCatId(string preferredName, string fallback = "Work")
+            {
+                var match = categories.FirstOrDefault(c => c.Name.Equals(preferredName, StringComparison.OrdinalIgnoreCase))
+                         ?? categories.FirstOrDefault(c => c.Name.Equals(fallback, StringComparison.OrdinalIgnoreCase))
+                         ?? categories.FirstOrDefault();
+                return match != null ? match.Id : 1;
+            }
+
+            int workCat = GetCatId("Work");
+            int studyCat = GetCatId("Study", "Work");
+            int fitnessCat = GetCatId("Fitness", "Personal");
+            int personalCat = GetCatId("Personal", "Work");
+            int meetingCat = GetCatId("Meeting", "Work");
+
+            long currentCount = await _db.ExecuteScalarAsync<long>(
+                "SELECT COUNT(*) FROM timetables WHERE user_id = @UserId AND is_deleted = FALSE", new { UserId = userId });
+
+            if (currentCount >= 5)
+            {
+                await _db.ExecuteAsync(@"
+                    UPDATE timetables 
+                    SET is_deleted = TRUE, is_active = FALSE, updated_on = now() 
+                    WHERE id = (
+                        SELECT id FROM timetables 
+                        WHERE user_id = @UserId AND is_deleted = FALSE AND is_active = FALSE 
+                        ORDER BY created_at ASC LIMIT 1
+                    )", new { UserId = userId });
+            }
+
+            int timetableId = await CreateAsync(new Timetable
+            {
+                UserId = userId,
+                Name = routineName,
+                IsActive = true
+            });
+
+            var itemsToInsert = new List<(int day, string start, string end, int catId)>();
+            string mode = (templateName ?? "general").Trim().ToLowerInvariant();
+
+            if (mode == "student")
+            {
+                for (int d = 1; d <= 5; d++)
+                {
+                    itemsToInsert.Add((d, "09:00:00", "12:00:00", studyCat));
+                    itemsToInsert.Add((d, "12:00:00", "13:00:00", personalCat));
+                    itemsToInsert.Add((d, "13:00:00", "16:00:00", studyCat));
+                    itemsToInsert.Add((d, "17:00:00", "18:30:00", fitnessCat));
+                    itemsToInsert.Add((d, "19:30:00", "21:30:00", studyCat));
+                }
+            }
+            else if (mode == "developer")
+            {
+                for (int d = 1; d <= 5; d++)
+                {
+                    itemsToInsert.Add((d, "09:00:00", "12:00:00", workCat));
+                    itemsToInsert.Add((d, "12:00:00", "13:00:00", personalCat));
+                    itemsToInsert.Add((d, "13:00:00", "14:00:00", workCat));
+                    itemsToInsert.Add((d, "14:00:00", "16:30:00", workCat));
+                    itemsToInsert.Add((d, "17:00:00", "18:00:00", fitnessCat));
+                }
+            }
+            else if (mode == "freelancer")
+            {
+                for (int d = 1; d <= 5; d++)
+                {
+                    itemsToInsert.Add((d, "08:30:00", "11:30:00", workCat));
+                    itemsToInsert.Add((d, "11:30:00", "12:30:00", meetingCat));
+                    itemsToInsert.Add((d, "13:30:00", "16:00:00", workCat));
+                    itemsToInsert.Add((d, "16:30:00", "17:30:00", fitnessCat));
+                }
+            }
+            else
+            {
+                for (int d = 1; d <= 7; d++)
+                {
+                    int day = d % 7;
+                    itemsToInsert.Add((day, "09:00:00", "12:00:00", workCat));
+                    itemsToInsert.Add((day, "13:30:00", "16:30:00", workCat));
+                    itemsToInsert.Add((day, "17:30:00", "18:30:00", fitnessCat));
+                }
+            }
+
+            foreach (var (day, start, end, catId) in itemsToInsert)
+            {
+                await _db.ExecuteAsync(@"
+                    INSERT INTO timetable_items (timetable_id, task_category_id, day_of_week, start_time, end_time, created_on, is_deleted)
+                    VALUES (@TId, @CatId, @Day, @Start::time, @End::time, now(), FALSE)",
+                    new { TId = timetableId, CatId = catId, Day = day, Start = start, End = end });
+            }
+
+            return new
+            {
+                timetableId,
+                name = routineName,
+                itemCount = itemsToInsert.Count,
+                message = $"Applied {routineName} template with {itemsToInsert.Count} scheduled blocks!"
+            };
+        }
+
+        public async Task<int> ShiftTodayAsync(int minutes, int userId, int? dayOfWeek = null)
+        {
+            var activeTimetable = await _db.QuerySingleOrDefaultAsync<Timetable>(
+                "SELECT * FROM timetables WHERE user_id = @UserId AND is_active = TRUE AND is_deleted = FALSE LIMIT 1",
+                new { UserId = userId });
+
+            if (activeTimetable == null) return 0;
+
+            int day = dayOfWeek ?? (int)DateTime.UtcNow.DayOfWeek;
+            string sql = @"
+                UPDATE timetable_items
+                SET start_time = LEAST('23:59:59'::time, start_time + (@Minutes || ' minutes')::interval),
+                    end_time = LEAST('23:59:59'::time, end_time + (@Minutes || ' minutes')::interval),
+                    updated_on = now()
+                WHERE timetable_id = @TId 
+                  AND day_of_week = @Day 
+                  AND is_deleted = FALSE;";
+
+            return await _db.ExecuteAsync(sql, new { TId = activeTimetable.Id, Day = day, Minutes = minutes });
         }
 
         private static void ValidateTimetableName(string name)

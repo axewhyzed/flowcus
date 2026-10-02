@@ -1,4 +1,4 @@
-﻿using FlowCus.Controllers;
+using FlowCus.Controllers;
 using FlowCus.Helpers;
 using FlowCus.Models;
 using Microsoft.IdentityModel.Tokens;
@@ -8,6 +8,15 @@ using System.Text;
 
 namespace FlowCus.Services
 {
+    public class AuthResult
+    {
+        public bool Success { get; set; }
+        public bool IsLockedOut { get; set; }
+        public int? LockoutMinutesRemaining { get; set; }
+        public string? ErrorMessage { get; set; }
+        public LoginResponse? Response { get; set; }
+    }
+
     public class AuthService
     {
         private readonly DBHelper _db;
@@ -21,58 +30,119 @@ namespace FlowCus.Services
             _logger = logger;
         }
 
-        public async Task<LoginResponse?> AuthenticateAsync(string username, string password)
+        public async Task<AuthResult> AuthenticateAsync(string username, string password)
         {
             string sql = "SELECT * FROM userlist WHERE username = @Username AND is_deleted = FALSE LIMIT 1";
             var user = await _db.QuerySingleAsync<User>(sql, new { Username = username });
 
-            if (user == null) return null;
-
-            if (user.LockoutUntil.HasValue && user.LockoutUntil > DateTime.UtcNow)
+            if (user == null)
             {
-                _logger.LogWarning($"Login attempt for locked account: {username}");
-                return null; // Account is locked
+                return new AuthResult { Success = false, ErrorMessage = "Invalid credentials." };
             }
+
+            // Check if currently locked out
+            if (user.LockoutUntil.HasValue && user.LockoutUntil.Value > DateTime.UtcNow)
+            {
+                int minutesRemaining = (int)Math.Ceiling((user.LockoutUntil.Value - DateTime.UtcNow).TotalMinutes);
+                if (minutesRemaining < 1) minutesRemaining = 1;
+
+                _logger.LogWarning("Login attempt for locked account: {Username}. Remaining: {Remaining} min", username, minutesRemaining);
+                return new AuthResult
+                {
+                    Success = false,
+                    IsLockedOut = true,
+                    LockoutMinutesRemaining = minutesRemaining,
+                    ErrorMessage = $"Account is temporarily locked due to multiple failed login attempts. Please try again in {minutesRemaining} minute{(minutesRemaining == 1 ? "" : "s")}."
+                };
+            }
+
+            // If a previous lockout period has expired, start a fresh 3-attempt cycle for this tier
+            int currentFailed = (user.LockoutUntil.HasValue && user.LockoutUntil.Value <= DateTime.UtcNow) ? 0 : user.FailedAttempts;
 
             bool passwordValid = !string.IsNullOrEmpty(user.PasswordHash) && BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
 
             if (!passwordValid)
             {
-                // failed attempt - increment counter
-                int maxFailedAttempts = int.Parse(_configuration["AuthSettings:MaxFailedAttempts"] ?? "3");
-                int lockoutMinutes = int.Parse(_configuration["AuthSettings:LockoutMinutes"] ?? "2");
-                
-                int newFailedAttempts = user.FailedAttempts + 1;
-                DateTime? newLockoutUntil = null;
+                int newFailedAttempts = currentFailed + 1;
 
-                if (newFailedAttempts >= maxFailedAttempts)
+                // 3 failed attempts triggers progressive lockout: 1st time 5m, 2nd time 15m, 3rd+ times 60m
+                if (newFailedAttempts >= 3)
                 {
-                    newLockoutUntil = DateTime.UtcNow.AddMinutes(lockoutMinutes);
+                    int newLockoutCount = user.LockoutCount + 1;
+                    int lockoutMinutes = newLockoutCount switch
+                    {
+                        1 => 5,
+                        2 => 15,
+                        _ => 60
+                    };
+
+                    DateTime newLockoutUntil = DateTime.UtcNow.AddMinutes(lockoutMinutes);
+
+                    string lockoutSql = @"
+                        UPDATE userlist 
+                        SET failed_attempts = 0, 
+                            lockout_until = @LockoutUntil,
+                            lockout_count = @LockoutCount,
+                            updated_on = now()
+                        WHERE id = @UserId";
+
+                    await _db.ExecuteAsync(lockoutSql, new
+                    {
+                        UserId = user.Id,
+                        LockoutUntil = newLockoutUntil,
+                        LockoutCount = newLockoutCount
+                    });
+
+                    _logger.LogWarning("User {Username} locked out. Tier: {Tier}, Duration: {Minutes} min", username, newLockoutCount, lockoutMinutes);
+
+                    return new AuthResult
+                    {
+                        Success = false,
+                        IsLockedOut = true,
+                        LockoutMinutesRemaining = lockoutMinutes,
+                        ErrorMessage = $"Account is temporarily locked due to multiple failed login attempts. Please try again in {lockoutMinutes} minutes."
+                    };
                 }
-
-                string updateSql = @"
-                    UPDATE userlist 
-                    SET failed_attempts = @FailedAttempts, 
-                        lockout_until = @LockoutUntil 
-                    WHERE id = @UserId
-                ";
-                await _db.ExecuteAsync(updateSql, new
+                else
                 {
-                    UserId = user.Id,
-                    FailedAttempts = newFailedAttempts,
-                    LockoutUntil = newLockoutUntil
-                });
+                    string updateSql = @"
+                        UPDATE userlist 
+                        SET failed_attempts = @FailedAttempts, 
+                            lockout_until = NULL,
+                            updated_on = now()
+                        WHERE id = @UserId";
 
-                _logger.LogWarning($"Failed login attempt for user: {username}. Attempts: {newFailedAttempts}");
-                return null;
+                    await _db.ExecuteAsync(updateSql, new
+                    {
+                        UserId = user.Id,
+                        FailedAttempts = newFailedAttempts
+                    });
+
+                    int attemptsRemaining = 3 - newFailedAttempts;
+                    _logger.LogWarning("Failed login attempt for user: {Username}. Attempts: {Attempts}/3", username, newFailedAttempts);
+
+                    return new AuthResult
+                    {
+                        Success = false,
+                        ErrorMessage = $"Invalid credentials. You have {attemptsRemaining} attempt{(attemptsRemaining == 1 ? "" : "s")} remaining before lockout."
+                    };
+                }
             }
 
-            string resetSql = @"UPDATE userlist SET failed_attempts = 0, lockout_until = NULL,
-                                updated_on = now() WHERE id = @UserId";
+            // Successful login: reset failed attempts, lockout window, and lockout tier count completely
+            string resetSql = @"UPDATE userlist 
+                                SET failed_attempts = 0, 
+                                    lockout_until = NULL, 
+                                    lockout_count = 0,
+                                    updated_on = now() 
+                                WHERE id = @UserId";
             await _db.ExecuteAsync(resetSql, new { UserId = user.Id });
 
-            // 5. Generate Session Token (Long-lived JWT)
-            return GenerateAuthResponse(user);
+            return new AuthResult
+            {
+                Success = true,
+                Response = GenerateAuthResponse(user)
+            };
         }
 
         private LoginResponse GenerateAuthResponse(User user)
@@ -90,8 +160,7 @@ namespace FlowCus.Services
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                // 7-day expiry
-                Expires = DateTime.UtcNow.AddDays(7), 
+                Expires = DateTime.UtcNow.AddDays(7), // 7-day expiry
                 Issuer = _configuration["Jwt:Issuer"],
                 Audience = _configuration["Jwt:Audience"],
                 SigningCredentials = creds

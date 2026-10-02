@@ -1,4 +1,4 @@
-﻿using FlowCus.Models;
+using FlowCus.Models;
 using FlowCus.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -234,6 +234,32 @@ namespace FlowCus.Controllers
             return Ok(new { message = "Item deleted" });
         }
 
+        [HttpPost("apply-template")]
+        public async Task<IActionResult> ApplyTemplate([FromBody] ApplyTemplateRequest request)
+        {
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
+            try
+            {
+                var result = await _service.ApplyTemplateAsync(request.TemplateName, userId);
+                _logger.LogInformation("Template applied. UserId={UserId}, Template={Template}", userId, request.TemplateName);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to apply template. UserId={UserId}", userId);
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("shift-today")]
+        public async Task<IActionResult> ShiftToday([FromBody] ShiftTodayRequest request)
+        {
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
+            int shifted = await _service.ShiftTodayAsync(request.Minutes, userId, request.DayOfWeek);
+            _logger.LogInformation("Shift today succeeded. UserId={UserId}, ShiftedCount={Count}", userId, shifted);
+            return Ok(new { shiftedCount = shifted, message = $"Shifted {shifted} schedule blocks by +{request.Minutes} minutes." });
+        }
+
         private bool TryGetCurrentUserId(out int userId)
         {
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -245,5 +271,16 @@ namespace FlowCus.Controllers
     {
         public string Name { get; set; } = "";
         public bool IsActive { get; set; }
+    }
+
+    public class ApplyTemplateRequest
+    {
+        public string TemplateName { get; set; } = "general";
+    }
+
+    public class ShiftTodayRequest
+    {
+        public int Minutes { get; set; } = 30;
+        public int? DayOfWeek { get; set; }
     }
 }

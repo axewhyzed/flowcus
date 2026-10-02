@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -38,6 +38,9 @@ namespace FlowCus.Models
         // -- Computed Properties (Not in Table, filled via JOINs) --
         [NotMapped] // or [Editable(false)] depending on Dapper extensions, usually plain Dapper ignores if not in INSERT string
         public string? TaskName { get; set; }
+
+        [NotMapped]
+        public string? Title { get; set; }
 
         [NotMapped]
         public string? CategoryName { get; set; }

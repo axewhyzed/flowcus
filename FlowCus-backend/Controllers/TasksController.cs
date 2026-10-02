@@ -1,4 +1,4 @@
-﻿using FlowCus.Models;
+using FlowCus.Models;
 using FlowCus.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +6,11 @@ using System.Security.Claims;
 
 namespace FlowCus.Controllers
 {
+    public class ToggleCompleteRequest
+    {
+        public bool? IsCompleted { get; set; }
+    }
+
     [ApiController]
     [Route("api/tasks")]
     [Authorize]
@@ -80,6 +85,31 @@ namespace FlowCus.Controllers
                 _logger.LogWarning(ex, "Task update database error. UserId={UserId}, TaskId={TaskId}", userId, id);
                 return BadRequest(new { message = ex.MessageText });
             }
+        }
+
+        [HttpPatch("{id}/toggle-complete")]
+        public async Task<IActionResult> ToggleComplete(int id, [FromBody] ToggleCompleteRequest? request = null)
+        {
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
+
+            var success = await _service.ToggleCompleteAsync(id, userId, request?.IsCompleted);
+            if (!success)
+            {
+                _logger.LogWarning("Task toggle complete not found. UserId={UserId}, TaskId={TaskId}", userId, id);
+                return NotFound(new { message = "Task not found" });
+            }
+
+            _logger.LogInformation("Task toggle complete succeeded. UserId={UserId}, TaskId={TaskId}", userId, id);
+            return Ok(new { message = "Task completion status updated", taskId = id });
+        }
+
+        [HttpPost("rollover-yesterday")]
+        public async Task<IActionResult> RolloverYesterday()
+        {
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
+            int count = await _service.RolloverYesterdayTasksAsync(userId);
+            _logger.LogInformation("Rollover unfinished tasks succeeded. UserId={UserId}, Count={Count}", userId, count);
+            return Ok(new { rolledOverCount = count, message = $"{count} unfinished tasks rolled over to today." });
         }
 
         [HttpDelete("{id}")]

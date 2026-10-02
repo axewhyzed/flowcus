@@ -1,11 +1,9 @@
-﻿using FlowCus.Helpers;
+using FlowCus.Helpers;
 using FlowCus.Services;
-using FlowCus.Controllers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
-using BCrypt.Net;
 
 namespace FlowCus.Controllers
 {
@@ -13,6 +11,8 @@ namespace FlowCus.Controllers
     [Route("api/auth")]
     public class AuthController : ControllerBase
     {
+        private static readonly object _rateLimitLock = new();
+
         private readonly AuthService _authService;
         private readonly DBHelper _dbHelper; 
         private readonly IConfiguration _configuration;
@@ -48,7 +48,7 @@ namespace FlowCus.Controllers
             string ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             if (IncrementAndCheckRateLimits(request.Username, ip))
             {
-                _logger.LogWarning($"Rate limit exceeded for user {request.Username} from IP {ip}");
+                _logger.LogWarning("Rate limit exceeded for user {Username} from IP {Ip}", request.Username, ip);
                 return StatusCode(429, new { error = "Too many requests. Please try again later." });
             }
 
@@ -56,11 +56,24 @@ namespace FlowCus.Controllers
             {
                 var result = await _authService.AuthenticateAsync(request.Username, request.Password);
                 
-                if (result is null)
+                if (!result.Success)
                 {
-                    _logger.LogWarning("Login failed. Username={Username}, Ip={Ip}", request.Username, ip);
-                    return Unauthorized(new { error = "Invalid credentials." });
+                    _logger.LogWarning("Login failed. Username={Username}, Ip={Ip}, Reason={Reason}", request.Username, ip, result.ErrorMessage);
+                    
+                    if (result.IsLockedOut)
+                    {
+                        return StatusCode(StatusCodes.Status423Locked, new 
+                        { 
+                            error = result.ErrorMessage, 
+                            isLockedOut = true, 
+                            retryAfterMinutes = result.LockoutMinutesRemaining 
+                        });
+                    }
+
+                    return Unauthorized(new { error = result.ErrorMessage ?? "Invalid credentials." });
                 }
+
+                var loginResponse = result.Response!;
 
                 var cookieOptions = new CookieOptions
                 {
@@ -76,10 +89,10 @@ namespace FlowCus.Controllers
                     cookieOptions.Secure = false; 
                 }
 
-                Response.Cookies.Append("auth_session", result.Token, cookieOptions);
+                Response.Cookies.Append("auth_session", loginResponse.Token, cookieOptions);
 
-                _logger.LogInformation("Login succeeded. UserId={UserId}, Username={Username}, Ip={Ip}", result.User.Id, result.User.Username, ip);
-                return Ok(result);
+                _logger.LogInformation("Login succeeded. UserId={UserId}, Username={Username}, Ip={Ip}", loginResponse.User.Id, loginResponse.User.Username, ip);
+                return Ok(loginResponse);
             }
             catch (Exception ex)
             {
@@ -131,7 +144,6 @@ namespace FlowCus.Controllers
         [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
-            // validate that new password is not empty
             if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
                 return BadRequest(new ErrorResponse { Error = "Current password and new password are required." });
 
@@ -174,7 +186,7 @@ namespace FlowCus.Controllers
         [Authorize]
         public async Task<IActionResult> Me()
         {
-            var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
             var user = await _dbHelper.QuerySingleAsync<Models.User>(
@@ -192,7 +204,7 @@ namespace FlowCus.Controllers
         }
 
         [HttpPost("logout")]
-        [Authorize] // SECURITY FIX: Require authorization to prevent unauthorized endpoint exposure
+        [AllowAnonymous]
         public IActionResult Logout()
         {
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -210,7 +222,7 @@ namespace FlowCus.Controllers
             }
 
             Response.Cookies.Delete("auth_session", cookieOptions);
-            _logger.LogInformation("Logout succeeded. UserId={UserId}", idClaim ?? "unknown");
+            _logger.LogInformation("Logout succeeded. UserId={UserId}", idClaim ?? "anonymous");
             return Ok(new { message = "Logged out successfully" });
         }
 
@@ -228,29 +240,25 @@ namespace FlowCus.Controllers
             var now = DateTime.UtcNow;
             string cacheKey = $"ratelimit:{key}";
 
-            lock (_rateLimitLock)  // Add synchronization lock
+            lock (_rateLimitLock)
             {
                 var entry = _cache.Get<RateLimitBucket>(cacheKey);
 
                 if (entry == null)
                 {
-                    // First request in this window
                     _cache.Set(cacheKey, new RateLimitBucket { Count = 1, WindowStart = now },
                         new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
                     return false;
                 }
 
-                // Check if window expired
                 if ((now - entry.WindowStart).TotalMinutes >= 1.0)
                 {
-                    // Reset window
                     entry.Count = 1;
                     entry.WindowStart = now;
                     _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
                     return false;
                 }
 
-                // Still in current window
                 entry.Count++;
                 _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
 
@@ -258,7 +266,6 @@ namespace FlowCus.Controllers
             }
         }
 
-        private readonly object _rateLimitLock = new object();
         private class RateLimitBucket { public int Count { get; set; } public DateTime WindowStart { get; set; } }
     }
 
@@ -266,7 +273,6 @@ namespace FlowCus.Controllers
     public class RegisterRequest { public string Username { get; set; } = ""; public string Password { get; set; } = ""; public string? Name { get; set; } }
     public class ChangePasswordRequest { public string CurrentPassword { get; set; } = ""; public string NewPassword { get; set; } = ""; }
     public class ErrorResponse { public string Error { get; set; } = ""; }
-    // FIXED: Renamed to LoginResponse to prevent namespace collision
     public class LoginResponse
     {
         public string Token { get; set; } = "";
@@ -278,6 +284,6 @@ namespace FlowCus.Controllers
         public int Id { get; set; } 
         public string Username { get; set; } = ""; 
         public string? Name { get; set; } 
-        public bool IsAdmin { get; set; } // FIX: Use PascalCase per C# conventions
+        public bool IsAdmin { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -32,6 +32,9 @@ namespace FlowCus.Models
 
         [Column("lockout_until")]
         public DateTime? LockoutUntil { get; set; }
+
+        [Column("lockout_count")]
+        public int LockoutCount { get; set; }
 
         [Column("is_admin")]
         public bool IsAdmin { get; set; }

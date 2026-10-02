@@ -1,4 +1,4 @@
-﻿using FlowCus.Services;
+using FlowCus.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -18,27 +18,40 @@ namespace FlowCus.Controllers
         }
 
         [HttpGet("stats")]
-        public async Task<IActionResult> GetStats()
+        public async Task<IActionResult> GetStats([FromQuery] int? timezoneOffset)
         {
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
-            var stats = await _service.GetDashboardStatsAsync(userId);
+            int? offset = GetTimezoneOffset(timezoneOffset);
+            var stats = await _service.GetDashboardStatsAsync(userId, offset);
             return Ok(stats);
         }
 
         [HttpGet("now")]
-        public async Task<IActionResult> GetCurrentFocus()
+        public async Task<IActionResult> GetCurrentFocus([FromQuery] int? timezoneOffset)
         {
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
-            var currentItem = await _service.GetActiveFocusAsync(userId);
+            int? offset = GetTimezoneOffset(timezoneOffset);
+            var currentItem = await _service.GetActiveFocusAsync(userId, offset);
 
             if (currentItem == null)
                 return Ok(new { message = "No task scheduled right now. Free time!" });
 
             return Ok(currentItem);
+        }
+
+        private int? GetTimezoneOffset(int? queryOffset)
+        {
+            if (queryOffset.HasValue) return queryOffset;
+            if (Request.Headers.TryGetValue("X-Timezone-Offset", out var headerVal) &&
+                int.TryParse(headerVal.FirstOrDefault(), out int parsedHeaderOffset))
+            {
+                return parsedHeaderOffset;
+            }
+            return null;
         }
     }
 }

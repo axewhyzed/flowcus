@@ -23,9 +23,9 @@ namespace FlowCus.Services
 
             string sql = @"
                 INSERT INTO tasks (created_by, task_category_id, task_subtype_id, title, description, priority, 
-                                   start_time, end_time, created_on, is_deleted)
+                                   start_time, end_time, is_completed, created_on, is_deleted)
                 VALUES (@CreatedBy, @TaskCategoryId, @TaskSubtypeId, @Title, @Description, @Priority, 
-                        @StartTime, @EndTime, now(), FALSE)
+                        @StartTime, @EndTime, @IsCompleted, now(), FALSE)
                 RETURNING task_id;";
             return await _db.ExecuteScalarAsync<int>(sql, task);
         }
@@ -37,10 +37,31 @@ namespace FlowCus.Services
 
             string sql = @"
                 UPDATE tasks 
-                SET title = @Title, description = @Description, priority = @Priority, task_category_id = @TaskCategoryId,
-                    task_subtype_id = @TaskSubtypeId, start_time = @StartTime, end_time = @EndTime, updated_on = now()
+                SET title = @Title, 
+                    description = @Description, 
+                    priority = @Priority, 
+                    task_category_id = @TaskCategoryId,
+                    task_subtype_id = @TaskSubtypeId, 
+                    start_time = @StartTime, 
+                    end_time = @EndTime, 
+                    is_completed = @IsCompleted,
+                    updated_on = now()
                 WHERE task_id = @TaskId AND created_by = @CreatedBy AND is_deleted = FALSE";
             int rows = await _db.ExecuteAsync(sql, task);
+            return rows > 0;
+        }
+
+        public async Task<bool> ToggleCompleteAsync(int id, int userId, bool? isCompleted = null)
+        {
+            string sql = isCompleted.HasValue
+                ? @"UPDATE tasks 
+                    SET is_completed = @IsCompleted, updated_on = now() 
+                    WHERE task_id = @Id AND created_by = @CreatedBy AND is_deleted = FALSE"
+                : @"UPDATE tasks 
+                    SET is_completed = NOT is_completed, updated_on = now() 
+                    WHERE task_id = @Id AND created_by = @CreatedBy AND is_deleted = FALSE";
+
+            int rows = await _db.ExecuteAsync(sql, new { Id = id, CreatedBy = userId, IsCompleted = isCompleted });
             return rows > 0;
         }
 
@@ -80,13 +101,40 @@ namespace FlowCus.Services
                 throw new InvalidOperationException("Selected task subtype does not belong to the chosen category.");
         }
 
+        public async Task<int> RolloverYesterdayTasksAsync(int userId)
+        {
+            string sql = @"
+                UPDATE tasks
+                SET start_time = CASE 
+                        WHEN start_time IS NOT NULL THEN (CURRENT_DATE + (start_time::time))::timestamptz
+                        ELSE CURRENT_DATE
+                    END,
+                    end_time = CASE 
+                        WHEN start_time IS NOT NULL AND end_time IS NOT NULL THEN 
+                            (CURRENT_DATE + (start_time::time) + (end_time - start_time))::timestamptz
+                        ELSE end_time
+                    END,
+                    updated_on = now()
+                WHERE created_by = @UserId 
+                  AND is_deleted = FALSE 
+                  AND is_completed = FALSE 
+                  AND (
+                    (start_time IS NOT NULL AND start_time < CURRENT_DATE)
+                    OR (start_time IS NULL AND created_on < CURRENT_DATE)
+                  );";
+            return await _db.ExecuteAsync(sql, new { UserId = userId });
+        }
+
         private static void ValidateTask(TaskEntity task)
         {
             if (string.IsNullOrWhiteSpace(task.Title))
                 throw new InvalidOperationException("Task title is required.");
 
-            if (task.StartTime.HasValue && task.EndTime.HasValue && task.StartTime >= task.EndTime)
-                throw new InvalidOperationException("Task start time must be before end time.");
+            if (task.Priority.HasValue && (task.Priority < 1 || task.Priority > 5))
+                throw new InvalidOperationException("Priority must be between 1 and 5.");
+
+            if (task.StartTime.HasValue && task.EndTime.HasValue && task.StartTime > task.EndTime)
+                throw new InvalidOperationException("Task start time cannot be after end time.");
         }
     }
 }

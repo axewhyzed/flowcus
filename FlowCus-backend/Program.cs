@@ -1,15 +1,16 @@
 using FlowCus.Helpers;
-using FlowCus.Services; //
+using FlowCus.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Security.Claims; // Needed for ClaimTypes
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. CORS: Ensure Credentials are allowed for Cookies to work
 string[] allowedOrigins = builder.Environment.IsDevelopment()
-    ? new[] { "http://localhost:4200" }
+    ? new[] { "http://localhost:4200", "http://127.0.0.1:4200", "http://localhost:8081", "http://localhost:3000", "http://10.0.2.2:5000" }
     : new[] { "https://axewhyzed.github.io", "https://flowcus.axewhyzedlabs.co.in" };
 
 builder.Services.AddCors(options =>
@@ -19,7 +20,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); // IMPORTANT: Required for sending Cookies
+              .AllowCredentials(); // Required for sending Cookies
     });
 });
 
@@ -27,15 +28,13 @@ builder.Services.AddControllers();
 
 // Add Services to the container
 builder.Services.AddScoped<DBHelper>();
-builder.Services.AddScoped<AuthService>(); // NEW: Register Auth Service
-
-// NEW SERVICES
-builder.Services.AddScoped<FlowCus.Services.DashboardService>();
-builder.Services.AddScoped<FlowCus.Services.TaskCategoryService>();
-builder.Services.AddScoped<FlowCus.Services.TaskSubtypeService>();
-builder.Services.AddScoped<FlowCus.Services.TaskService>();
-builder.Services.AddScoped<FlowCus.Services.TimetableService>();
-builder.Services.AddScoped<FlowCus.Services.UserService>(); // For profile management
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<TaskCategoryService>();
+builder.Services.AddScoped<TaskSubtypeService>();
+builder.Services.AddScoped<TaskService>();
+builder.Services.AddScoped<TimetableService>();
+builder.Services.AddScoped<UserService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
@@ -63,21 +62,16 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-
-        // CRITICAL FIX: Map the standard "role" claim to the framework's Role logic
         RoleClaimType = ClaimTypes.Role
     };
 
-    //auto cookie handling logic
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
-            // 1. Try to get token from "Authorization: Bearer" header (Mobile/Postman)
-            // The framework does this automatically, but we can explicitly check or fallback.
-            
-            // 2. If no header, check "auth_session" cookie (Web)
-            if (string.IsNullOrEmpty(context.Token)) // Token is null if no Bearer header found yet
+            // 1. Bearer header handled automatically.
+            // 2. If no header, check "auth_session" cookie
+            if (string.IsNullOrEmpty(context.Token))
             {
                 if (context.Request.Cookies.ContainsKey("auth_session"))
                 {
@@ -88,6 +82,7 @@ builder.Services.AddAuthentication(options =>
         },
         OnTokenValidated = async context =>
         {
+            var cache = context.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
             var dbHelper = context.HttpContext.RequestServices.GetRequiredService<DBHelper>();
 
             var idClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -99,17 +94,30 @@ builder.Services.AddAuthentication(options =>
                 return;
             }
 
-            var user = await dbHelper.QuerySingleAsync<dynamic>(
-                "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE LIMIT 1",
-                new { Id = userId });
+            string cacheKey = $"user_active_role_{userId}";
+            if (!cache.TryGetValue(cacheKey, out (bool Exists, bool IsAdmin) userInfo))
+            {
+                var user = await dbHelper.QuerySingleAsync<dynamic>(
+                    "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE LIMIT 1",
+                    new { Id = userId });
 
-            if (user == null)
+                if (user == null)
+                {
+                    cache.Set(cacheKey, (Exists: false, IsAdmin: false), TimeSpan.FromSeconds(30));
+                    context.Fail("User no longer exists.");
+                    return;
+                }
+
+                userInfo = (Exists: true, IsAdmin: (bool)user.is_admin);
+                cache.Set(cacheKey, userInfo, TimeSpan.FromSeconds(120));
+            }
+            else if (!userInfo.Exists)
             {
                 context.Fail("User no longer exists.");
                 return;
             }
 
-            string currentRole = user.is_admin ? "Admin" : "User";
+            string currentRole = userInfo.IsAdmin ? "Admin" : "User";
             if (!string.Equals(roleClaim, currentRole, StringComparison.Ordinal))
             {
                 context.Fail("User role is no longer valid.");
@@ -130,6 +138,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { error = "An internal server error occurred." });
+    });
+});
 
 app.UseHttpsRedirection();
 
