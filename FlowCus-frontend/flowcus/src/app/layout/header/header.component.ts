@@ -20,36 +20,40 @@ export class HeaderComponent implements OnInit, OnDestroy {
   isAdmin = false;
   isAdminMode = false;
 
+  get isVisible(): boolean {
+    return this.isLoggedIn && !this.router.url.includes('/login');
+  }
+
   private authSubscription?: Subscription;
   private adminModeSubscription?: Subscription;
 
   constructor(
-    private router: Router,
+    public router: Router,
     private authService: AuthService,
     private adminModeService: AdminModeService,
     private toastService: ToastService
   ) { }
 
- ngOnInit() {
-  this.authSubscription = this.authService.isAuthenticated$.subscribe((isAuthenticated) => {
-    const loggedIn = isAuthenticated === true;
+  ngOnInit() {
+    this.authSubscription = this.authService.isAuthenticated$.subscribe((isAuthenticated) => {
+      const loggedIn = isAuthenticated === true;
 
-    this.isLoggedIn = loggedIn;
+      this.isLoggedIn = loggedIn;
 
-    if (loggedIn) {
-      const u = this.authService.user;
-      this.username = u?.name || u?.username || null;
-      this.isAdmin  = u?.isAdmin || false;
-    } else {
-      this.username = null;
-      this.isAdmin = false;
-    }
-  });
+      if (loggedIn) {
+        const u = this.authService.user;
+        this.username = u?.name || u?.username || null;
+        this.isAdmin  = u?.isAdmin || false;
+      } else {
+        this.username = null;
+        this.isAdmin = false;
+      }
+    });
 
-  this.adminModeSubscription = this.adminModeService.adminMode$.subscribe(v => {
-    this.isAdminMode = v;
-  });
-}
+    this.adminModeSubscription = this.adminModeService.adminMode$.subscribe(v => {
+      this.isAdminMode = v;
+    });
+  }
 
   ngOnDestroy() {
     if (this.authSubscription) this.authSubscription.unsubscribe();
