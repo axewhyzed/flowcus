@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { UserService } from '../../core/services/user.service';
 import { User } from '../../core/models/user.model';
 import { ToastService } from '../../core/services/toast.service';
+import { ApiService } from '../../core/services/api.service';
+import { API_ENDPOINTS } from '../../core/constants/api-endpoints';
 
 @Component({
   selector: 'app-user',
@@ -16,8 +18,16 @@ export class UserPage implements OnInit {
   user: User | null = null;
   errorMessage = '';
 
+  passwordForm = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+  isChangingPassword = false;
+
   constructor(
     private userService: UserService,
+    private apiService: ApiService,
     private toastService: ToastService
   ) {}
 
@@ -53,6 +63,40 @@ export class UserPage implements OnInit {
       setTimeout(() => {
         this.errorMessage = '';
       }, 3000);
+    }
+  }
+
+  async changePassword() {
+    if (!this.passwordForm.currentPassword) {
+      this.toastService.warning('Please enter your current password.');
+      return;
+    }
+    if (!this.passwordForm.newPassword) {
+      this.toastService.warning('Please enter a new password.');
+      return;
+    }
+    if (this.passwordForm.newPassword.length < 6) {
+      this.toastService.warning('New password must be at least 6 characters long.');
+      return;
+    }
+    if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
+      this.toastService.warning('New passwords do not match.');
+      return;
+    }
+
+    this.isChangingPassword = true;
+    try {
+      const response = await this.apiService.post<any>(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, {
+        currentPassword: this.passwordForm.currentPassword,
+        newPassword: this.passwordForm.newPassword
+      });
+      this.toastService.success(response?.message || 'Password changed successfully.');
+      this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error || 'Failed to change password. Check current password.';
+      this.toastService.error(errorMsg);
+    } finally {
+      this.isChangingPassword = false;
     }
   }
 }

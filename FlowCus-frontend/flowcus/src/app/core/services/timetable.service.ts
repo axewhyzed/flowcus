@@ -30,4 +30,12 @@ export class TimetableService {
   activate(id: number) {
     return this.api.post<any>(`${API_ENDPOINTS.TIMETABLE}/${id}/activate`, {});
   }
+
+  applyTemplate(templateName: string) {
+    return this.api.post<any>(`${API_ENDPOINTS.TIMETABLE}/apply-template`, { templateName });
+  }
+
+  shiftToday(minutes: number, dayOfWeek?: number) {
+    return this.api.post<{ shiftedCount: number; message: string }>(`${API_ENDPOINTS.TIMETABLE}/shift-today`, { minutes, dayOfWeek });
+  }
 }

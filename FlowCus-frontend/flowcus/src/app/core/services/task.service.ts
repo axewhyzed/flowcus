@@ -23,6 +23,20 @@ export class TaskService {
     return this.api.put<Task>(`${API_ENDPOINTS.TASKS}/${id}`, data);
   }
 
+  toggleComplete(id: number, isCompleted?: boolean) {
+    return this.api.patch<{ message: string; taskId: number }>(
+      `${API_ENDPOINTS.TASKS}/${id}/toggle-complete`, 
+      { isCompleted }
+    );
+  }
+
+  rolloverYesterday() {
+    return this.api.post<{ rolledOverCount: number; message: string }>(
+      `${API_ENDPOINTS.TASKS}/rollover-yesterday`, 
+      {}
+    );
+  }
+
   delete(id: number) {
     return this.api.delete<any>(`${API_ENDPOINTS.TASKS}/${id}`);
   }

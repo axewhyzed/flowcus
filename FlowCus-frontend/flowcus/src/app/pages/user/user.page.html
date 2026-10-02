@@ -1,11 +1,11 @@
 <div class="min-h-screen bg-gray-50 p-4 md:p-6">
-  <div class="max-w-3xl mx-auto">
+  <div class="max-w-3xl mx-auto space-y-6">
     <!-- Header -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold text-gray-900">User Profile</h1>
-          <p class="text-sm text-gray-500 mt-1">Manage your account information</p>
+          <p class="text-sm text-gray-500 mt-1">Manage your account information and security</p>
         </div>
         @if (user?.isAdmin) {
           <span class="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full border border-purple-200">
@@ -27,7 +27,7 @@
         </div>
       </div>
     } @else {
-      <!-- Profile Form -->
+      <!-- Profile Form Card -->
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <!-- Profile Header Section -->
         <div class="bg-gradient-to-r from-blue-700 to-blue-600 p-6">
@@ -44,7 +44,6 @@
 
         <!-- Form Section -->
         <form (ngSubmit)="updateUser()" class="p-6 space-y-6">
-          <!-- Account Information Section -->
           <div>
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
             
@@ -132,16 +131,80 @@
             <button
               type="button"
               (click)="loadUser()"
-              class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
             >
               Reset
             </button>
             <button
               type="submit"
               [disabled]="!user.name || user.name.trim().length === 0"
-              class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              Save Profile
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Security / Change Password Card -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center gap-2 mb-4">
+          <i class="fa-solid fa-lock text-zinc-600"></i>
+          <h3 class="text-lg font-semibold text-gray-900">Security & Password</h3>
+        </div>
+        <p class="text-sm text-gray-500 mb-6">Update your password to keep your account secure. Passwords must be at least 6 characters.</p>
+
+        <form (ngSubmit)="changePassword()" class="space-y-4 max-w-md">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Current Password *</label>
+            <input
+              type="password"
+              [(ngModel)]="passwordForm.currentPassword"
+              name="currentPassword"
+              placeholder="••••••••"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">New Password *</label>
+            <input
+              type="password"
+              [(ngModel)]="passwordForm.newPassword"
+              name="newPassword"
+              placeholder="••••••••"
+              required
+              minlength="6"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password *</label>
+            <input
+              type="password"
+              [(ngModel)]="passwordForm.confirmPassword"
+              name="confirmPassword"
+              placeholder="••••••••"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+            />
+          </div>
+
+          <div class="pt-2">
+            <button
+              type="submit"
+              [disabled]="isChangingPassword || !passwordForm.currentPassword || !passwordForm.newPassword || passwordForm.newPassword.length < 6 || passwordForm.newPassword !== passwordForm.confirmPassword"
+              class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              @if (isChangingPassword) {
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <span>Updating...</span>
+              } @else {
+                <i class="fa-solid fa-key"></i>
+                <span>Change Password</span>
+              }
             </button>
           </div>
         </form>
@@ -149,4 +212,3 @@
     }
   </div>
 </div>
-

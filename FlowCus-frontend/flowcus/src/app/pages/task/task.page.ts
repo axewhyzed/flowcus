@@ -11,6 +11,9 @@ import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 
+import { NlpTaskParserService, ParsedTaskDraft } from '../../core/services/nlp-task-parser.service';
+import { ViewChild, ElementRef, HostListener } from '@angular/core';
+
 @Component({
   selector: 'app-task',
   templateUrl: './task.page.html',
@@ -19,33 +22,139 @@ import { ConfirmService } from '../../core/services/confirm.service';
   standalone: true
 })
 export class TaskPage implements OnInit {
+  @ViewChild('quickAddInputEl') quickAddInputEl?: ElementRef<HTMLInputElement>;
+
   tasks: Task[] = [];
   newTask: Partial<Task> = {
     title: '',
     description: '',
     taskCategoryId: 0,
     taskSubtypeId: null,
+    priority: 3,
     startTime: '',
     endTime: ''
   };
   editingTask: Task | null = null;
   showTaskForm = false;
 
+  // NLP Quick Add
+  quickAddText: string = '';
+  parsedDraft: ParsedTaskDraft | null = null;
+  isSubmittingQuickAdd: boolean = false;
+
   categories: TaskCategory[] = [];
   subcategories: TaskSubtype[] = [];
 
   searchQuery: string = '';
-  selectedCategoryId: number | null = null; // 0 or null for 'All'
+  selectedCategoryId: number | null = null;
   sortBy: 'newest' | 'oldest' | 'priority' = 'newest';
+  completionFilter: 'all' | 'active' | 'completed' = 'all';
 
   constructor(
     private taskService: TaskService,
     private taskCategoryService: TaskCategoryService,
     private subtypeService: TaskSubtypeService,
+    private nlpParser: NlpTaskParserService,
     private route: ActivatedRoute,
     private toastService: ToastService,
     private confirmService: ConfirmService
   ) { }
+
+  @HostListener('window:keydown', ['$event'])
+  handleGlobalShortcuts(event: KeyboardEvent) {
+    const tag = (event.target as HTMLElement)?.tagName?.toLowerCase();
+    const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+    // Shortcuts active when inside the New/Edit Task Modal
+    if (this.showTaskForm) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeTaskForm();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        this.saveTask();
+        return;
+      }
+    }
+
+    // Inside input fields
+    if (isInput) {
+      if (event.key === 'Escape') {
+        if (this.quickAddText) {
+          this.quickAddText = '';
+          this.parsedDraft = null;
+        }
+        (event.target as HTMLElement).blur();
+      }
+      return;
+    }
+
+    // Global hotkeys when not inside an input field
+    if (event.key.toLowerCase() === 'q' || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) {
+      event.preventDefault();
+      this.quickAddInputEl?.nativeElement?.focus();
+    } else if (event.key.toLowerCase() === 'n') {
+      event.preventDefault();
+      this.openTaskForm();
+    } else if (event.key === '/') {
+      event.preventDefault();
+      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+      searchInput?.focus();
+    }
+  }
+
+  onQuickAddInput() {
+    if (!this.quickAddText.trim()) {
+      this.parsedDraft = null;
+      return;
+    }
+    this.parsedDraft = this.nlpParser.parse(this.quickAddText);
+  }
+
+  async submitQuickAdd() {
+    if (!this.quickAddText.trim() || this.isSubmittingQuickAdd) return;
+
+    const draft = this.nlpParser.parse(this.quickAddText);
+    if (!draft.cleanTitle) {
+      this.toastService.warning('Please enter a task title.');
+      return;
+    }
+
+    this.isSubmittingQuickAdd = true;
+
+    // Resolve category from #tag or default to first category
+    let matchedCatId = this.categories[0]?.id || 1;
+    if (draft.categoryTag) {
+      const found = this.categories.find(c => 
+        c.name.toLowerCase().includes(draft.categoryTag!) || 
+        draft.categoryTag!.includes(c.name.toLowerCase())
+      );
+      if (found) matchedCatId = found.id;
+    }
+
+    const payload: Partial<Task> = {
+      title: draft.cleanTitle,
+      taskCategoryId: matchedCatId,
+      priority: draft.priority || 3,
+      startTime: draft.startTime ? draft.startTime.toISOString() : undefined,
+      endTime: draft.endTime ? draft.endTime.toISOString() : undefined,
+      isCompleted: false
+    };
+
+    try {
+      await this.taskService.create(payload);
+      this.quickAddText = '';
+      this.parsedDraft = null;
+      this.toastService.success(`✨ Created task: ${payload.title}`);
+      await this.loadTasks();
+    } catch (err: any) {
+      this.toastService.error(err?.error?.error || 'Failed to create task.');
+    } finally {
+      this.isSubmittingQuickAdd = false;
+    }
+  }
 
   async ngOnInit() {
     await Promise.all([
@@ -57,12 +166,19 @@ export class TaskPage implements OnInit {
     this.route.queryParams.subscribe(params => {
       if (params['action'] === 'create') {
         this.openTaskForm();
+      } else if (params['action'] === 'quick') {
+        setTimeout(() => this.quickAddInputEl?.nativeElement?.focus(), 150);
       }
     });
   }
 
   async loadTasks() {
-    this.tasks = await this.taskService.getAll();
+    try {
+      this.tasks = await this.taskService.getAll();
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      this.tasks = [];
+    }
   }
 
   async loadCategories() {
@@ -75,15 +191,21 @@ export class TaskPage implements OnInit {
     this.subcategories = subs ?? [];
   }
 
-  // Getters for Filtered Data
   get filteredTasks() {
     return this.tasks
       .filter(task => {
         const matchesSearch = (task.title?.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
           task.description?.toLowerCase().includes(this.searchQuery.toLowerCase()));
         const matchesCategory = this.selectedCategoryId ? task.taskCategoryId === this.selectedCategoryId : true;
+        
+        let matchesCompletion = true;
+        if (this.completionFilter === 'active') {
+          matchesCompletion = !task.isCompleted;
+        } else if (this.completionFilter === 'completed') {
+          matchesCompletion = !!task.isCompleted;
+        }
 
-        return matchesSearch && matchesCategory;
+        return matchesSearch && matchesCategory && matchesCompletion;
       })
       .sort((a, b) => {
         if (this.sortBy === 'priority') return (b.priority || 0) - (a.priority || 0);
@@ -93,10 +215,23 @@ export class TaskPage implements OnInit {
       });
   }
 
-  // Filter subcategories by selected category
   getSubcategoriesByCategory(categoryId: number | null | undefined): TaskSubtype[] {
     if (!categoryId) return [];
     return this.subcategories.filter(s => s.categoryId === Number(categoryId));
+  }
+
+  async toggleComplete(task: Task) {
+    const previousState = !!task.isCompleted;
+    task.isCompleted = !previousState;
+
+    try {
+      await this.taskService.toggleComplete(task.taskId, task.isCompleted);
+      this.toastService.success(task.isCompleted ? 'Task marked as completed.' : 'Task marked as active.');
+    } catch (error) {
+      task.isCompleted = previousState;
+      this.toastService.error('Failed to update task status.');
+      console.error('Error toggling task completion:', error);
+    }
   }
 
   openTaskForm(task?: Task) {
@@ -121,9 +256,13 @@ export class TaskPage implements OnInit {
   }
 
   async saveTask() {
-    // FIX: Treat 0 and other falsy values as "not selected" for required category field
     if (!this.newTask.title?.trim() || !this.newTask.taskCategoryId || this.newTask.taskCategoryId <= 0) {
       this.toastService.warning('Please enter a title and select a category.');
+      return;
+    }
+
+    if (this.newTask.priority && (this.newTask.priority < 1 || this.newTask.priority > 5)) {
+      this.toastService.warning('Priority must be between 1 and 5.');
       return;
     }
 
@@ -178,7 +317,7 @@ export class TaskPage implements OnInit {
     const date = new Date(dateTimeString);
     if (Number.isNaN(date.getTime())) return '';
 
-    return date.toLocaleString('en-IN', {
+    return date.toLocaleString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -194,6 +333,7 @@ export class TaskPage implements OnInit {
       description: '',
       taskCategoryId: 0,
       taskSubtypeId: null,
+      priority: 3,
       startTime: this.toDateTimeLocalValue(now),
       endTime: this.toDateTimeLocalValue(new Date(now.getTime() + 30 * 60000))
     };
@@ -209,6 +349,5 @@ export class TaskPage implements OnInit {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
-  // Helper for template
   Object = Object;
 }

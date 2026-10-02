@@ -11,5 +11,6 @@ export interface Task {
   startTime?: string;
   endTime?: string;
   durationSeconds?: number;
+  isCompleted?: boolean;
   isDeleted: boolean;
 }

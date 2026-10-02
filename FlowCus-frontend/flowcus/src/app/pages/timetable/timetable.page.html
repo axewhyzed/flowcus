@@ -4,13 +4,20 @@
     [ngClass]="selectedTimetable ? 'w-full md:w-80 h-auto md:h-full' : 'w-full max-w-2xl mx-auto h-full'">
     
     <div class="p-4 md:p-6 border-b border-gray-200 bg-white sticky top-0 z-10">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between gap-2">
         <h1 class="text-xl md:text-2xl font-bold text-gray-900">Timetables</h1>
-        <button (click)="openTimetableForm()"
-          class="px-3 py-1.5 md:px-4 md:py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-sm text-sm md:text-base">
-          <span>+</span>
-          <span class="hidden md:inline">New</span>
-        </button>
+        <div class="flex items-center gap-1.5">
+          <button (click)="openTemplateModal()"
+            class="px-2.5 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1.5 text-xs md:text-sm font-semibold border border-indigo-200 active:scale-95 shadow-sm">
+            <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i>
+            <span>Templates</span>
+          </button>
+          <button (click)="openTimetableForm()"
+            class="px-3 py-1.5 md:px-4 md:py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-sm text-sm md:text-base active:scale-95">
+            <span>+</span>
+            <span class="hidden md:inline">New</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -22,9 +29,14 @@
       @if (!loading && timetables.length === 0) {
         <div class="text-center py-12">
           <p class="text-gray-500 mb-4">No timetables yet</p>
-          <button (click)="openTimetableForm()" class="text-blue-700 hover:text-blue-800 font-medium">
-            Create First
-          </button>
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button (click)="openTemplateModal()" class="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-all shadow-sm">
+              ⚡ Pick a Routine Template
+            </button>
+            <button (click)="openTimetableForm()" class="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-all">
+              Create Custom
+            </button>
+          </div>
         </div>
       }
 
@@ -72,7 +84,7 @@
   <div class="flex-1 flex flex-col bg-gray-50 overflow-hidden h-full">
     
     <div class="bg-white border-b border-gray-200 p-4 flex flex-col gap-4 shrink-0 shadow-sm z-10">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div class="flex items-center gap-3 overflow-hidden">
           <button (click)="deselectTimetable()" class="md:hidden p-2 -ml-2 text-gray-500">
             <i class="fa-solid fa-arrow-left"></i>
@@ -82,11 +94,28 @@
             <p class="text-xs text-gray-500 hidden md:block">Weekly Schedule</p>
           </div>
         </div>
-        <div class="flex gap-2">
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <!-- Schedule Shifting for today -->
+          <div class="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-600">
+            <span class="font-medium mr-1 text-slate-500"><i class="fa-solid fa-clock mr-1"></i>Shift:</span>
+            <button (click)="shiftToday(15)" class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 hover:text-blue-700 font-semibold border border-slate-200 transition-all">+15m</button>
+            <button (click)="shiftToday(30)" class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 hover:text-blue-700 font-semibold border border-slate-200 transition-all">+30m</button>
+            <button (click)="shiftToday(60)" class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 hover:text-blue-700 font-semibold border border-slate-200 transition-all">+1h</button>
+          </div>
+
+          <button (click)="openTemplateModal()"
+            class="px-2.5 py-1.5 md:px-3 md:py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm text-sm active:scale-95">
+            <i class="fa-solid fa-bolt text-purple-600"></i>
+            <span class="hidden sm:inline">Routines</span>
+            <kbd class="hidden sm:inline-block ml-0.5 px-1.5 py-0.5 text-[10px] font-mono font-bold bg-purple-100 text-purple-700 rounded border border-purple-300/40">T</kbd>
+          </button>
+
           <button (click)="openItemForm()"
-            class="px-3 py-1.5 md:px-4 md:py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-sm text-sm">
+            class="px-3 py-1.5 md:px-4 md:py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-1.5 shadow-sm text-sm active:scale-95">
             <i class="fa-solid fa-plus"></i>
             <span class="hidden sm:inline">Add Block</span>
+            <kbd class="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono font-bold bg-blue-800 text-blue-100 rounded border border-blue-500/30">B</kbd>
           </button>
         </div>
       </div>
@@ -206,6 +235,95 @@
   }
 </div>
 
+<!-- Routine Templates Modal (Zero-Friction One-Click Setup) -->
+@if (showTemplateModal) {
+<div class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" (click)="closeTemplateModal()">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-fade-in" (click)="$event.stopPropagation()">
+    <div class="p-6 border-b border-gray-100 bg-gradient-to-r from-indigo-600 to-blue-600 text-white">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-lg"></i>
+          <h3 class="text-xl font-bold">1-Click Routine Templates</h3>
+        </div>
+        <button (click)="closeTemplateModal()" class="text-white/80 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <p class="text-xs text-indigo-100 mt-1">Skip manual data entry. Pick an archetype and get an instant 7-day schedule.</p>
+    </div>
+
+    <div class="p-6 space-y-3.5 max-h-[70vh] overflow-y-auto">
+      <!-- Student -->
+      <div (click)="applyRoutineTemplate('student')"
+        class="border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/30 rounded-xl p-4 cursor-pointer transition-all flex items-start gap-3.5 group">
+        <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+          🎓
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-900 group-hover:text-indigo-700 text-sm">University Student Routine</h4>
+            <span class="text-xs text-indigo-600 font-semibold">Apply ↵</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Morning lectures, lunch break, afternoon labs/study, evening gym, and night revision.</p>
+        </div>
+      </div>
+
+      <!-- Developer -->
+      <div (click)="applyRoutineTemplate('developer')"
+        class="border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/30 rounded-xl p-4 cursor-pointer transition-all flex items-start gap-3.5 group">
+        <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+          💻
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-900 group-hover:text-indigo-700 text-sm">Software Engineer Routine</h4>
+            <span class="text-xs text-indigo-600 font-semibold">Apply ↵</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Morning deep work coding (9-12), standup & code review, afternoon sprint features, evening workout.</p>
+        </div>
+      </div>
+
+      <!-- Freelancer / Creator -->
+      <div (click)="applyRoutineTemplate('freelancer')"
+        class="border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/30 rounded-xl p-4 cursor-pointer transition-all flex items-start gap-3.5 group">
+        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+          🚀
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-900 group-hover:text-indigo-700 text-sm">Freelance & Solo Creator</h4>
+            <span class="text-xs text-indigo-600 font-semibold">Apply ↵</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Client deliverables (8:30-11:30), calls & inbox triage, afternoon creative projects, recovery.</p>
+        </div>
+      </div>
+
+      <!-- Balanced General -->
+      <div (click)="applyRoutineTemplate('general')"
+        class="border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/30 rounded-xl p-4 cursor-pointer transition-all flex items-start gap-3.5 group">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+          ⚖️
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-900 group-hover:text-indigo-700 text-sm">Balanced Daily Productivity</h4>
+            <span class="text-xs text-indigo-600 font-semibold">Apply ↵</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Morning primary focus block, afternoon secondary tasks, evening exercise and reflection.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+      <button (click)="closeTemplateModal()" class="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1.5">
+        <span>Cancel</span>
+        <kbd class="text-[10px] font-mono px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded">Esc</kbd>
+      </button>
+    </div>
+  </div>
+</div>
+}
+
 <!-- Timetable Form Modal -->
 @if (showTimetableForm) {
 <div class="fixed inset-0 bg-black/25 backdrop-blur-sm flex items-center justify-center z-50" (click)="closeTimetableForm()">
@@ -241,12 +359,14 @@
 
     <div class="p-6 border-t border-gray-200 flex gap-3 justify-end">
       <button (click)="closeTimetableForm()"
-        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-        Cancel
+        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1.5">
+        <span>Cancel</span>
+        <kbd class="text-[10px] font-mono px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded">Esc</kbd>
       </button>
       <button (click)="saveTimetable()"
-        class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm">
-        {{ editingTimetable ? 'Update' : 'Create' }}
+        class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm flex items-center gap-1.5">
+        <span>{{ editingTimetable ? 'Update' : 'Create' }}</span>
+        <kbd class="text-[10px] font-mono px-1.5 py-0.5 bg-blue-800 text-blue-100 rounded border border-blue-600/40">Ctrl+↵</kbd>
       </button>
     </div>
   </div>
@@ -342,12 +462,14 @@
 
     <div class="p-6 border-t border-gray-200 flex gap-3 justify-end sticky bottom-0 bg-white">
       <button (click)="closeItemForm()"
-        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-        Cancel
+        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1.5">
+        <span>Cancel</span>
+        <kbd class="text-[10px] font-mono px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded">Esc</kbd>
       </button>
       <button (click)="saveItem()"
-        class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm">
-        {{ editingItem ? 'Update' : 'Add' }}
+        class="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm flex items-center gap-1.5">
+        <span>{{ editingItem ? 'Update' : 'Add' }}</span>
+        <kbd class="text-[10px] font-mono px-1.5 py-0.5 bg-blue-800 text-blue-100 rounded border border-blue-600/40">Ctrl+↵</kbd>
       </button>
     </div>
   </div>

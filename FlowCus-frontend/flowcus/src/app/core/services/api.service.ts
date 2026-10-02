@@ -30,6 +30,11 @@ export class ApiService {
         config.headers.Authorization = `Bearer ${token}`;
       }
 
+      // Inject client timezone offset for backend date/time alignment
+      if (typeof window !== 'undefined') {
+        config.headers['X-Timezone-Offset'] = new Date().getTimezoneOffset().toString();
+      }
+
       return config;
     });
 
@@ -38,14 +43,11 @@ export class ApiService {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
-            // SECURITY FIX: Only redirect on 401 for authenticated pages, not on login endpoint
-            // Failed login attempts also return 401, but we don't want to redirect
-            const requestUrl = error.config?.url || '';
-            if (!requestUrl.includes('auth/login')) {
-                this.clearAuthToken();
-                // Session cookie expired or invalid -> force login (for authenticated pages)
-                this.router.navigate(['/login']);
-            }
+          const requestUrl = error.config?.url || '';
+          if (!requestUrl.includes('auth/login')) {
+            this.clearAuthToken();
+            this.router.navigate(['/login']);
+          }
         }
         
         const requestUrl = error.config?.url || '';
@@ -71,6 +73,11 @@ export class ApiService {
 
   async put<T>(url: string, data?: any): Promise<T> {
     const response: AxiosResponse<T> = await this.axiosInstance.put(url, data);
+    return response.data;
+  }
+
+  async patch<T>(url: string, data?: any): Promise<T> {
+    const response: AxiosResponse<T> = await this.axiosInstance.patch(url, data);
     return response.data;
   }
 

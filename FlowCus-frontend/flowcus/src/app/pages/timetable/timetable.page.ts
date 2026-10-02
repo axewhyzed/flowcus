@@ -1,5 +1,5 @@
-import { Component, OnInit, HostListener } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, HostListener, Inject, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TimetableService } from '../../core/services/timetable.service';
 import { TimetableItemService } from '../../core/services/timetable-item.service';
@@ -38,6 +38,9 @@ export class TimetablePage implements OnInit {
   // UI State
   showTimetableForm = false;
   showItemForm = false;
+  showTemplateModal = false;
+  selectedTemplate = 'student';
+  isApplyingTemplate = false;
   editingTimetable: Timetable | null = null;
   editingItem: TimetableItemDetail | null = null;
 
@@ -58,10 +61,11 @@ export class TimetablePage implements OnInit {
   loading = false;
   errorMessage = '';
 
-  windowWidth: number = window.innerWidth;
+  windowWidth: number = 1024;
   activeMobileDayIndex: number = new Date().getDay();
 
   constructor(
+    @Inject(PLATFORM_ID) private platformId: Object,
     private timetableService: TimetableService,
     private timetableItemService: TimetableItemService,
     private taskCategoryService: TaskCategoryService,
@@ -69,6 +73,9 @@ export class TimetablePage implements OnInit {
     private toastService: ToastService,
     private confirmService: ConfirmService
   ) {
+    if (isPlatformBrowser(this.platformId) && typeof window !== 'undefined') {
+      this.windowWidth = window.innerWidth;
+    }
     this.generateTimeSlots();
   }
 
@@ -93,7 +100,51 @@ export class TimetablePage implements OnInit {
 
   @HostListener('window:resize', ['$event'])
   onResize(event: any) {
-    this.windowWidth = event.target.innerWidth;
+    if (isPlatformBrowser(this.platformId) && event?.target?.innerWidth) {
+      this.windowWidth = event.target.innerWidth;
+    }
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  handleGlobalShortcuts(event: KeyboardEvent) {
+    const tag = (event.target as HTMLElement)?.tagName?.toLowerCase();
+    const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+    // Modal shortcuts
+    if (this.showItemForm) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeItemForm();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        this.saveItem();
+        return;
+      }
+    }
+
+    if (this.showTemplateModal && event.key === 'Escape') {
+      event.preventDefault();
+      this.closeTemplateModal();
+      return;
+    }
+
+    if (this.showTimetableForm && event.key === 'Escape') {
+      event.preventDefault();
+      this.closeTimetableForm();
+      return;
+    }
+
+    if (isInput) return;
+
+    if (event.key.toLowerCase() === 'b' && this.selectedTimetable) {
+      event.preventDefault();
+      this.openItemForm();
+    } else if (event.key.toLowerCase() === 't') {
+      event.preventDefault();
+      this.openTemplateModal();
+    }
   }
 
   // Helper to map JS Day (0=Sun) to your App Day (0=Mon probably?)
@@ -268,6 +319,52 @@ export class TimetablePage implements OnInit {
     this.editingTimetable = null;
     this.timetableForm = { name: '', isActive: false };
     this.errorMessage = '';
+  }
+
+  // Routine Templates
+  openTemplateModal(): void {
+    this.showTemplateModal = true;
+  }
+
+  closeTemplateModal(): void {
+    this.showTemplateModal = false;
+  }
+
+  async applyRoutineTemplate(templateName: string): Promise<void> {
+    this.isApplyingTemplate = true;
+    try {
+      const res = await this.timetableService.applyTemplate(templateName);
+      this.isApplyingTemplate = false;
+      this.closeTemplateModal();
+      this.toastService.success(res?.message || `Applied ${res?.name} template!`);
+      await this.loadTimetables();
+      if (res?.timetableId) {
+        const newlyCreated = this.timetables.find(t => t.id === res.timetableId);
+        if (newlyCreated) {
+          await this.selectTimetable(newlyCreated);
+        }
+      }
+    } catch (err: any) {
+      this.isApplyingTemplate = false;
+      this.toastService.error(err?.error?.error || 'Failed to apply template.');
+    }
+  }
+
+  async shiftToday(minutes: number): Promise<void> {
+    if (!this.selectedTimetable) {
+      this.toastService.warning('Please select an active timetable first.');
+      return;
+    }
+
+    try {
+      const res = await this.timetableService.shiftToday(minutes, this.activeMobileDayIndex);
+      this.toastService.success(res?.message || `Shifted schedule by +${minutes}m`);
+      if (this.selectedTimetable) {
+        await this.loadTimetableItems(this.selectedTimetable.id);
+      }
+    } catch {
+      this.toastService.error('Failed to shift schedule.');
+    }
   }
 
   // Timetable Item CRUD
@@ -449,7 +546,6 @@ export class TimetablePage implements OnInit {
     const endMinutes = this.timeToMinutes(item.endTime);
     const duration = endMinutes - startMinutes;
 
-    const pixelsPerMinute = 2; // Adjust for visual scaling
     return {
       top: (startMinutes / 30) * 40, // 40px per 30-minute block
       height: (duration / 30) * 40
