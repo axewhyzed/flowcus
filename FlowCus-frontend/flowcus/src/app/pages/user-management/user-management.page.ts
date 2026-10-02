@@ -27,6 +27,34 @@ export class UserManagementComponent implements OnInit {
   errorMessage = '';
   currentUser: User | null = null;
 
+  currentPage = 1;
+  pageSize = 10;
+  Math = Math;
+
+  get endItemIndex(): number {
+    return Math.min(this.currentPage * this.pageSize, this.filteredUsers.length);
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredUsers.length / this.pageSize) || 1;
+  }
+
+  get paginatedUsers(): User[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredUsers.slice(start, start + this.pageSize);
+  }
+
+  goToPage(page: number) {
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+    }
+  }
+
+  onPageSizeChange(newSize: number) {
+    this.pageSize = Number(newSize);
+    this.currentPage = 1;
+  }
+
   constructor(
     private adminService: AdminService,
     private authService: AuthService,
@@ -63,13 +91,15 @@ export class UserManagementComponent implements OnInit {
 
   closeUserForm() {
     this.showForm = false;
-    this.userForm = {};
     this.editingUser = null;
+    this.userForm = {};
     this.errorMessage = '';
   }
 
   async saveUser() {
-    if (!this.userForm.username) {
+    this.errorMessage = '';
+
+    if (!this.userForm.username?.trim()) {
       this.errorMessage = 'Username is required';
       this.toastService.warning(this.errorMessage);
       return;
@@ -122,6 +152,7 @@ export class UserManagementComponent implements OnInit {
 
   filterUsers(event: any) {
     this.searchTerm = event.target.value.toLowerCase();
+    this.currentPage = 1;
 
     this.filteredUsers = this.users.filter(user =>
       user.username?.toLowerCase().includes(this.searchTerm) ||
