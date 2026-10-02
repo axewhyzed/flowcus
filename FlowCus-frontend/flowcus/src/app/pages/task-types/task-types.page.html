@@ -69,7 +69,7 @@
       @if (categories !== null && categories.length > 0) {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           @for (cat of categories; track cat.id) {
-            <div class="bg-white rounded-lg border border-slate-200/80 p-4 hover:border-slate-300 hover:shadow-2xs transition-all flex flex-col justify-between">
+            <div class="bg-white rounded-lg border border-slate-200/80 p-4 hover:border-slate-300 hover:shadow-2xs transition-all flex flex-col justify-between group">
               <div class="flex items-start gap-3 mb-3">
                 <div class="h-8 w-8 rounded-md flex items-center justify-center shrink-0 text-sm font-semibold"
                   [style.backgroundColor]="(cat?.colorHex || '#0f172a') + '15'" [style.color]="cat?.colorHex || '#0f172a'">
@@ -87,12 +87,27 @@
                 </div>
               </div>
 
-              <!-- Subcategory Count Tag -->
+              <!-- Subcategory Count & Admin Actions -->
               <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                <span>Subcategories</span>
-                <span class="font-mono text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">
-                  {{ getSubcategoriesByCategory(cat.id).length }}
+                <span class="flex items-center gap-1.5">
+                  <span>Subcategories</span>
+                  <span class="font-mono text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded text-[10px]">
+                    {{ getSubcategoriesByCategory(cat.id).length }}
+                  </span>
                 </span>
+
+                @if (currentUser?.isAdmin) {
+                  <div class="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                    <button (click)="openCategoryForm(cat)" title="Edit category"
+                      class="h-6 px-1.5 text-[10px] font-medium bg-white border border-slate-200 text-slate-600 rounded hover:bg-slate-50 transition-colors">
+                      Edit
+                    </button>
+                    <button (click)="deleteCategory(cat.id)" title="Delete category"
+                      class="h-6 px-1.5 text-[10px] font-medium bg-white border border-red-200 text-red-600 rounded hover:bg-red-50 transition-colors">
+                      Delete
+                    </button>
+                  </div>
+                }
               </div>
             </div>
           }
