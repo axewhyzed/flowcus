@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-slate-50 p-4 sm:p-6 md:p-8 font-sans text-slate-900">
+<div class="h-full w-full overflow-y-auto bg-slate-50 p-4 sm:p-6 md:p-8 font-sans text-slate-900">
   <div class="mx-auto w-full max-w-6xl space-y-5">
 
     <!-- Yesterday's Unfinished Tasks Rollover Banner -->
@@ -100,27 +100,28 @@
         <div class="flex items-center gap-2">
           @if (isTimerRunning) {
           <button (click)="pauseFocusSession()"
+            title="Pause focus session (Space)"
             class="h-8 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md text-xs font-medium border border-slate-700 transition-colors flex items-center gap-1.5">
             <i class="fa-solid fa-pause text-[10px]"></i>
             <span>Pause</span>
-            <kbd class="hidden sm:inline-block text-[9px] font-mono px-1 py-0.2 bg-slate-700 text-slate-300 rounded">Space</kbd>
           </button>
           } @else {
           <button (click)="resumeFocusSession()"
+            title="Resume focus session (Space)"
             class="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 shadow-2xs">
             <i class="fa-solid fa-play text-[10px]"></i>
             <span>Resume</span>
-            <kbd class="hidden sm:inline-block text-[9px] font-mono px-1 py-0.2 bg-emerald-700 text-white rounded">Space</kbd>
           </button>
           }
 
           <button (click)="finishFocusSession()"
+            title="Finish sprint (Ctrl+Enter)"
             class="h-8 px-3 bg-white text-slate-950 hover:bg-slate-100 rounded-md text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5">
             <i class="fa-solid fa-check text-[10px]"></i>
             <span>Complete</span>
           </button>
 
-          <button (click)="cancelFocusSession()" title="Cancel sprint"
+          <button (click)="cancelFocusSession()" title="Cancel sprint (Esc)"
             class="h-8 w-8 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md flex items-center justify-center transition-colors">
             <i class="fa-solid fa-xmark text-xs"></i>
           </button>
@@ -133,10 +134,10 @@
     <div class="flex items-center justify-between gap-2.5 flex-wrap">
       <div class="flex items-center gap-2">
         <button (click)="quickAddTask()"
-          class="h-8 px-3 bg-slate-900 text-white rounded-md shadow-2xs hover:bg-slate-800 transition-colors text-xs font-medium flex items-center gap-1.5">
+          title="Create task (Q or N)"
+          class="h-8 px-3 bg-slate-900 text-white rounded-md shadow-2xs hover:bg-slate-800 transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer">
           <i class="fa-solid fa-plus text-[10px]"></i>
           <span>New Task</span>
-          <kbd class="hidden sm:inline-block px-1 py-0.2 text-[9px] font-mono text-slate-300 bg-slate-800 border border-slate-700 rounded">Q</kbd>
         </button>
 
         <button (click)="goToTimetables()"
