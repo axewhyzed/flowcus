@@ -1,23 +1,22 @@
-import { Component, OnInit } from '@angular/core';
-import { TaskService } from '../../core/services/task.service';
-import { Task } from '../../core/models/task.model';
+import { Component, OnInit, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, RouterModule } from '@angular/router';
+
+import { TaskService } from '../../core/services/task.service';
+import { Task } from '../../core/models/task.model';
 import { TaskCategory } from '../../core/models/task-category.model';
 import { TaskCategoryService } from '../../core/services/task-category.service';
 import { TaskSubtypeService } from '../../core/services/task-subtype.service';
 import { TaskSubtype } from '../../core/models/task-subtype.model';
-import { ActivatedRoute } from '@angular/router';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-
 import { NlpTaskParserService, ParsedTaskDraft } from '../../core/services/nlp-task-parser.service';
-import { ViewChild, ElementRef, HostListener } from '@angular/core';
 
 @Component({
   selector: 'app-task',
   templateUrl: './task.page.html',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   styleUrls: ['./task.page.css'],
   standalone: true
 })
@@ -45,11 +44,16 @@ export class TaskPage implements OnInit {
   categories: TaskCategory[] = [];
   subcategories: TaskSubtype[] = [];
 
+  // Workspace Navigation & Filters
+  activeView: 'all' | 'today' | 'upcoming' | 'completed' = 'all';
   searchQuery: string = '';
   selectedCategoryId: number | null = null;
+  selectedPriority: number | null = null;
   sortBy: 'newest' | 'oldest' | 'priority' = 'newest';
   completionFilter: 'all' | 'active' | 'completed' = 'all';
   viewMode: 'list' | 'grid' = 'list';
+  isMobileSidebarOpen: boolean = false;
+  showShortcutsModal: boolean = false;
 
   getPriorityBadgeClass(priority?: number): string {
     switch (priority) {
@@ -90,6 +94,12 @@ export class TaskPage implements OnInit {
       }
     }
 
+    if (this.showShortcutsModal && event.key === 'Escape') {
+      event.preventDefault();
+      this.showShortcutsModal = false;
+      return;
+    }
+
     // Inside input fields
     if (isInput) {
       if (event.key === 'Escape') {
@@ -103,16 +113,28 @@ export class TaskPage implements OnInit {
     }
 
     // Global hotkeys when not inside an input field
-    if (event.key.toLowerCase() === 'q' || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) {
+    if (event.key === '?' || (event.shiftKey && event.key === '/')) {
+      event.preventDefault();
+      this.showShortcutsModal = !this.showShortcutsModal;
+    } else if (event.key.toLowerCase() === 'q' || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) {
       event.preventDefault();
       this.quickAddInputEl?.nativeElement?.focus();
-    } else if (event.key.toLowerCase() === 'n') {
+    } else if (event.key.toLowerCase() === 'n' || event.key.toLowerCase() === 'c') {
       event.preventDefault();
       this.openTaskForm();
     } else if (event.key === '/') {
       event.preventDefault();
       const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
       searchInput?.focus();
+    } else if (event.key === '1') {
+      this.viewMode = 'list';
+    } else if (event.key === '2') {
+      this.viewMode = 'grid';
+    } else if (event.key === 'Escape') {
+      this.searchQuery = '';
+      this.selectedCategoryId = null;
+      this.selectedPriority = null;
+      this.activeView = 'all';
     }
   }
 
@@ -135,8 +157,8 @@ export class TaskPage implements OnInit {
 
     this.isSubmittingQuickAdd = true;
 
-    // Resolve category from #tag or default to first category
-    let matchedCatId = this.categories[0]?.id || 1;
+    // Resolve category from #tag, or currently selected category, or default to first
+    let matchedCatId = this.selectedCategoryId || this.categories[0]?.id || 1;
     if (draft.categoryTag) {
       const found = this.categories.find(c => 
         c.name.toLowerCase().includes(draft.categoryTag!) || 
@@ -180,12 +202,17 @@ export class TaskPage implements OnInit {
       } else if (params['action'] === 'quick') {
         setTimeout(() => this.quickAddInputEl?.nativeElement?.focus(), 150);
       }
+      if (params['category']) {
+        const catId = Number(params['category']);
+        if (!isNaN(catId)) this.selectedCategoryId = catId;
+      }
     });
   }
 
   async loadTasks() {
     try {
-      this.tasks = await this.taskService.getAll();
+      const response = await this.taskService.getAll();
+      this.tasks = response ?? [];
     } catch (error) {
       console.error('Error loading tasks:', error);
       this.tasks = [];
@@ -202,24 +229,104 @@ export class TaskPage implements OnInit {
     this.subcategories = subs ?? [];
   }
 
-  get filteredTasks() {
+  // Sidebar counters
+  get countAll(): number {
+    return this.tasks.filter(t => !t.isCompleted).length;
+  }
+
+  get countToday(): number {
+    const today = new Date().toDateString();
+    return this.tasks.filter(t => !t.isCompleted && t.startTime && new Date(t.startTime).toDateString() === today).length;
+  }
+
+  get countUpcoming(): number {
+    const now = new Date();
+    return this.tasks.filter(t => !t.isCompleted && t.startTime && new Date(t.startTime) > now).length;
+  }
+
+  get countCompleted(): number {
+    return this.tasks.filter(t => t.isCompleted).length;
+  }
+
+  getCategoryTaskCount(categoryId: number): number {
+    return this.tasks.filter(t => !t.isCompleted && t.taskCategoryId === categoryId).length;
+  }
+
+  get currentViewTitle(): string {
+    if (this.selectedCategoryId) {
+      return this.categoryNameById(this.selectedCategoryId);
+    }
+    switch (this.activeView) {
+      case 'today': return 'Today';
+      case 'upcoming': return 'Upcoming';
+      case 'completed': return 'Completed';
+      default: return 'All Tasks';
+    }
+  }
+
+  selectView(view: 'all' | 'today' | 'upcoming' | 'completed') {
+    this.activeView = view;
+    this.selectedCategoryId = null;
+    this.selectedPriority = null;
+    this.isMobileSidebarOpen = false;
+  }
+
+  selectCategoryFilter(categoryId: number | null) {
+    if (this.selectedCategoryId === categoryId) {
+      this.selectedCategoryId = null;
+    } else {
+      this.selectedCategoryId = categoryId;
+      this.activeView = 'all';
+    }
+    this.isMobileSidebarOpen = false;
+  }
+
+  selectPriorityFilter(priority: number | null) {
+    this.selectedPriority = this.selectedPriority === priority ? null : priority;
+  }
+
+  get filteredTasks(): Task[] {
+    const now = new Date();
+    const todayStr = now.toDateString();
+
     return this.tasks
       .filter(task => {
-        const matchesSearch = (task.title?.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-          task.description?.toLowerCase().includes(this.searchQuery.toLowerCase()));
+        // Search query filter
+        const matchesSearch = !this.searchQuery.trim() || (
+          task.title?.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          task.description?.toLowerCase().includes(this.searchQuery.toLowerCase())
+        );
+
+        // Category filter
         const matchesCategory = this.selectedCategoryId ? task.taskCategoryId === this.selectedCategoryId : true;
-        
-        let matchesCompletion = true;
-        if (this.completionFilter === 'active') {
-          matchesCompletion = !task.isCompleted;
-        } else if (this.completionFilter === 'completed') {
-          matchesCompletion = !!task.isCompleted;
+
+        // Priority filter
+        const matchesPriority = this.selectedPriority ? task.priority === this.selectedPriority : true;
+
+        // View filter (all / today / upcoming / completed)
+        let matchesView = true;
+        if (this.activeView === 'today') {
+          matchesView = !task.isCompleted && (
+            (task.startTime && new Date(task.startTime).toDateString() === todayStr) ||
+            (!task.startTime && new Date(task.createdOn).toDateString() === todayStr)
+          );
+        } else if (this.activeView === 'upcoming') {
+          matchesView = !task.isCompleted && !!task.startTime && new Date(task.startTime) > now;
+        } else if (this.activeView === 'completed') {
+          matchesView = !!task.isCompleted;
+        } else {
+          // 'all' view - filter by completion dropdown
+          if (this.completionFilter === 'active') {
+            matchesView = !task.isCompleted;
+          } else if (this.completionFilter === 'completed') {
+            matchesView = !!task.isCompleted;
+          }
         }
 
-        return matchesSearch && matchesCategory && matchesCompletion;
+        return matchesSearch && matchesCategory && matchesPriority && matchesView;
       })
       .sort((a, b) => {
-        if (this.sortBy === 'priority') return (b.priority || 0) - (a.priority || 0);
+        if (this.sortBy === 'priority') return (a.priority || 99) - (b.priority || 99);
         const dateA = new Date(a.createdOn || 0).getTime();
         const dateB = new Date(b.createdOn || 0).getTime();
         return this.sortBy === 'newest' ? dateB - dateA : dateA - dateB;
@@ -256,6 +363,9 @@ export class TaskPage implements OnInit {
     } else {
       this.editingTask = null;
       this.newTask = this.getEmptyTaskForm();
+      if (this.selectedCategoryId) {
+        this.newTask.taskCategoryId = this.selectedCategoryId;
+      }
     }
     this.showTaskForm = true;
   }
@@ -296,7 +406,7 @@ export class TaskPage implements OnInit {
   async deleteTask(id: number) {
     const confirmed = await this.confirmService.confirm({
       title: 'Delete task',
-      message: 'Are you sure you want to delete this task?',
+      message: 'Are you sure you want to delete this task? This action cannot be undone.',
       confirmText: 'Delete',
       danger: true
     });
@@ -329,7 +439,6 @@ export class TaskPage implements OnInit {
     if (Number.isNaN(date.getTime())) return '';
 
     return date.toLocaleString(undefined, {
-      year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -342,7 +451,7 @@ export class TaskPage implements OnInit {
     return {
       title: '',
       description: '',
-      taskCategoryId: 0,
+      taskCategoryId: this.categories[0]?.id || 1,
       taskSubtypeId: null,
       priority: 3,
       startTime: this.toDateTimeLocalValue(now),
