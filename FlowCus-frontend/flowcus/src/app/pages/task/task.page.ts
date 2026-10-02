@@ -49,6 +49,17 @@ export class TaskPage implements OnInit {
   selectedCategoryId: number | null = null;
   sortBy: 'newest' | 'oldest' | 'priority' = 'newest';
   completionFilter: 'all' | 'active' | 'completed' = 'all';
+  viewMode: 'list' | 'grid' = 'list';
+
+  getPriorityBadgeClass(priority?: number): string {
+    switch (priority) {
+      case 1: return 'bg-rose-50 text-rose-700 border-rose-200';
+      case 2: return 'bg-orange-50 text-orange-700 border-orange-200';
+      case 3: return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 4: return 'bg-blue-50 text-blue-700 border-blue-200';
+      default: return 'bg-slate-100 text-slate-600 border-slate-200';
+    }
+  }
 
   constructor(
     private taskService: TaskService,
