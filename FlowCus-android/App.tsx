@@ -18,7 +18,6 @@ const AppContent = () => {
   const { isLoading } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
-    debugger;
     dispatch(restoreSession());
   }, [dispatch]);
 

@@ -1,5 +1,5 @@
-import { NativeModules } from 'react-native';
-import { format, isToday, isYesterday } from 'date-fns';
+import { NativeModules, Platform } from 'react-native';
+import { format, isToday } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 type AppUsageData = {
@@ -15,20 +15,29 @@ export type FormattedAppUsage = {
   appName: string;
   icon: string;
   screenTime: string; // Formatted as "Xh Ym"
-  lastUsed: string; // Formatted as "HH:MM" or "Yesterday"
+  lastUsed: string; // Formatted as "HH:MM"
   usageSeconds: number;
 };
 
 const { ScreenTime } = NativeModules;
 
 export async function requestUsagePermission(): Promise<string> {
+  if (Platform.OS !== 'android' || !ScreenTime) {
+    return 'Permission not applicable';
+  }
   return await ScreenTime.requestUsagePermission();
 }
 
 export async function getScreenTime(): Promise<FormattedAppUsage[]> {
+  if (Platform.OS !== 'android' || !ScreenTime) {
+    return [];
+  }
+
   try {
     const timezone = await getDeviceTimezone();
     const rawData: AppUsageData[] = await ScreenTime.getScreenTime();
+
+    if (!Array.isArray(rawData)) return [];
 
     return rawData.map((item: AppUsageData) => ({
       packageName: item.packageName,
@@ -38,7 +47,7 @@ export async function getScreenTime(): Promise<FormattedAppUsage[]> {
       lastUsed: formatLastUsed(item.lastUsed, timezone),
       usageSeconds: item.usageTime
     }))
-    .filter((entry): entry is FormattedAppUsage => entry.lastUsed !== ''); // <-- drop blanks
+    .filter((entry): entry is FormattedAppUsage => entry.lastUsed !== '');
   } catch (error) {
     console.error('Error getting screen time:', error);
     return [];
@@ -52,25 +61,27 @@ function formatTime(seconds: number): string {
 }
 
 function formatLastUsed(timestamp: number, timezone: string): string {
-  const zonedDate = toZonedTime(new Date(timestamp), timezone);
+  try {
+    const zonedDate = toZonedTime(new Date(timestamp), timezone);
 
-  if (isToday(zonedDate)) {
-    return format(zonedDate, 'hh:mm a'); // e.g., "09:12 PM"
+    if (isToday(zonedDate)) {
+      return format(zonedDate, 'hh:mm a');
+    }
+    return '';
+  } catch {
+    return '';
   }
-
-  // if (isYesterday(zonedDate)) {
-  //   return 'Yesterday';
-  // }
-
-  //return format(zonedDate, 'dd MMM yyyy'); // fallback
-  return ''; // fallback
 }
 
 export async function getDeviceTimezone(): Promise<string> {
+  if (Platform.OS !== 'android' || !ScreenTime) {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+
   try {
     return await ScreenTime.getDeviceTimezone();
   } catch (error) {
     console.error("Error fetching timezone:", error);
-    return Intl.DateTimeFormat().resolvedOptions().timeZone; // fallback
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
   }
 }

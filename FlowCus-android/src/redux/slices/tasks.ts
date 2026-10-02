@@ -1,5 +1,5 @@
 // src/redux/slices/tasks.ts
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import apiClient from '../../services/apiClient';
 
 export interface Task {
@@ -7,9 +7,13 @@ export interface Task {
   title: string;
   description?: string;
   priority?: number;
+  isCompleted?: boolean;
   isDeleted: boolean;
-  taskCategoryId: number; // <--- ADD THIS
-  taskSubtypeId?: number | null; // Optional: Add this too for future safety
+  taskCategoryId: number;
+  taskSubtypeId?: number | null;
+  startTime?: string;
+  endTime?: string;
+  createdOn?: string;
 }
 
 interface TasksState {
@@ -33,16 +37,18 @@ export const fetchTasks = createAsyncThunk('tasks/fetchAll', async () => {
 
 export const createTask = createAsyncThunk('tasks/create', async (taskData: Partial<Task>) => {
   const response = await apiClient.post('/tasks', taskData);
-  return { ...taskData, taskId: response.data.id } as Task; // Optimistic return
+  return { ...taskData, taskId: response.data.id, isCompleted: false, isDeleted: false } as Task;
 });
 
 export const toggleTaskComplete = createAsyncThunk('tasks/toggle', async (task: Task) => {
-   // Assuming you might have a dedicated endpoint or use Update
-   // For now, let's assume we just mark it deleted or handle status locally?
-   // Since your Model has 'IsDeleted', let's use that for "checking off" for now
-   const updatedTask = { ...task, isDeleted: !task.isDeleted };
-   await apiClient.put(`/tasks/${task.taskId}`, updatedTask);
-   return updatedTask;
+  const newStatus = !task.isCompleted;
+  await apiClient.patch(`/tasks/${task.taskId}/toggle-complete`, { isCompleted: newStatus });
+  return { ...task, isCompleted: newStatus };
+});
+
+export const deleteTask = createAsyncThunk('tasks/delete', async (taskId: number) => {
+  await apiClient.delete(`/tasks/${taskId}`);
+  return taskId;
 });
 
 // --- Slice ---
@@ -67,14 +73,18 @@ const tasksSlice = createSlice({
       })
       // Create
       .addCase(createTask.fulfilled, (state, action) => {
-        state.list.push(action.payload);
+        state.list.unshift(action.payload);
       })
-      // Toggle/Update
+      // Toggle
       .addCase(toggleTaskComplete.fulfilled, (state, action) => {
         const index = state.list.findIndex(t => t.taskId === action.payload.taskId);
         if (index !== -1) {
           state.list[index] = action.payload;
         }
+      })
+      // Delete
+      .addCase(deleteTask.fulfilled, (state, action) => {
+        state.list = state.list.filter(t => t.taskId !== action.payload);
       });
   },
 });

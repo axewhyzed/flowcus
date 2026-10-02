@@ -7,6 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.provider.Settings
@@ -61,79 +64,75 @@ class ScreenTimeModule(private val reactContext: ReactApplicationContext) : Reac
 
     @ReactMethod
     fun getScreenTime(promise: Promise) {
-    if (!hasUsageStatsPermission(reactContext)) {
-        promise.reject("PERMISSION_DENIED", "Usage access permission not granted")
-        return
-    }
-
-    try {
-        val usageStatsManager = reactContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val packageManager = reactContext.packageManager
-
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+        if (!hasUsageStatsPermission(reactContext)) {
+            promise.reject("PERMISSION_DENIED", "Usage access permission not granted")
+            return
         }
-        val startTime = calendar.timeInMillis
-        val endTime = System.currentTimeMillis()
 
-        // Get aggregated usage stats
-        val usageStatsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-        val usageStatsList = usageStatsMap.values.toList()
+        // Offload heavy processing from UI thread to background thread
+        Thread {
+            try {
+                val usageStatsManager = reactContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                val packageManager = reactContext.packageManager
 
-        val result = Arguments.createArray()
-
-        usageStatsList
-            .filter { it.totalTimeInForeground > 0 }
-            .sortedByDescending { it.totalTimeInForeground }
-            .forEach { stats ->
-                try {
-                    val appData = Arguments.createMap()
-                    appData.putString("packageName", stats.packageName)
-                    appData.putDouble("usageTime", stats.totalTimeInForeground / 1000.0)
-                    appData.putDouble("lastUsed", stats.lastTimeUsed.toDouble())
-                    try {
-                        val appInfo = packageManager.getApplicationInfo(stats.packageName, 0)
-                        val appName = packageManager.getApplicationLabel(appInfo).toString()
-                        val icon = packageManager.getApplicationIcon(stats.packageName)
-                        val iconBase64 = drawableToBase64(icon)
-
-                        appData.putString("appName", appName)
-                        appData.putString("icon", iconBase64)
-                    } catch (e: PackageManager.NameNotFoundException) {
-                        // Leave appName and icon as null or set to "Unknown"
-                        appData.putString("appName", stats.packageName)
-                        appData.putString("icon", "") // or some placeholder
-                    }
-                    result.pushMap(appData)
-                } catch (e: PackageManager.NameNotFoundException) {
-                    // Skip apps that can't be found
+                val calendar = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
                 }
-            }
+                val startTime = calendar.timeInMillis
+                val endTime = System.currentTimeMillis()
 
-        promise.resolve(result)
-    } catch (e: Exception) {
-        promise.reject("ERROR", "Failed to get screen time: ${e.message}")
+                val usageStatsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
+                val usageStatsList = usageStatsMap.values.toList()
+
+                val result = Arguments.createArray()
+
+                usageStatsList
+                    .filter { it.totalTimeInForeground > 0 }
+                    .sortedByDescending { it.totalTimeInForeground }
+                    .take(20) // Limit to top 20 apps for optimal performance
+                    .forEach { stats ->
+                        try {
+                            val appData = Arguments.createMap()
+                            appData.putString("packageName", stats.packageName)
+                            appData.putDouble("usageTime", stats.totalTimeInForeground / 1000.0)
+                            appData.putDouble("lastUsed", stats.lastTimeUsed.toDouble())
+                            try {
+                                val appInfo = packageManager.getApplicationInfo(stats.packageName, 0)
+                                val appName = packageManager.getApplicationLabel(appInfo).toString()
+                                val icon = packageManager.getApplicationIcon(stats.packageName)
+                                val iconBase64 = drawableToBase64(icon)
+
+                                appData.putString("appName", appName)
+                                appData.putString("icon", iconBase64)
+                            } catch (e: PackageManager.NameNotFoundException) {
+                                appData.putString("appName", stats.packageName)
+                                appData.putString("icon", "")
+                            }
+                            result.pushMap(appData)
+                        } catch (e: Exception) {
+                            // Skip failures gracefully
+                        }
+                    }
+
+                promise.resolve(result)
+            } catch (e: Exception) {
+                promise.reject("ERROR", "Failed to get screen time: ${e.message}")
+            }
+        }.start()
     }
-}
 
     private fun drawableToBase64(drawable: Drawable): String {
-        val bitmap = if (drawable is android.graphics.drawable.BitmapDrawable) {
-            drawable.bitmap
-        } else {
-            val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 1
-            val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 1
-            val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(bitmap)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            bitmap
-        }
+        val size = 64 // Resize icon to 64x64 for fast rendering and low memory footprint
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
 
         val byteArrayOutputStream = ByteArrayOutputStream()
-        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
+        bitmap.compress(Bitmap.CompressFormat.PNG, 85, byteArrayOutputStream)
         val byteArray = byteArrayOutputStream.toByteArray()
         return Base64.encodeToString(byteArray, Base64.NO_WRAP)
     }

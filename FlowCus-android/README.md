@@ -1,97 +1,151 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# FlowCus Android Application
 
-# Getting Started
+The mobile companion application for Flowcus, built with React Native, TypeScript, Redux Toolkit, React Navigation, and Native Android (Kotlin) modules.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+---
 
-## Step 1: Start Metro
+## Features
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+### 1. Productivity Dashboard
+- **Dynamic Greetings:** Contextual time-based greetings ("Good morning", "Good afternoon", "Good evening").
+- **Productivity Metrics:** Real-time analytics synchronized with backend API:
+  - Daily Average focus hours
+  - Completion Rate percentage
+  - Total Sessions logged
+  - Streak Days counter
+- **Active Focus Card:** Identifies what task or scheduled block is currently active, with direct fallback to active timetable schedules and a "Free time!" resting state.
+- **Active Tasks Counter:** Displays pending uncompleted tasks count.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+### 2. Focus Session & Pomodoro Timer
+- **Background-Safe Epoch Math:** Timer relies on epoch target calculation (`targetEndTime - Date.now()`), preventing time drift when the app is placed in the background or paused by Android power management.
+- **Duration Presets:** Quick selection chips for 15 min, 25 min, 45 min, and 60 min sessions, or custom duration input.
+- **Session Controls:** Start, Pause, Resume, and Cancel actions.
+- **Auto-Logging:** When a session reaches 00:00, the device triggers haptic vibration and automatically records the completed session to the backend via `createTask`.
 
-```sh
-# Using npm
+### 3. Task Management
+- **Completion Checkbox:** Instant toggle between active and completed states with checkmark feedback.
+- **Strikethrough Typography:** Completed tasks render with clear strikethrough styling and subdued opacity.
+- **Status Filter Chips:** Filter tasks instantly across `All`, `Active`, and `Completed`.
+- **Category Badging:** Visual pill tags showing the task's assigned category.
+- **Deletion with Confirmation:** Soft-deletes tasks using `DELETE /api/tasks/{id}` following a native user confirmation alert.
+
+### 4. Subtypes & Limit Management
+- **Active Limit Tracker:** Live indicator tracking the user's active subtype usage (e.g. `3/5 Used`).
+- **Enforcement Alerts:** Alerts the user immediately if they attempt to exceed the 5 active subtype database limit.
+- **Custom Subtypes:** Color picker and icon assignment linked to parent categories.
+- **Deletion:** Easy subtype removal with instant list refresh.
+
+### 5. Weekly Timetable
+- **Weekly Schedule View:** Browse schedule blocks day by day (Monday through Sunday).
+- **Subtype Selection:** Chip selector to assign specific subtypes to time slots.
+- **Conflict Prevention:** Native alerts preventing overlapping time blocks.
+
+### 6. Settings & Session Management
+- **Account Context:** Displays logged-in user name, username, and role.
+- **Server Gateway:** Displays current API base endpoint.
+- **Secure Logout:** Clears stored JWT token and user credentials from `AsyncStorage`, returning the user to the login screen.
+
+### 7. Native Screen Time Module (Kotlin)
+- **Background Thread Processing:** Usage querying and app icon extraction run asynchronously on a background worker thread (`Thread { ... }.start()`), avoiding Android UI main thread drops.
+- **Bitmap Downsampling:** Application icons are scaled down to 64x64 pixels before Base64 encoding, reducing memory usage and bridge serialization overhead.
+- **Permission Handling:** Prompts user for Android `PACKAGE_USAGE_STATS` access.
+
+---
+
+## Project Structure
+
+```
+FlowCus-android/
+├── android/
+│   └── app/src/main/java/com/flowcus/
+│       ├── MainActivity.kt
+│       ├── MainApplication.kt
+│       ├── ScreenTimeModule.kt        <-- Native Kotlin usage stats bridge
+│       └── ScreenTimePackage.kt
+├── src/
+│   ├── components/
+│   │   ├── navigation/
+│   │   │   ├── DrawerNavigator.tsx    <-- Side drawer navigation
+│   │   │   └── StackNavigator.tsx     <-- Screen routing & auth flow
+│   │   ├── task/
+│   │   │   └── TaskItem.tsx
+│   │   └── timetable/
+│   ├── native/
+│   │   └── ScreenTimeModule.ts        <-- TypeScript interface for Kotlin module
+│   ├── redux/
+│   │   ├── slices/
+│   │   │   ├── auth.ts
+│   │   │   ├── dashboard.ts
+│   │   │   ├── subtypes.ts            <-- Subtypes state & limit tracking
+│   │   │   ├── tasks.ts               <-- Tasks state & toggle complete
+│   │   │   └── timetables.ts
+│   │   └── store.ts
+│   ├── screens/
+│   │   ├── FocusSession.tsx           <-- Epoch-based focus timer
+│   │   ├── HomeScreen.tsx             <-- Dashboard & stats
+│   │   ├── LoginScreen.tsx
+│   │   ├── SettingsScreen.tsx         <-- Settings & logout
+│   │   ├── SubtypesScreen.tsx         <-- Subtypes manager
+│   │   ├── TasksScreen.tsx            <-- Task list & filters
+│   │   └── TimetableScreen.tsx
+│   └── services/
+│       └── apiClient.ts               <-- Axios HTTP client with interceptors
+├── __tests__/
+│   └── App.test.tsx
+├── jest.config.js                     <-- Configured with React Native ESM transforms
+├── jest.setup.js                      <-- Comprehensive native mocks
+├── package.json
+└── tsconfig.json
+```
+
+---
+
+## Setup & Running
+
+### Prerequisites
+- Node.js 18+ or 20+
+- JDK 17
+- Android SDK (API 34+ recommended)
+- Android Emulator or physical device connected via USB debugging
+
+### 1. Install Dependencies
+```bash
+npm install
+```
+
+### 2. Configure Environment (`.env`)
+Create or edit `.env` in the `FlowCus-android` root:
+```env
+# For Android Emulator:
+API_BASE_URL=http://10.0.2.2:7176/api
+
+# For Physical Device (replace with your local workstation IP):
+# API_BASE_URL=http://192.168.1.50:7176/api
+```
+
+### 3. Start Metro
+```bash
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
+### 4. Build and Run on Android
+In another terminal:
+```bash
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+---
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## Testing & Quality Assurance
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+### Run Jest Tests
+```bash
+npm test
 ```
+Executes unit tests and component render verification using preconfigured native module mocks.
 
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
+### Strict TypeScript Check
+```bash
+npx tsc --noEmit
 ```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Verifies full TypeScript type compliance across all components, navigation props, Redux slices, and native module bridges.

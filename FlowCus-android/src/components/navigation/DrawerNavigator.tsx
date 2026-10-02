@@ -1,14 +1,13 @@
 // src/components/navigation/DrawerNavigator.tsx
 import React from 'react';
 import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import BottomTabsNavigator from './StackNavigator';
 import TimetableScreen from '../../screens/TimetableScreen';
-import SubtypesScreen from '../../screens/SubtypesScreen'; // <--- NEW IMPORT
-import ProfileScreen from '../../screens/ProfileScreen';   // <--- Link Profile Directly in Drawer? 
-// Or usually Profile is accessed via header, but we can put it here too.
-
+import SubtypesScreen from '../../screens/SubtypesScreen';
+import ProfileScreen from '../../screens/ProfileScreen';
+import SettingsScreen from '../../screens/SettingsScreen';
 import colors from '../../config/colors';
 import FcCard from '../design/FcCard';
 import tw from 'twrnc';
@@ -22,7 +21,7 @@ const DrawerNavigator = () => (
         <View style={tw`px-4 pt-4`}>
           <FcCard showDivider={false} containerStyle={tw`mb-4`}>
             <Text style={tw`text-lg font-bold text-gray-800`}>Flowcus</Text>
-            <Text style={tw`text-sm text-gray-500`}>@flowcus</Text>
+            <Text style={tw`text-sm text-gray-500`}>Personal Focus & Productivity</Text>
           </FcCard>
         </View>
         <DrawerItemList {...props} />
@@ -45,13 +44,18 @@ const DrawerNavigator = () => (
     />
     <Drawer.Screen 
         name="Subtypes" 
-        component={SubtypesScreen} // <--- NEW
+        component={SubtypesScreen} 
         options={{ drawerIcon: ({color}) => <Icon name="tag-multiple" size={22} color={color} /> }}
     />
     <Drawer.Screen 
         name="Profile" 
         component={ProfileScreen} 
         options={{ drawerIcon: ({color}) => <Icon name="account" size={22} color={color} /> }}
+    />
+    <Drawer.Screen 
+        name="Settings" 
+        component={SettingsScreen} 
+        options={{ drawerIcon: ({color}) => <Icon name="cog-outline" size={22} color={color} /> }}
     />
   </Drawer.Navigator>
 );

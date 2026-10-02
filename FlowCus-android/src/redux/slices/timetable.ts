@@ -6,13 +6,16 @@ export interface TimetableItem {
   id: number;
   timetableId: number;
   taskCategoryId: number;
-  taskSubtypeId?: number;
+  taskSubtypeId?: number | null;
   dayOfWeek: number; // 0=Sunday, 1=Monday...
   startTime: string; // "HH:mm:ss"
   endTime: string;   // "HH:mm:ss"
   taskName?: string; // Computed from backend
+  title?: string;
+  categoryName?: string;
+  subtypeName?: string;
   colorHex?: string; // Computed from backend
-  isDeleted: boolean; // <--- ADDED THIS FIELD
+  isDeleted: boolean;
 }
 
 export interface Timetable {

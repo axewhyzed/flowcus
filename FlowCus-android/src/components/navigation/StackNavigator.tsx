@@ -5,6 +5,7 @@ import ProfileScreen from '../../screens/ProfileScreen';
 import FocusSession from '../../screens/FocusSession';
 import TasksScreen from '../../screens/TasksScreen';
 import AnalyticsScreen from '../../screens/AnalyticsScreen';
+import SettingsScreen from '../../screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -15,6 +16,7 @@ const StackNavigator = () => (
     <Stack.Screen name="FocusSession" component={FocusSession} />
     <Stack.Screen name="Tasks" component={TasksScreen} />
     <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+    <Stack.Screen name="Settings" component={SettingsScreen} />
   </Stack.Navigator>
 );
 
