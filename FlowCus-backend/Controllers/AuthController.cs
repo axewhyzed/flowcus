@@ -1,5 +1,6 @@
 using FlowCus.Helpers;
 using FlowCus.Services;
+using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -11,10 +12,10 @@ namespace FlowCus.Controllers
     [Route("api/auth")]
     public class AuthController : ControllerBase
     {
-        private static readonly object _rateLimitLock = new();
+        private static readonly object s_rateLimitLock = new();
 
-        private readonly AuthService _authService;
-        private readonly DBHelper _dbHelper; 
+        private readonly IAuthService _authService;
+        private readonly IDbHelper _dbHelper; 
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
         private readonly IMemoryCache _cache;
@@ -24,7 +25,7 @@ namespace FlowCus.Controllers
         private readonly int _userRateLimitPerMinute;
         private readonly int _bcryptWorkFactor;
 
-        public AuthController(AuthService authService, DBHelper dbHelper, IConfiguration configuration, ILogger<AuthController> logger, IMemoryCache cache, IWebHostEnvironment environment)
+        public AuthController(IAuthService authService, IDbHelper dbHelper, IConfiguration configuration, ILogger<AuthController> logger, IMemoryCache cache, IWebHostEnvironment environment)
         {
             _authService = authService;
             _dbHelper = dbHelper;
@@ -240,7 +241,7 @@ namespace FlowCus.Controllers
             var now = DateTime.UtcNow;
             string cacheKey = $"ratelimit:{key}";
 
-            lock (_rateLimitLock)
+            lock (s_rateLimitLock)
             {
                 var entry = _cache.Get<RateLimitBucket>(cacheKey);
 

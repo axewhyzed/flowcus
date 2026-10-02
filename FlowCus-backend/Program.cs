@@ -1,5 +1,6 @@
 using FlowCus.Helpers;
 using FlowCus.Services;
+using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
@@ -27,13 +28,22 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 
 // Add Services to the container
+builder.Services.AddScoped<IDbHelper, DbHelper>();
+builder.Services.AddScoped<DbHelper>();
 builder.Services.AddScoped<DBHelper>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<ITaskCategoryService, TaskCategoryService>();
 builder.Services.AddScoped<TaskCategoryService>();
+builder.Services.AddScoped<ITaskSubtypeService, TaskSubtypeService>();
 builder.Services.AddScoped<TaskSubtypeService>();
+builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<TaskService>();
+builder.Services.AddScoped<ITimetableService, TimetableService>();
 builder.Services.AddScoped<TimetableService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<UserService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
@@ -83,7 +93,7 @@ builder.Services.AddAuthentication(options =>
         OnTokenValidated = async context =>
         {
             var cache = context.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
-            var dbHelper = context.HttpContext.RequestServices.GetRequiredService<DBHelper>();
+            var dbHelper = context.HttpContext.RequestServices.GetRequiredService<IDbHelper>();
 
             var idClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var roleClaim = context.Principal?.FindFirst(ClaimTypes.Role)?.Value;

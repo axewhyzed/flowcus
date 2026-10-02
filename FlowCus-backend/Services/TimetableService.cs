@@ -1,14 +1,15 @@
 using FlowCus.Helpers;
 using FlowCus.Models;
+using FlowCus.Services.Interfaces;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
 namespace FlowCus.Services
 {
-    public class TimetableService
+    public class TimetableService : ITimetableService
     {
-        private readonly DBHelper _db;
-        public TimetableService(DBHelper db) { _db = db; }
+        private readonly IDbHelper _db;
+        public TimetableService(IDbHelper db) { _db = db; }
 
         public async Task<IEnumerable<Timetable>> GetAllAsync(int userId)
         {
@@ -16,19 +17,19 @@ namespace FlowCus.Services
             return await _db.QueryAsync<Timetable>(sql, new { UserId = userId });
         }
 
-        public async Task<int> CreateAsync(Timetable t)
+        public async Task<int> CreateAsync(Timetable timetable)
         {
-            ValidateTimetableName(t.Name);
+            ValidateTimetableName(timetable.Name);
 
             string sql = @"
                 INSERT INTO timetables (user_id, name, is_active, created_at, is_deleted) 
                 VALUES (@UserId, @Name, FALSE, now(), FALSE) 
                 RETURNING id";
-            int id = await _db.ExecuteScalarAsync<int>(sql, t);
+            int id = await _db.ExecuteScalarAsync<int>(sql, timetable);
 
-            if (t.IsActive)
+            if (timetable.IsActive)
             {
-                await ActivateTimetableAsync(id, t.UserId);
+                await ActivateTimetableAsync(id, timetable.UserId);
             }
 
             return id;

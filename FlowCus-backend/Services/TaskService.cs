@@ -1,14 +1,15 @@
 using FlowCus.Helpers;
 using FlowCus.Models;
+using FlowCus.Services.Interfaces;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
 namespace FlowCus.Services
 {
-    public class TaskService
+    public class TaskService : ITaskService
     {
-        private readonly DBHelper _db;
-        public TaskService(DBHelper db) { _db = db; }
+        private readonly IDbHelper _db;
+        public TaskService(IDbHelper db) { _db = db; }
 
         public async Task<IEnumerable<TaskEntity>> GetAllAsync(int userId)
         {

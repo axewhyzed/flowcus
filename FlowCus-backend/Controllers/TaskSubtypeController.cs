@@ -1,5 +1,5 @@
-﻿using FlowCus.Models;
-using FlowCus.Services;
+using FlowCus.Models;
+using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -11,12 +11,12 @@ namespace FlowCus.Controllers
     [Authorize]
     public class TaskSubtypeController : ControllerBase
     {
-        private readonly TaskSubtypeService _service;
+        private readonly ITaskSubtypeService _subtypeService;
         private readonly ILogger<TaskSubtypeController> _logger;
 
-        public TaskSubtypeController(TaskSubtypeService service, ILogger<TaskSubtypeController> logger)
+        public TaskSubtypeController(ITaskSubtypeService subtypeService, ILogger<TaskSubtypeController> logger)
         {
-            _service = service;
+            _subtypeService = subtypeService;
             _logger = logger;
         }
 
@@ -25,7 +25,7 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            var result = await _service.GetAllAsync(userId);
+            var result = await _subtypeService.GetAllAsync(userId);
             return Ok(result);
         }
 
@@ -38,7 +38,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                var newId = await _service.CreateAsync(subtype);
+                var newId = await _subtypeService.CreateAsync(subtype);
                 _logger.LogInformation("Task subtype created. UserId={UserId}, SubtypeId={SubtypeId}", userId, newId);
                 return Ok(new { id = newId, message = "Subtype created" });
             }
@@ -64,7 +64,7 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            var subtype = await _service.GetByIdAsync(id, userId);
+            var subtype = await _subtypeService.GetByIdAsync(id, userId);
             if (subtype == null) return NotFound();
             return Ok(subtype);
         }
@@ -82,7 +82,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                var success = await _service.UpdateAsync(subtype);
+                var success = await _subtypeService.UpdateAsync(subtype);
 
                 if (!success)
                 {
@@ -95,17 +95,17 @@ namespace FlowCus.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                _logger.LogWarning("Task subtype update rejected. UserId={UserId}, SubtypeId={SubtypeId}, Reason={Reason}", userId, id, ex.Message);
+                _logger.LogWarning("Task subtype update rejected. UserId={UserId}, Reason={Reason}", userId, ex.Message);
                 return BadRequest(new { message = ex.Message });
             }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
             {
-                _logger.LogWarning("Task subtype update conflict. UserId={UserId}, SubtypeId={SubtypeId}, Name={Name}", userId, id, subtype.Name);
+                _logger.LogWarning("Task subtype update conflict. UserId={UserId}, Name={Name}", userId, subtype.Name);
                 return Conflict(new { message = "A subtype with this name already exists." });
             }
             catch (Npgsql.PostgresException ex)
             {
-                _logger.LogWarning(ex, "Task subtype update database error. UserId={UserId}, SubtypeId={SubtypeId}", userId, id);
+                _logger.LogWarning(ex, "Task subtype update database error. UserId={UserId}", userId);
                 return BadRequest(new { message = ex.MessageText });
             }
         }
@@ -115,7 +115,7 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            var success = await _service.DeleteAsync(id, userId);
+            var success = await _subtypeService.DeleteAsync(id, userId);
 
             if (!success)
             {

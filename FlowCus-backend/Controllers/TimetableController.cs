@@ -1,5 +1,5 @@
 using FlowCus.Models;
-using FlowCus.Services;
+using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -12,12 +12,12 @@ namespace FlowCus.Controllers
     [Authorize]
     public class TimetableController : ControllerBase
     {
-        private readonly TimetableService _service;
+        private readonly ITimetableService _timetableService;
         private readonly ILogger<TimetableController> _logger;
 
-        public TimetableController(TimetableService service, ILogger<TimetableController> logger)
+        public TimetableController(ITimetableService timetableService, ILogger<TimetableController> logger)
         {
-            _service = service;
+            _timetableService = timetableService;
             _logger = logger;
         }
 
@@ -27,18 +27,18 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> GetAll()
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            return Ok(await _service.GetAllAsync(userId));
+            return Ok(await _timetableService.GetAllAsync(userId));
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Timetable t)
+        public async Task<IActionResult> Create([FromBody] Timetable timetable)
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            t.UserId = userId;
+            timetable.UserId = userId;
 
             try
             {
-                var id = await _service.CreateAsync(t);
+                var id = await _timetableService.CreateAsync(timetable);
                 _logger.LogInformation("Timetable created. UserId={UserId}, TimetableId={TimetableId}", userId, id);
                 return Ok(new { id, message = "Timetable created successfully." });
             }
@@ -54,7 +54,7 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            var success = await _service.ActivateTimetableAsync(id, userId);
+            var success = await _timetableService.ActivateTimetableAsync(id, userId);
             if (!success)
             {
                 _logger.LogWarning("Timetable activate target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
@@ -69,7 +69,7 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> GetById(int id)
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            var timetable = await _service.GetByIdAsync(id, userId);
+            var timetable = await _timetableService.GetByIdAsync(id, userId);
             if (timetable == null) return NotFound();
             return Ok(timetable);
         }
@@ -79,7 +79,7 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             
-            var timetable = await _service.GetByIdAsync(id, userId);
+            var timetable = await _timetableService.GetByIdAsync(id, userId);
             if (timetable == null)
             {
                 _logger.LogWarning("Timetable update target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
@@ -88,7 +88,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                var success = await _service.UpdateAsync(id, request.Name, userId);
+                var success = await _timetableService.UpdateAsync(id, request.Name, userId);
                 if (!success)
                 {
                     _logger.LogWarning("Timetable update target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
@@ -97,11 +97,11 @@ namespace FlowCus.Controllers
 
                 if (request.IsActive && !timetable.IsActive)
                 {
-                    await _service.ActivateTimetableAsync(id, userId);
+                    await _timetableService.ActivateTimetableAsync(id, userId);
                 }
                 else if (!request.IsActive && timetable.IsActive)
                 {
-                    await _service.DeactivateTimetableAsync(id, userId);
+                    await _timetableService.DeactivateTimetableAsync(id, userId);
                 }
 
                 _logger.LogInformation("Timetable updated. UserId={UserId}, TimetableId={TimetableId}", userId, id);
@@ -119,14 +119,14 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            var timetable = await _service.GetByIdAsync(id, userId);
+            var timetable = await _timetableService.GetByIdAsync(id, userId);
             if (timetable == null)
             {
                 _logger.LogWarning("Timetable delete target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
                 return NotFound(new { message = "Timetable not found." });
             }
 
-            var success = await _service.DeleteAsync(id, userId);
+            var success = await _timetableService.DeleteAsync(id, userId);
             if (!success)
             {
                 _logger.LogWarning("Timetable delete target not found. UserId={UserId}, TimetableId={TimetableId}", userId, id);
@@ -143,7 +143,7 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> GetItems(int timetableId)
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            var items = await _service.GetItemsAsync(timetableId, userId);
+            var items = await _timetableService.GetItemsAsync(timetableId, userId);
             return Ok(items);
         }
 
@@ -152,7 +152,7 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            var timetable = await _service.GetByIdAsync(item.TimetableId, userId);
+            var timetable = await _timetableService.GetByIdAsync(item.TimetableId, userId);
             if (timetable == null)
             {
                 _logger.LogWarning("Timetable item create forbidden. UserId={UserId}, TimetableId={TimetableId}", userId, item.TimetableId);
@@ -161,7 +161,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                var id = await _service.CreateItemAsync(item, userId);
+                var id = await _timetableService.CreateItemAsync(item, userId);
                 _logger.LogInformation("Timetable item created. UserId={UserId}, TimetableId={TimetableId}, ItemId={ItemId}", userId, item.TimetableId, id);
                 return Ok(new { id, message = "Item created" });
             }
@@ -196,7 +196,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                var success = await _service.UpdateItemAsync(id, item, userId);
+                var success = await _timetableService.UpdateItemAsync(id, item, userId);
                 if (!success)
                 {
                     _logger.LogWarning("Timetable item update target not found. UserId={UserId}, ItemId={ItemId}", userId, id);
@@ -223,7 +223,7 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            var success = await _service.DeleteItemAsync(id, userId);
+            var success = await _timetableService.DeleteItemAsync(id, userId);
             if (!success)
             {
                 _logger.LogWarning("Timetable item delete target not found. UserId={UserId}, ItemId={ItemId}", userId, id);
@@ -240,7 +240,7 @@ namespace FlowCus.Controllers
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             try
             {
-                var result = await _service.ApplyTemplateAsync(request.TemplateName, userId);
+                var result = await _timetableService.ApplyTemplateAsync(request.TemplateName, userId);
                 _logger.LogInformation("Template applied. UserId={UserId}, Template={Template}", userId, request.TemplateName);
                 return Ok(result);
             }
@@ -255,7 +255,7 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> ShiftToday([FromBody] ShiftTodayRequest request)
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            int shifted = await _service.ShiftTodayAsync(request.Minutes, userId, request.DayOfWeek);
+            int shifted = await _timetableService.ShiftTodayAsync(request.Minutes, userId, request.DayOfWeek);
             _logger.LogInformation("Shift today succeeded. UserId={UserId}, ShiftedCount={Count}", userId, shifted);
             return Ok(new { shiftedCount = shifted, message = $"Shifted {shifted} schedule blocks by +{request.Minutes} minutes." });
         }

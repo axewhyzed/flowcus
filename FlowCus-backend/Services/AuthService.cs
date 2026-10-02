@@ -1,6 +1,7 @@
 using FlowCus.Controllers;
 using FlowCus.Helpers;
 using FlowCus.Models;
+using FlowCus.Services.Interfaces;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -17,13 +18,13 @@ namespace FlowCus.Services
         public LoginResponse? Response { get; set; }
     }
 
-    public class AuthService
+    public class AuthService : IAuthService
     {
-        private readonly DBHelper _db;
+        private readonly IDbHelper _db;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthService> _logger;
 
-        public AuthService(DBHelper db, IConfiguration configuration, ILogger<AuthService> logger)
+        public AuthService(IDbHelper db, IConfiguration configuration, ILogger<AuthService> logger)
         {
             _db = db;
             _configuration = configuration;

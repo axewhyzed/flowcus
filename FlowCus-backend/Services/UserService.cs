@@ -1,16 +1,17 @@
-﻿using FlowCus.Controllers;
+using FlowCus.Controllers;
 using FlowCus.Helpers;
 using FlowCus.Models;
+using FlowCus.Services.Interfaces;
 using System.Threading.Tasks;
 
 namespace FlowCus.Services
 {
-    public class UserService
+    public class UserService : IUserService
     {
-        private readonly DBHelper _db;
+        private readonly IDbHelper _db;
         private readonly int _bcryptWorkFactor;
 
-        public UserService(DBHelper db, IConfiguration configuration)
+        public UserService(IDbHelper db, IConfiguration configuration)
         {
             _db = db;
             _bcryptWorkFactor = int.Parse(configuration["AuthSettings:BcryptWorkFactor"] ?? "12");

@@ -1,14 +1,15 @@
 using FlowCus.Helpers;
 using FlowCus.Models;
+using FlowCus.Services.Interfaces;
 using System.Linq;
 
 namespace FlowCus.Services
 {
-    public class DashboardService
+    public class DashboardService : IDashboardService
     {
-        private readonly DBHelper _db;
+        private readonly IDbHelper _db;
 
-        public DashboardService(DBHelper db)
+        public DashboardService(IDbHelper db)
         {
             _db = db;
         }

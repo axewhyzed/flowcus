@@ -1,4 +1,4 @@
-using FlowCus.Services;
+using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -10,11 +10,11 @@ namespace FlowCus.Controllers
     [Authorize]
     public class DashboardController : ControllerBase
     {
-        private readonly DashboardService _service;
+        private readonly IDashboardService _dashboardService;
 
-        public DashboardController(DashboardService service)
+        public DashboardController(IDashboardService dashboardService)
         {
-            _service = service;
+            _dashboardService = dashboardService;
         }
 
         [HttpGet("stats")]
@@ -24,7 +24,7 @@ namespace FlowCus.Controllers
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
             int? offset = GetTimezoneOffset(timezoneOffset);
-            var stats = await _service.GetDashboardStatsAsync(userId, offset);
+            var stats = await _dashboardService.GetDashboardStatsAsync(userId, offset);
             return Ok(stats);
         }
 
@@ -35,7 +35,7 @@ namespace FlowCus.Controllers
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
             int? offset = GetTimezoneOffset(timezoneOffset);
-            var currentItem = await _service.GetActiveFocusAsync(userId, offset);
+            var currentItem = await _dashboardService.GetActiveFocusAsync(userId, offset);
 
             if (currentItem == null)
                 return Ok(new { message = "No task scheduled right now. Free time!" });

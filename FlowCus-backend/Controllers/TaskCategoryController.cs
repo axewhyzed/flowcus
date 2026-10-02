@@ -1,5 +1,5 @@
-﻿using FlowCus.Models;
-using FlowCus.Services;
+using FlowCus.Models;
+using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -12,30 +12,29 @@ namespace FlowCus.Controllers
     [Authorize]
     public class TaskCategoryController : ControllerBase
     {
-        private readonly TaskCategoryService _service;
+        private readonly ITaskCategoryService _categoryService;
         private readonly ILogger<TaskCategoryController> _logger;
 
-        public TaskCategoryController(TaskCategoryService service, ILogger<TaskCategoryController> logger)
+        public TaskCategoryController(ITaskCategoryService categoryService, ILogger<TaskCategoryController> logger)
         {
-            _service = service;
+            _categoryService = categoryService;
             _logger = logger;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            // FIX: Removed userId argument as categories are global
-            var result = await _service.GetAllAsync();
+            var result = await _categoryService.GetAllAsync();
             return Ok(result);
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")] // Only admins can create global categories
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] TaskCategory category)
         {
             try
             {
-                var newId = await _service.CreateAsync(category);
+                var newId = await _categoryService.CreateAsync(category);
                 _logger.LogInformation("Task category created. UserId={UserId}, CategoryId={CategoryId}", GetCurrentUserIdForLog(), newId);
                 return Ok(new { id = newId, message = "Category created" });
             }
@@ -52,12 +51,12 @@ namespace FlowCus.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")] // Only admins can delete global categories
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             try
             {
-                var success = await _service.DeleteAsync(id);
+                var success = await _categoryService.DeleteAsync(id);
 
                 if (!success)
                 {
@@ -82,10 +81,10 @@ namespace FlowCus.Controllers
             if (id <= 0 || category == null)
                 return BadRequest(new { message = "Invalid category data" });
 
-            category.Id = id; // Ensure ID matches
+            category.Id = id;
             try
             {
-                var success = await _service.UpdateAsync(category);
+                var success = await _categoryService.UpdateAsync(category);
 
                 if (!success)
                 {
@@ -111,8 +110,7 @@ namespace FlowCus.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            // Assuming categories are global, otherwise pass userId
-            var category = await _service.GetByIdAsync(id);
+            var category = await _categoryService.GetByIdAsync(id);
             if (category == null) return NotFound();
             return Ok(category);
         }

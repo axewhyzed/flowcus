@@ -1,4 +1,4 @@
-﻿using FlowCus.Helpers;
+using FlowCus.Helpers;
 using FlowCus.Models; // Needs the User model
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,11 +12,11 @@ namespace FlowCus.Controllers
     [Authorize(Roles = "Admin")] // Only users with the 'Admin' role can access these endpoints
     public class AdminController : ControllerBase
     {
-        private readonly DBHelper _dbHelper;
+        private readonly IDbHelper _dbHelper;
         private readonly ILogger<AdminController> _logger;
         private readonly int _bcryptWorkFactor;
 
-        public AdminController(DBHelper dbHelper, ILogger<AdminController> logger, IConfiguration config)
+        public AdminController(IDbHelper dbHelper, ILogger<AdminController> logger, IConfiguration config)
         {
             _dbHelper = dbHelper;
             _logger = logger;

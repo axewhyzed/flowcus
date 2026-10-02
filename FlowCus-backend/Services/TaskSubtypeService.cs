@@ -1,12 +1,13 @@
 using FlowCus.Helpers;
 using FlowCus.Models;
+using FlowCus.Services.Interfaces;
 
 namespace FlowCus.Services
 {
-    public class TaskSubtypeService
+    public class TaskSubtypeService : ITaskSubtypeService
     {
-        private readonly DBHelper _db;
-        public TaskSubtypeService(DBHelper db) { _db = db; }
+        private readonly IDbHelper _db;
+        public TaskSubtypeService(IDbHelper db) { _db = db; }
 
         public async Task<int> CreateAsync(TaskSubtype subtype)
         {

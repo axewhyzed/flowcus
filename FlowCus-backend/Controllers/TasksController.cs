@@ -1,5 +1,5 @@
 using FlowCus.Models;
-using FlowCus.Services;
+using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -16,12 +16,12 @@ namespace FlowCus.Controllers
     [Authorize]
     public class TasksController : ControllerBase
     {
-        private readonly TaskService _service;
+        private readonly ITaskService _taskService;
         private readonly ILogger<TasksController> _logger;
 
-        public TasksController(TaskService service, ILogger<TasksController> logger)
+        public TasksController(ITaskService taskService, ILogger<TasksController> logger)
         {
-            _service = service;
+            _taskService = taskService;
             _logger = logger;
         }
 
@@ -29,7 +29,7 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> GetAll()
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            return Ok(await _service.GetAllAsync(userId));
+            return Ok(await _taskService.GetAllAsync(userId));
         }
 
         [HttpPost]
@@ -40,7 +40,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                var id = await _service.CreateAsync(task);
+                var id = await _taskService.CreateAsync(task);
                 _logger.LogInformation("Task created. UserId={UserId}, TaskId={TaskId}", userId, id);
                 return Ok(new { id, message = "Task created" });
             }
@@ -65,7 +65,7 @@ namespace FlowCus.Controllers
 
             try
             {
-                var success = await _service.UpdateAsync(task);
+                var success = await _taskService.UpdateAsync(task);
                 if (!success)
                 {
                     _logger.LogWarning("Task update target not found. UserId={UserId}, TaskId={TaskId}", userId, id);
@@ -92,7 +92,7 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            var success = await _service.ToggleCompleteAsync(id, userId, request?.IsCompleted);
+            var success = await _taskService.ToggleCompleteAsync(id, userId, request?.IsCompleted);
             if (!success)
             {
                 _logger.LogWarning("Task toggle complete not found. UserId={UserId}, TaskId={TaskId}", userId, id);
@@ -107,7 +107,7 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> RolloverYesterday()
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            int count = await _service.RolloverYesterdayTasksAsync(userId);
+            int count = await _taskService.RolloverYesterdayTasksAsync(userId);
             _logger.LogInformation("Rollover unfinished tasks succeeded. UserId={UserId}, Count={Count}", userId, count);
             return Ok(new { rolledOverCount = count, message = $"{count} unfinished tasks rolled over to today." });
         }
@@ -116,7 +116,7 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            var success = await _service.DeleteAsync(id, userId);
+            var success = await _taskService.DeleteAsync(id, userId);
             if (!success)
             {
                 _logger.LogWarning("Task delete target not found. UserId={UserId}, TaskId={TaskId}", userId, id);
@@ -132,7 +132,7 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
 
-            var task = await _service.GetByIdAsync(id, userId);
+            var task = await _taskService.GetByIdAsync(id, userId);
 
             if (task == null) return NotFound();
             return Ok(task);
