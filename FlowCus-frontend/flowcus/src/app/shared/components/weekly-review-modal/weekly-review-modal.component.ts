@@ -1,13 +1,14 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DailyRitualService } from '../../../core/services/daily-ritual.service';
 import { TaskService } from '../../../core/services/task.service';
 import { TimetableService } from '../../../core/services/timetable.service';
+import { TimetableItemService } from '../../../core/services/timetable-item.service';
 import { SoundFeedbackService } from '../../../core/services/sound-feedback.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { Task } from '../../../core/models/task.model';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { countCompletionsInLastSevenDays } from '../../../core/utils/weekly-review-metrics';
 
 @Component({
   selector: 'app-weekly-review-modal',
@@ -18,6 +19,7 @@ import { Subscription } from 'rxjs';
       <div class="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
         (click)="close()">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden flex flex-col"
+          role="dialog" aria-modal="true" aria-labelledby="weekly-review-title"
           (click)="$event.stopPropagation()">
           
           <!-- Header -->
@@ -27,7 +29,7 @@ import { Subscription } from 'rxjs';
                 <i class="fa-solid fa-chart-line text-emerald-600"></i>
               </div>
               <div>
-                <h2 class="text-sm font-semibold text-slate-900 tracking-tight">Weekly Retrospective</h2>
+                <h2 id="weekly-review-title" class="text-sm font-semibold text-slate-900 tracking-tight">Weekly Retrospective</h2>
                 <p class="text-[11px] text-slate-500">Celebrate wins and calibrate your upcoming week</p>
               </div>
             </div>
@@ -42,11 +44,11 @@ import { Subscription } from 'rxjs';
             <div class="grid grid-cols-3 gap-3">
               <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-center">
                 <span class="text-xl font-bold text-slate-900 font-mono">{{ completedTasksCount }}</span>
-                <span class="text-[10px] text-slate-500 block uppercase tracking-wider mt-0.5">Tasks Done</span>
+                <span class="text-[10px] text-slate-500 block uppercase tracking-wider mt-0.5">Done in 7 days</span>
               </div>
               <div class="bg-emerald-50/60 rounded-xl p-3 border border-emerald-200/60 text-center">
                 <span class="text-xl font-bold text-emerald-800 font-mono">{{ completionRate }}%</span>
-                <span class="text-[10px] text-emerald-600 block uppercase tracking-wider mt-0.5">Completion</span>
+                <span class="text-[10px] text-emerald-600 block uppercase tracking-wider mt-0.5">Current completion</span>
               </div>
               <div class="bg-sky-50/60 rounded-xl p-3 border border-sky-200/60 text-center">
                 <span class="text-xl font-bold text-sky-800 font-mono">{{ totalPlannedHours }}h</span>
@@ -61,9 +63,9 @@ import { Subscription } from 'rxjs';
                 <span>Weekly Execution Insights</span>
               </h4>
               <ul class="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
-                <li>You completed <strong>{{ completedTasksCount }}</strong> tasks with an overall <strong>{{ completionRate }}%</strong> execution rate.</li>
+                <li>You completed <strong>{{ completedTasksCount }}</strong> tasks in the last 7 days. Your current task completion rate is <strong>{{ completionRate }}%</strong>.</li>
                 <li>Your active weekly timetable allocated <strong>{{ totalPlannedHours }} hours</strong> across your key life taxonomies.</li>
-                <li>Zero-guilt rollovers kept your backlog healthy without chronic overdue anxiety.</li>
+                <li>Use the next week's timetable to protect time for the work that matters most.</li>
               </ul>
             </div>
 
@@ -98,7 +100,7 @@ export class WeeklyReviewModalComponent implements OnInit, OnDestroy {
   isOpen = false;
   completedTasksCount = 0;
   completionRate = 0;
-  totalPlannedHours = 24;
+  totalPlannedHours = 0;
 
   private sub = new Subscription();
 
@@ -106,6 +108,7 @@ export class WeeklyReviewModalComponent implements OnInit, OnDestroy {
     private ritualService: DailyRitualService,
     private taskService: TaskService,
     private timetableService: TimetableService,
+    private timetableItemService: TimetableItemService,
     private soundService: SoundFeedbackService,
     private toast: ToastService,
     private router: Router
@@ -124,15 +127,50 @@ export class WeeklyReviewModalComponent implements OnInit, OnDestroy {
 
   private async loadStats(): Promise<void> {
     try {
-      const tasks = await this.taskService.getAll();
+      const [tasks, timetables] = await Promise.all([
+        this.taskService.getAll(),
+        this.timetableService.getAll()
+      ]);
       const all = (tasks || []).filter(t => !t.isDeleted);
       const completed = all.filter(t => t.isCompleted);
-      this.completedTasksCount = completed.length;
-      this.completionRate = all.length > 0 ? Math.round((completed.length / all.length) * 100) : 100;
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setHours(0, 0, 0, 0);
+      weekStart.setDate(weekStart.getDate() - 6);
+      this.completedTasksCount = countCompletionsInLastSevenDays(all, now);
+      this.completionRate = all.length > 0 ? Math.round((completed.length / all.length) * 100) : 0;
+
+      const activeTimetable = (timetables || []).find(timetable => timetable.isActive && !timetable.isDeleted);
+      if (!activeTimetable) {
+        this.totalPlannedHours = 0;
+        return;
+      }
+      const items = await this.timetableItemService.getItems(activeTimetable.id);
+      const nextWeekEnd = new Date(weekStart);
+      nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+      const plannedMinutes = (items || []).reduce((total, item) => {
+        if (item.isDeleted) return total;
+        if (item.specificDate) {
+          const date = new Date(`${item.specificDate.slice(0, 10)}T00:00:00`);
+          if (date < weekStart || date >= nextWeekEnd) return total;
+        }
+        const [startHour, startMinute] = item.startTime.split(':').map(Number);
+        const [endHour, endMinute] = item.endTime.split(':').map(Number);
+        const minutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+        return total + Math.max(0, minutes);
+      }, 0);
+      this.totalPlannedHours = Math.round(plannedMinutes / 6) / 10;
     } catch {
       this.completedTasksCount = 0;
       this.completionRate = 0;
+      this.totalPlannedHours = 0;
+      this.toast.error('Could not load the weekly review data. Reopen the review to try again.');
     }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.isOpen) this.close();
   }
 
   public goToTimetables(): void {

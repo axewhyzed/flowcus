@@ -19,6 +19,7 @@ import { SoundFeedbackService } from '../../core/services/sound-feedback.service
 export class UserProfileComponent implements OnInit {
   user: User | null = null;
   errorMessage = '';
+  isLoading = false;
 
   passwordForm = {
     currentPassword: '',
@@ -64,12 +65,16 @@ export class UserProfileComponent implements OnInit {
   }
 
   async loadUser() {
+    this.isLoading = true;
+    this.errorMessage = '';
     try {
       this.user = await this.userService.getMyUser();
     } catch (err: unknown) {
       const error = err as Error;
       console.error('Error loading user:', error);
       this.errorMessage = 'Failed to load user profile';
+    } finally {
+      this.isLoading = false;
     }
   }
 

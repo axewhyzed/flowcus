@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AdminService } from '../../core/services/admin.service';
@@ -63,6 +63,18 @@ export class UserManagementComponent implements OnInit {
     private confirmService: ConfirmService
   ) { }
 
+  @HostListener('window:keydown', ['$event'])
+  handleFormShortcuts(event: KeyboardEvent): void {
+    if (!this.showForm) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeUserForm();
+    } else if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      void this.saveUser();
+    }
+  }
+
   async ngOnInit() {
     try {
       const me = this.authService.user || await this.authService.me();
@@ -107,6 +119,12 @@ export class UserManagementComponent implements OnInit {
 
     if (!this.editingUser && !this.userForm.password?.trim()) {
       this.errorMessage = 'Password is required for new users';
+      this.toastService.warning(this.errorMessage);
+      return;
+    }
+
+    if (!this.editingUser && (this.userForm.password?.length ?? 0) < 6) {
+      this.errorMessage = 'Password must be at least 6 characters long';
       this.toastService.warning(this.errorMessage);
       return;
     }

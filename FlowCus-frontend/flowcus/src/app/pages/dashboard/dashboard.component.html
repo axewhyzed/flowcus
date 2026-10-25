@@ -21,7 +21,17 @@
     </div>
     }
 
-    @if (dashboardData) {
+    @if (dashboardLoading && !dashboardData) {
+      <div class="py-16 text-center text-sm text-slate-600" role="status" aria-live="polite">
+        <i class="fa-solid fa-circle-notch fa-spin mr-2" aria-hidden="true"></i>Loading your dashboard…
+      </div>
+    } @else if (dashboardLoadFailed && !dashboardData) {
+      <div class="py-16 text-center" role="alert">
+        <p class="text-sm font-semibold text-slate-800">Dashboard unavailable</p>
+        <p class="mt-1 text-sm text-slate-600">We could not load your dashboard data.</p>
+        <button type="button" (click)="loadDashboard()" class="mt-4 min-h-11 px-4 rounded-md bg-slate-900 text-white text-sm font-medium">Try again</button>
+      </div>
+    } @else if (dashboardData) {
     <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
       <div>
         <h1 class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">Hello, {{ dashboardData.userName }}</h1>
@@ -50,10 +60,10 @@
             </span>
           </div>
           <h2 class="text-lg sm:text-xl font-bold tracking-tight text-white">
-            {{ dashboardData.currentFocus?.taskName || 'Free Time / No Block Active' }}
+            {{ dashboardData.currentFocus?.taskName || (currentFocusLoadFailed ? 'Current schedule unavailable' : 'Free Time / No Block Active') }}
           </h2>
           <p class="text-xs text-slate-400 max-w-lg leading-relaxed">
-            {{ dashboardData.currentFocus ? 'Ready to dive into deep work? Launch a focus sprint with a single click.' : 'No scheduled timetable block active right now. Start an ad-hoc focus session anytime.' }}
+            {{ dashboardData.currentFocus ? 'Ready to dive into deep work? Launch a focus sprint with a single click.' : (currentFocusLoadFailed ? 'We could not load your active timetable block. You can still start an ad-hoc focus session.' : 'No scheduled timetable block active right now. Start an ad-hoc focus session anytime.') }}
           </p>
 
           <!-- Quick Duration Presets -->
@@ -139,7 +149,7 @@
     <!-- Daily Bookends & Retrospective Strip -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <!-- Morning Kickoff Card -->
-      <div (click)="openMorningKickoff()"
+      <div role="button" tabindex="0" aria-label="Start morning kickoff" (click)="openMorningKickoff()" (keydown.enter)="openMorningKickoff()" (keydown.space)="openMorningKickoff(); $event.preventDefault()"
         class="bg-white rounded-xl border border-slate-200/80 p-3.5 hover:border-amber-300 hover:shadow-2xs transition-all cursor-pointer flex items-center justify-between group">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs"
@@ -158,7 +168,7 @@
       </div>
 
       <!-- Evening Shutdown Card -->
-      <div (click)="openEveningShutdown()"
+      <div role="button" tabindex="0" aria-label="Open evening shutdown" (click)="openEveningShutdown()" (keydown.enter)="openEveningShutdown()" (keydown.space)="openEveningShutdown(); $event.preventDefault()"
         class="bg-white rounded-xl border border-slate-200/80 p-3.5 hover:border-indigo-300 hover:shadow-2xs transition-all cursor-pointer flex items-center justify-between group">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs"
@@ -177,7 +187,7 @@
       </div>
 
       <!-- Weekly Retrospective Card -->
-      <div (click)="openWeeklyReview()"
+      <div role="button" tabindex="0" aria-label="Open weekly review" (click)="openWeeklyReview()" (keydown.enter)="openWeeklyReview()" (keydown.space)="openWeeklyReview(); $event.preventDefault()"
         class="bg-white rounded-xl border border-slate-200/80 p-3.5 hover:border-emerald-300 hover:shadow-2xs transition-all cursor-pointer flex items-center justify-between group">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
@@ -230,7 +240,7 @@
       <span class="text-slate-300">•</span>
       <span class="flex items-center gap-1"><kbd class="px-1.5 py-0.2 font-mono text-[9px] bg-slate-100 border border-slate-200 rounded text-slate-600">Q</kbd> Quick Task</span>
       <span class="text-slate-300">•</span>
-      <span class="flex items-center gap-1"><kbd class="px-1.5 py-0.2 font-mono text-[9px] bg-slate-100 border border-slate-200 rounded text-slate-600">Ctrl+K</kbd> Command</span>
+      <span class="flex items-center gap-1"><kbd class="px-1.5 py-0.2 font-mono text-[9px] bg-slate-100 border border-slate-200 rounded text-slate-600">Ctrl/⌘+K</kbd> Command</span>
       <span class="text-slate-300">•</span>
       <span class="flex items-center gap-1"><kbd class="px-1.5 py-0.2 font-mono text-[9px] bg-slate-100 border border-slate-200 rounded text-slate-600">Esc</kbd> Cancel / Close</span>
     </div>
@@ -305,7 +315,7 @@
         <div class="flex items-center justify-between mb-3.5">
           <div class="flex items-center gap-2">
             <h2 class="text-xs font-semibold text-slate-900 uppercase tracking-wider">Today's Tasks</h2>
-            @if (dashboardData.todayTasks?.length > 0) {
+            @if (dashboardData.todayTasks.length > 0) {
             <span class="text-[10px] px-1.5 py-0.2 rounded font-mono bg-slate-100 text-slate-600 font-medium">
               {{ dashboardData.todayTasks.length }}
             </span>
@@ -316,7 +326,7 @@
           </a>
         </div>
 
-        @if (dashboardData.todayTasks?.length) {
+        @if (dashboardData.todayTasks.length) {
         <ul class="space-y-1.5">
           @for (task of dashboardData.todayTasks; track $index) {
           <li class="p-2.5 rounded-md border border-slate-200/80 hover:border-slate-300 transition-all flex items-center justify-between gap-3 bg-white"
@@ -325,6 +335,8 @@
             <div class="flex items-center gap-2.5 flex-1 min-w-0">
               <button (click)="toggleTaskComplete(task); $event.stopPropagation()"
                 class="w-4 h-4 rounded-full border flex items-center justify-center transition-all shrink-0"
+                [attr.aria-label]="(task.isCompleted ? 'Mark incomplete: ' : 'Mark complete: ') + task.title"
+                [attr.aria-pressed]="!!task.isCompleted"
                 [ngClass]="task.isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 hover:border-slate-500'">
                 @if (task.isCompleted) {
                   <i class="fa-solid fa-check text-[8px]"></i>

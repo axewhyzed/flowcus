@@ -35,7 +35,7 @@
           <div>
             <div class="text-xs font-medium text-slate-200 flex items-center gap-2">
               <span>Keyboard First</span>
-              <kbd class="px-1 text-[9px] font-mono bg-slate-800 text-slate-400 border border-slate-700 rounded">Ctrl+K</kbd>
+              <kbd class="px-1 text-[9px] font-mono bg-slate-800 text-slate-400 border border-slate-700 rounded">Ctrl/⌘+K</kbd>
             </div>
             <p class="text-[11px] text-slate-400">Execute rapid commands without leaving your flow.</p>
           </div>
@@ -127,11 +127,15 @@
               required
               class="w-full h-10 px-3 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors font-mono"
               [ngClass]="{'border-red-300 focus:border-red-400 focus:ring-red-400': isFieldInvalid('password')}"
-              placeholder="••••••••"
+              placeholder="Enter your password"
             >
             @if (isFieldInvalid('password')) {
               <p class="mt-1 text-[11px] text-red-500">
-                Password is required.
+                @if (loginForm.get('password')?.hasError('minlength')) {
+                  Password must be at least 6 characters long.
+                } @else {
+                  Password is required.
+                }
               </p>
             }
           </div>

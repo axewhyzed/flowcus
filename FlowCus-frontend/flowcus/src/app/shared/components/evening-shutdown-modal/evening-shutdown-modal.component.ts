@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DailyRitualService } from '../../../core/services/daily-ritual.service';
 import { TaskService } from '../../../core/services/task.service';
@@ -6,6 +6,7 @@ import { SoundFeedbackService } from '../../../core/services/sound-feedback.serv
 import { ToastService } from '../../../core/services/toast.service';
 import { Task } from '../../../core/models/task.model';
 import { Subscription } from 'rxjs';
+import { addLocalCalendarDays } from '../../../core/utils/local-date-time';
 
 @Component({
   selector: 'app-evening-shutdown-modal',
@@ -16,6 +17,7 @@ import { Subscription } from 'rxjs';
       <div class="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
         (click)="close()">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col"
+          role="dialog" aria-modal="true" aria-labelledby="evening-shutdown-title"
           (click)="$event.stopPropagation()">
           
           <!-- Header -->
@@ -25,11 +27,11 @@ import { Subscription } from 'rxjs';
                 <i class="fa-solid fa-moon text-indigo-600"></i>
               </div>
               <div>
-                <h2 class="text-sm font-semibold text-slate-900 tracking-tight">Evening Shutdown Ritual</h2>
+                <h2 id="evening-shutdown-title" class="text-sm font-semibold text-slate-900 tracking-tight">Evening Shutdown Ritual</h2>
                 <p class="text-[11px] text-slate-500">Close open loops and disconnect with peace of mind</p>
               </div>
             </div>
-            <button (click)="close()" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors">
+            <button (click)="close()" aria-label="Close evening shutdown" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors">
               <i class="fa-solid fa-xmark text-sm"></i>
             </button>
           </div>
@@ -54,10 +56,10 @@ import { Subscription } from 'rxjs';
                 <span class="text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   Unfinished Tasks ({{ unfinishedTasks.length }})
                 </span>
-                @if (unfinishedTasks.length > 0) {
-                  <button (click)="rolloverAll()"
+                @if (scheduledUnfinishedTasks.length > 0) {
+                  <button (click)="rolloverAll()" [disabled]="isRollingOver"
                     class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium hover:underline">
-                    Rollover All to Tomorrow
+                    {{ isRollingOver ? 'Rolling over…' : 'Rollover Scheduled Tasks' }}
                   </button>
                 }
               </div>
@@ -69,17 +71,21 @@ import { Subscription } from 'rxjs';
                       <i class="fa-solid fa-check"></i>
                     </div>
                     <p class="text-xs font-semibold text-slate-800">Inbox Zero achieved!</p>
-                    <p class="text-[11px] text-slate-400 mt-0.5">Every scheduled task was checked off. Outstanding work!</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">No overdue or unscheduled tasks need triage. Future tasks stay on their schedule.</p>
                   </div>
                 }
 
                 @for (task of unfinishedTasks.slice(0, 6); track task.taskId) {
                   <div class="flex items-center justify-between p-2.5 rounded-lg border border-slate-200/80 bg-white">
                     <span class="text-xs text-slate-700 truncate max-w-[280px]">{{ task.title }}</span>
+                    @if (task.startTime) {
                     <button (click)="snoozeTask(task)"
                       class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
                       +1 Day
                     </button>
+                    } @else {
+                      <span class="text-[10px] font-mono text-slate-500">Unscheduled</span>
+                    }
                   </div>
                 }
               </div>
@@ -108,7 +114,12 @@ export class EveningShutdownModalComponent implements OnInit, OnDestroy {
   isOpen = false;
   completedToday: Task[] = [];
   unfinishedTasks: Task[] = [];
+  isRollingOver = false;
   private sub = new Subscription();
+
+  get scheduledUnfinishedTasks(): Task[] {
+    return this.unfinishedTasks.filter(task => !!task.startTime);
+  }
 
   constructor(
     private ritualService: DailyRitualService,
@@ -132,19 +143,52 @@ export class EveningShutdownModalComponent implements OnInit, OnDestroy {
     try {
       const tasks = await this.taskService.getAll();
       const all = tasks || [];
-      this.completedToday = all.filter(t => !t.isDeleted && t.isCompleted);
-      this.unfinishedTasks = all.filter(t => !t.isDeleted && !t.isCompleted);
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      this.completedToday = all.filter(task =>
+        !task.isDeleted && task.isCompleted && !!task.completedOn &&
+        this.isWithinLocalDay(task.completedOn, startOfToday, startOfTomorrow)
+      );
+      this.unfinishedTasks = all.filter(task => {
+        if (task.isDeleted || task.isCompleted) return false;
+        const relevantDate = task.startTime || task.createdOn;
+        const date = new Date(relevantDate);
+        return !Number.isNaN(date.getTime()) && date < startOfTomorrow;
+      });
     } catch {
       this.completedToday = [];
       this.unfinishedTasks = [];
+      this.toast.error('Could not load today’s shutdown summary. Reopen the ritual to retry.');
     }
   }
 
+  private isWithinLocalDay(value: string, start: Date, end: Date): boolean {
+    const completedAt = new Date(value);
+    return !Number.isNaN(completedAt.getTime()) && completedAt >= start && completedAt < end;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.isOpen) this.close();
+  }
+
   public async snoozeTask(task: Task): Promise<void> {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (!task.startTime) return;
+    const tomorrow = addLocalCalendarDays(task.startTime, 1);
+    if (!tomorrow) {
+      this.toast.error('This task has an invalid start time and could not be rolled over.');
+      return;
+    }
+    const patch: { startTime: string; endTime?: string } = {
+      startTime: tomorrow.toISOString()
+    };
+    if (task.endTime) {
+      const nextEnd = addLocalCalendarDays(task.endTime, 1);
+      if (nextEnd) patch.endTime = nextEnd.toISOString();
+    }
     try {
-      await this.taskService.update(task.taskId, { startTime: tomorrow.toISOString() });
+      await this.taskService.updatePartial(task.taskId, patch);
       this.soundService.playClick();
       this.unfinishedTasks = this.unfinishedTasks.filter(t => t.taskId !== task.taskId);
       this.toast.success(`Rolled over "${task.title}" to tomorrow`);
@@ -154,17 +198,32 @@ export class EveningShutdownModalComponent implements OnInit, OnDestroy {
   }
 
   public async rolloverAll(): Promise<void> {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowIso = tomorrow.toISOString();
-
-    const promises = this.unfinishedTasks.map(t =>
-      this.taskService.update(t.taskId, { startTime: tomorrowIso }).catch(() => null)
-    );
-    await Promise.all(promises);
+    const tasksToRollover = this.unfinishedTasks.filter(task => !!task.startTime);
+    if (!tasksToRollover.length || this.isRollingOver) return;
+    this.isRollingOver = true;
+    const results = await Promise.allSettled(tasksToRollover.map(task => {
+      const tomorrow = addLocalCalendarDays(task.startTime!, 1);
+      if (!tomorrow) return Promise.reject(new Error('Invalid task start time'));
+      const patch: { startTime: string; endTime?: string } = { startTime: tomorrow.toISOString() };
+      if (task.endTime) {
+        const nextEnd = addLocalCalendarDays(task.endTime, 1);
+        if (nextEnd) patch.endTime = nextEnd.toISOString();
+      }
+      return this.taskService.updatePartial(task.taskId, patch);
+    }));
+    this.isRollingOver = false;
+    const successfulIds = new Set<number>();
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') successfulIds.add(tasksToRollover[index].taskId);
+    });
+    this.unfinishedTasks = this.unfinishedTasks.filter(task => !successfulIds.has(task.taskId));
     this.soundService.playClick();
-    this.unfinishedTasks = [];
-    this.toast.success('All unfinished tasks rolled over to tomorrow');
+    const failedCount = results.length - successfulIds.size;
+    if (failedCount > 0) {
+      this.toast.error(`Rolled over ${successfulIds.size} task${successfulIds.size === 1 ? '' : 's'}; ${failedCount} could not be saved. Remaining tasks are still shown.`);
+    } else {
+      this.toast.success(`Rolled over ${successfulIds.size} scheduled task${successfulIds.size === 1 ? '' : 's'} to tomorrow.`);
+    }
   }
 
   public completeShutdown(): void {

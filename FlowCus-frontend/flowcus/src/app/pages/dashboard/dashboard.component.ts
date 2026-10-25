@@ -10,6 +10,8 @@ import { ActiveBlockService } from '../../core/services/active-block.service';
 import { DailyRitualService } from '../../core/services/daily-ritual.service';
 import { CommandPaletteService } from '../../core/services/command-palette.service';
 import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
+import { AuthService } from '../../core/services/auth.service';
+import { DashboardData, DashboardTimetableItem } from '../../core/models/dashboard.model';
 
 interface TimetableSlot {
   id: number;
@@ -29,7 +31,10 @@ interface TimetableSlot {
   styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  dashboardData: any;
+  dashboardData: DashboardData | null = null;
+  dashboardLoading = true;
+  dashboardLoadFailed = false;
+  currentFocusLoadFailed = false;
   processedTimetable: TimetableSlot[] = [];
   todayDate: Date = new Date();
 
@@ -40,6 +45,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   timerTotalSeconds: number = 25 * 60;
   timerTitle: string = 'Deep Work Session';
   private timerInterval: any = null;
+  private timerEndAt: number | null = null;
 
   // Unfinished tasks rollover
   hasUnfinishedTasks: boolean = false;
@@ -55,7 +61,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     public activeBlockService: ActiveBlockService,
     public ritualService: DailyRitualService,
     public paletteService: CommandPaletteService,
-    public soundService: SoundFeedbackService
+    public soundService: SoundFeedbackService,
+    private authService: AuthService
   ) { }
 
   openZenFocus(): void {
@@ -83,19 +90,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.restoreFocusSession();
     this.loadDashboard();
     this.checkUnfinishedTasks();
   }
 
   ngOnDestroy(): void {
+    this.persistFocusSession();
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
     }
   }
 
   async loadDashboard() {
+    this.dashboardLoading = true;
+    this.dashboardLoadFailed = false;
     try {
-      this.dashboardData = await this.dashboardService.getDashboardStats();
+      const [statsResult, focusResult] = await Promise.allSettled([
+        this.dashboardService.getDashboardStats(),
+        this.dashboardService.getCurrentFocus()
+      ]);
+      if (statsResult.status === 'rejected') throw statsResult.reason;
+      this.currentFocusLoadFailed = focusResult.status === 'rejected';
+      const currentFocus = focusResult.status === 'fulfilled' ? focusResult.value : null;
+      this.dashboardData = {
+        ...statsResult.value,
+        currentFocus: currentFocus?.taskName ? currentFocus : null
+      };
       if (this.dashboardData?.todayTimetable) {
         this.processedTimetable = this.processTimetableData(this.dashboardData.todayTimetable);
       } else {
@@ -104,7 +125,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       this.dashboardData = null;
+      this.dashboardLoadFailed = true;
+      this.currentFocusLoadFailed = false;
       this.processedTimetable = [];
+    } finally {
+      this.dashboardLoading = false;
     }
   }
 
@@ -147,14 +172,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.timerTitle = title || (this.dashboardData?.currentFocus?.taskName || 'Deep Work Session');
     this.isTimerActive = true;
     this.isTimerRunning = true;
-
-    this.timerInterval = setInterval(() => {
-      if (this.timerSecondsRemaining > 0) {
-        this.timerSecondsRemaining--;
-      } else {
-        this.finishFocusSession();
-      }
-    }, 1000);
+    this.timerEndAt = Date.now() + this.timerTotalSeconds * 1000;
+    this.runFocusTimer();
+    this.persistFocusSession();
 
     this.toast.info(`Started ${minutes}m focus session: ${this.timerTitle}`);
   }
@@ -162,17 +182,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   pauseFocusSession() {
     this.isTimerRunning = false;
     if (this.timerInterval) clearInterval(this.timerInterval);
+    if (this.timerEndAt) {
+      this.timerSecondsRemaining = Math.max(0, Math.ceil((this.timerEndAt - Date.now()) / 1000));
+    }
+    this.timerEndAt = null;
+    this.persistFocusSession();
   }
 
   resumeFocusSession() {
+    if (!this.isTimerActive) return;
     this.isTimerRunning = true;
-    this.timerInterval = setInterval(() => {
-      if (this.timerSecondsRemaining > 0) {
-        this.timerSecondsRemaining--;
-      } else {
-        this.finishFocusSession();
-      }
-    }, 1000);
+    this.timerEndAt = Date.now() + this.timerSecondsRemaining * 1000;
+    this.runFocusTimer();
+    this.persistFocusSession();
   }
 
   async cancelFocusSession() {
@@ -187,27 +209,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (this.timerInterval) clearInterval(this.timerInterval);
       this.isTimerActive = false;
       this.isTimerRunning = false;
+      this.timerEndAt = null;
+      this.removeFocusSession();
       this.toast.info('Focus session cancelled.');
     }
   }
 
   async finishFocusSession() {
     if (this.timerInterval) clearInterval(this.timerInterval);
+    const finishedTitle = this.timerTitle;
+    const durationMinutes = Math.round(this.timerTotalSeconds / 60);
     this.isTimerRunning = false;
     this.isTimerActive = false;
+    this.timerEndAt = null;
+    this.removeFocusSession();
 
     // Auto-log task to backend as completed!
     try {
       await this.taskService.create({
-        title: `Focus: ${this.timerTitle}`,
-        description: `Completed ${Math.round(this.timerTotalSeconds / 60)}m focus block`,
+        title: `Focus: ${finishedTitle}`,
+        description: `Completed ${durationMinutes}m focus block`,
         isCompleted: true,
-        taskCategoryId: 1
+        taskCategoryId: this.dashboardData?.currentFocus?.taskCategoryId || 1
       });
-      this.toast.success(`🎉 Great job! Completed focus session: ${this.timerTitle}`);
+      this.toast.success(`Great job! Completed focus session: ${finishedTitle}`);
       await this.loadDashboard();
     } catch {
-      this.toast.success(`🎉 Great job! Focus session completed.`);
+      this.toast.error('Focus session ended, but it could not be saved. Please add it as a task manually.');
     }
   }
 
@@ -225,8 +253,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // --- Schedule Shift Method ---
   async shiftToday(minutes: number) {
     try {
-      const res = await this.timetableService.shiftToday(minutes);
+      const res = await this.timetableService.shiftToday(minutes, new Date().getDay());
       this.toast.success(res?.message || `Shifted today's schedule by +${minutes}m`);
+      await this.activeBlockService.refresh();
       await this.loadDashboard();
     } catch (err) {
       this.toast.error('Failed to shift schedule.');
@@ -245,9 +274,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  processTimetableData(timetable: any[]): TimetableSlot[] {
+  processTimetableData(timetable: DashboardTimetableItem[]): TimetableSlot[] {
     return timetable.map(slot => ({
       ...slot,
+      subtypeName: slot.subtypeName ?? null,
       displayTitle: slot.subtypeName
         ? `${slot.categoryName} - ${slot.subtypeName}`
         : slot.categoryName,
@@ -297,22 +327,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  getPriorityBadgeClass(priority: number): string {
+  getPriorityBadgeClass(priority?: number | null): string {
     switch (priority) {
       case 1: return 'bg-rose-50 text-rose-700 border-rose-200';
-      case 2: return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 3: return 'bg-sky-50 text-sky-700 border-sky-200';
+      case 2: return 'bg-orange-50 text-orange-700 border-orange-200';
+      case 3: return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 4: return 'bg-sky-50 text-sky-700 border-sky-200';
+      case 5: return 'bg-slate-50 text-slate-600 border-slate-200';
       default: return 'bg-slate-50 text-slate-600 border-slate-200';
     }
   }
 
   @HostListener('window:keydown', ['$event'])
   handleGlobalShortcuts(event: KeyboardEvent) {
-    const tag = (event.target as HTMLElement)?.tagName?.toLowerCase();
-    const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
-    if (isInput) return;
+    const target = event.target as HTMLElement | null;
+    const tag = target?.tagName?.toLowerCase();
+    const isEditable = target?.isContentEditable || ['input', 'textarea', 'select'].includes(tag || '');
+    const isInteractive = ['button', 'a', 'input', 'textarea', 'select'].includes(tag || '') || isEditable;
+    if (isEditable || isInteractive) return;
 
-    if (event.key.toLowerCase() === 'q' || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) {
+    if (event.key.toLowerCase() === 'q' && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
       this.quickAddTask();
     } else if (event.code === 'Space') {
@@ -341,5 +375,76 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   goToTimetables() {
     this.router.navigate(['/timetables']);
+  }
+
+  private runFocusTimer(): void {
+    if (this.timerInterval) clearInterval(this.timerInterval);
+    this.timerInterval = setInterval(() => {
+      this.timerSecondsRemaining = this.timerEndAt
+        ? Math.max(0, Math.ceil((this.timerEndAt - Date.now()) / 1000))
+        : this.timerSecondsRemaining;
+      if (this.timerSecondsRemaining <= 0) {
+        void this.finishFocusSession();
+      }
+    }, 1000);
+  }
+
+  private focusSessionStorageKey(): string {
+    return `flowcus_focus_session_${this.authService.user?.id ?? 'anonymous'}`;
+  }
+
+  private persistFocusSession(): void {
+    if (typeof sessionStorage === 'undefined' || !this.isTimerActive) return;
+    try {
+      sessionStorage.setItem(this.focusSessionStorageKey(), JSON.stringify({
+        isTimerRunning: this.isTimerRunning,
+        timerSecondsRemaining: this.timerSecondsRemaining,
+        timerTotalSeconds: this.timerTotalSeconds,
+        timerTitle: this.timerTitle,
+        timerEndAt: this.timerEndAt
+      }));
+    } catch {
+      // The timer still works while the browser blocks session storage.
+    }
+  }
+
+  private restoreFocusSession(): void {
+    if (typeof sessionStorage === 'undefined') return;
+    let saved: string | null;
+    try {
+      saved = sessionStorage.getItem(this.focusSessionStorageKey());
+    } catch {
+      return;
+    }
+    if (!saved) return;
+    try {
+      const state = JSON.parse(saved);
+      if (!Number.isFinite(state.timerTotalSeconds) || !Number.isFinite(state.timerSecondsRemaining)) {
+        this.removeFocusSession();
+        return;
+      }
+      this.isTimerActive = true;
+      this.isTimerRunning = !!state.isTimerRunning;
+      this.timerTotalSeconds = state.timerTotalSeconds;
+      this.timerTitle = typeof state.timerTitle === 'string' ? state.timerTitle : 'Deep Work Session';
+      this.timerEndAt = this.isTimerRunning && Number.isFinite(state.timerEndAt) ? state.timerEndAt : null;
+      this.timerSecondsRemaining = this.timerEndAt
+        ? Math.max(0, Math.ceil((this.timerEndAt - Date.now()) / 1000))
+        : state.timerSecondsRemaining;
+      if (this.isTimerRunning) {
+        if (this.timerSecondsRemaining === 0) void this.finishFocusSession();
+        else this.runFocusTimer();
+      }
+    } catch {
+      this.removeFocusSession();
+    }
+  }
+
+  private removeFocusSession(): void {
+    try {
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(this.focusSessionStorageKey());
+    } catch {
+      // The user can still complete or cancel a timer when storage is unavailable.
+    }
   }
 }

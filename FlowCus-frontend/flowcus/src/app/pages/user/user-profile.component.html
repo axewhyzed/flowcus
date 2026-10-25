@@ -15,7 +15,7 @@
     </div>
 
     <!-- Loading Skeleton -->
-    @if (!user) {
+    @if (isLoading) {
       <div class="bg-white rounded-lg border border-slate-200 p-6 space-y-4 shadow-2xs animate-pulse">
         <div class="flex items-center gap-3">
           <div class="w-12 h-12 rounded-full bg-slate-200"></div>
@@ -26,6 +26,13 @@
         </div>
         <div class="h-9 w-full bg-slate-100 rounded-md"></div>
         <div class="h-9 w-full bg-slate-100 rounded-md"></div>
+      </div>
+    } @else if (!user) {
+      <div class="bg-white rounded-lg border border-rose-200 p-5" role="alert">
+        <p class="text-sm font-medium text-rose-800">{{ errorMessage || 'Your profile could not be loaded.' }}</p>
+        <button type="button" (click)="loadUser()" class="mt-3 min-h-11 px-3 text-sm font-medium text-slate-900 border border-slate-300 rounded-md hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700">
+          Try again
+        </button>
       </div>
     } @else {
       <!-- Profile Information Card -->
@@ -47,10 +54,11 @@
           <div class="space-y-3.5">
             <!-- Full Name (Editable) -->
             <div>
-              <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+              <label for="profile-name" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                 Full Name *
               </label>
               <input
+                id="profile-name"
                 type="text"
                 [(ngModel)]="user.name"
                 name="name"
@@ -69,11 +77,12 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <!-- Username (Read-only) -->
               <div>
-                <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                <label for="profile-username" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                   Username
                 </label>
                 <div class="relative">
                   <input
+                    id="profile-username"
                     type="text"
                     [value]="user.username"
                     disabled
@@ -87,10 +96,11 @@
 
               <!-- User ID (Read-only) -->
               <div>
-                <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                <label for="profile-user-id" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                   User ID
                 </label>
                 <input
+                  id="profile-user-id"
                   type="text"
                   [value]="user.id"
                   disabled
@@ -141,8 +151,9 @@
 
         <form (ngSubmit)="changePassword()" class="space-y-3 max-w-md">
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Current Password *</label>
+            <label for="current-password" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Current Password *</label>
             <input
+              id="current-password"
               type="password"
               [(ngModel)]="passwordForm.currentPassword"
               name="currentPassword"
@@ -154,8 +165,9 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">New Password *</label>
+              <label for="new-password" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">New Password *</label>
               <input
+                id="new-password"
                 type="password"
                 [(ngModel)]="passwordForm.newPassword"
                 name="newPassword"
@@ -167,8 +179,9 @@
             </div>
 
             <div>
-              <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Confirm Password *</label>
+              <label for="confirm-password" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Confirm Password *</label>
               <input
+                id="confirm-password"
                 type="password"
                 [(ngModel)]="passwordForm.confirmPassword"
                 name="confirmPassword"

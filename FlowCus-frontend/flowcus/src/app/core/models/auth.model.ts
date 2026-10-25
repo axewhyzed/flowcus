@@ -3,14 +3,9 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface RegisterRequest {
-  username: string;
-  password: string;
-  name?: string;
-}
-
 export interface LoginResponse {
-  token: string;
+  token?: string;
+  csrfToken?: string;
   user: {
     id: number;
     username: string;

@@ -8,15 +8,12 @@ import { ActiveBlockService } from '../../../core/services/active-block.service'
 import { TimetableService } from '../../../core/services/timetable.service';
 import { SoundFeedbackService } from '../../../core/services/sound-feedback.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { TaskService } from '../../../core/services/task.service';
-import { Task } from '../../../core/models/task.model';
 
 interface CommandItem {
   id: string;
   title: string;
-  category: 'Navigation' | 'Actions' | 'Schedule' | 'Tasks';
+  category: 'Navigation' | 'Actions' | 'Schedule';
   icon: string;
-  shortcut?: string;
   action: () => void;
 }
 
@@ -30,14 +27,16 @@ interface CommandItem {
         (click)="close()">
         
         <div class="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden flex flex-col"
+          role="dialog" aria-modal="true" aria-label="Command palette"
           (click)="$event.stopPropagation()">
           
           <!-- Search Header Input -->
           <div class="flex items-center px-4 py-3 border-b border-slate-100 gap-3">
             <i class="fa-solid fa-magnifying-glass text-slate-400 text-sm"></i>
             <input #searchInput type="text" [(ngModel)]="searchQuery" (input)="filterCommands()"
+              aria-label="Search commands"
               (keydown)="handleKeydown($event)"
-              placeholder="Type a command or search tasks... (e.g. 'Timetable', 'Focus', 'Shift')"
+              placeholder="Search commands (e.g. 'Timetable', 'Focus', 'Shift')"
               class="flex-1 text-sm bg-transparent outline-none text-slate-900 placeholder-slate-400 font-sans" />
             <kbd class="text-[10px] font-mono px-1.5 py-0.5 bg-slate-100 text-slate-400 border border-slate-200 rounded">
               Esc
@@ -70,12 +69,6 @@ interface CommandItem {
                   </span>
                 </div>
 
-                @if (cmd.shortcut) {
-                  <kbd class="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                    [ngClass]="selectedIndex === i ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-400 border border-slate-200'">
-                    {{ cmd.shortcut }}
-                  </kbd>
-                }
               </button>
             }
           </div>
@@ -84,7 +77,7 @@ interface CommandItem {
           <div class="px-4 py-2 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-[11px] text-slate-400 font-mono">
             <span>↑↓ Navigate</span>
             <span>↵ Select</span>
-            <span>Ctrl+K to toggle</span>
+            <span>Ctrl/⌘+K to toggle</span>
           </div>
 
         </div>
@@ -118,7 +111,6 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
     private timetableService: TimetableService,
     private soundService: SoundFeedbackService,
     private toast: ToastService,
-    private taskService: TaskService,
     private paletteService: CommandPaletteService
   ) {}
 
@@ -147,6 +139,11 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
     }
   }
 
+  @HostListener('document:keydown.escape')
+  onGlobalEscape(): void {
+    if (this.isOpen) this.close();
+  }
+
   public open(): void {
     this.paletteService.open();
   }
@@ -167,7 +164,6 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         title: 'Go to Dashboard',
         category: 'Navigation',
         icon: 'fa-solid fa-gauge',
-        shortcut: 'G D',
         action: () => this.router.navigate(['/dashboard'])
       },
       {
@@ -175,7 +171,6 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         title: 'Go to Tasks Workspace',
         category: 'Navigation',
         icon: 'fa-solid fa-list-check',
-        shortcut: 'G T',
         action: () => this.router.navigate(['/tasks'])
       },
       {
@@ -183,7 +178,6 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         title: 'Go to Timetables & Schedules',
         category: 'Navigation',
         icon: 'fa-regular fa-calendar',
-        shortcut: 'G S',
         action: () => this.router.navigate(['/timetables'])
       },
       {
@@ -191,7 +185,6 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         title: 'Go to Categories & Subcategories',
         category: 'Navigation',
         icon: 'fa-solid fa-tags',
-        shortcut: 'G C',
         action: () => this.router.navigate(['/task-types'])
       },
       {
@@ -199,7 +192,6 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         title: 'Go to Account Settings & Backup',
         category: 'Navigation',
         icon: 'fa-regular fa-user',
-        shortcut: 'G P',
         action: () => this.router.navigate(['/user'])
       },
 
@@ -209,7 +201,6 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         title: 'Start Zen Focus Mode',
         category: 'Actions',
         icon: 'fa-solid fa-bullseye',
-        shortcut: 'F',
         action: () => this.activeBlockService.openFocusMode()
       },
 
@@ -242,7 +233,6 @@ export class CommandPaletteComponent implements OnInit, OnDestroy {
         title: 'Print Weekly Timetable',
         category: 'Actions',
         icon: 'fa-solid fa-print',
-        shortcut: 'Ctrl+P',
         action: () => {
           this.router.navigate(['/timetables']).then(() => {
             setTimeout(() => window.print(), 300);

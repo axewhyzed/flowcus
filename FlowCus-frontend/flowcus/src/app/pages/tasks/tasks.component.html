@@ -1,4 +1,4 @@
-<div class="h-full w-full flex overflow-hidden bg-white font-sans text-slate-900">
+<div class="h-full w-full flex overflow-hidden bg-white font-sans text-slate-900" [attr.inert]="showTaskForm ? '' : null" [attr.aria-hidden]="showTaskForm ? 'true' : null">
 
   <!-- Mobile Sidebar Backdrop -->
   @if (isMobileSidebarOpen) {
@@ -10,13 +10,15 @@
   <aside 
     class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-50/90 border-r border-slate-200/80 flex flex-col justify-between p-3.5 shrink-0 transition-transform duration-200 ease-in-out md:static md:translate-x-0 md:z-0"
     [class.-translate-x-full]="!isMobileSidebarOpen"
-    [class.translate-x-0]="isMobileSidebarOpen">
+    [class.translate-x-0]="isMobileSidebarOpen"
+    [attr.aria-hidden]="isMobileViewport && !isMobileSidebarOpen ? 'true' : null"
+    [attr.inert]="isMobileViewport && !isMobileSidebarOpen ? '' : null">
     
     <div class="space-y-5 overflow-y-auto pr-1">
       <!-- Workspace Brand / Mobile Close -->
       <div class="flex items-center justify-between px-2 pt-1 md:hidden">
         <span class="text-xs font-bold tracking-tight text-slate-900 uppercase">Filters & Views</span>
-        <button (click)="isMobileSidebarOpen = false" class="p-1 rounded text-slate-400 hover:text-slate-700">
+        <button (click)="isMobileSidebarOpen = false" aria-label="Close filters and views" class="p-1 rounded text-slate-400 hover:text-slate-700">
           <i class="fa-solid fa-xmark text-sm"></i>
         </button>
       </div>
@@ -108,26 +110,36 @@
       <!-- Section 3: Priorities -->
       <div>
         <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 mb-1.5">Priority</h2>
-        <div class="grid grid-cols-4 gap-1 px-1">
+        <div class="grid grid-cols-5 gap-1 px-1">
           <button (click)="selectPriorityFilter(1)"
+            [attr.aria-pressed]="selectedPriority === 1"
             class="py-1 text-center rounded text-[11px] font-mono font-semibold transition-all border"
             [ngClass]="selectedPriority === 1 ? 'bg-rose-600 text-white border-rose-600 shadow-2xs' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'">
             P1
           </button>
           <button (click)="selectPriorityFilter(2)"
+            [attr.aria-pressed]="selectedPriority === 2"
             class="py-1 text-center rounded text-[11px] font-mono font-semibold transition-all border"
             [ngClass]="selectedPriority === 2 ? 'bg-amber-600 text-white border-amber-600 shadow-2xs' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'">
             P2
           </button>
           <button (click)="selectPriorityFilter(3)"
+            [attr.aria-pressed]="selectedPriority === 3"
             class="py-1 text-center rounded text-[11px] font-mono font-semibold transition-all border"
             [ngClass]="selectedPriority === 3 ? 'bg-sky-600 text-white border-sky-600 shadow-2xs' : 'bg-white text-sky-700 border-sky-200 hover:bg-sky-50'">
             P3
           </button>
           <button (click)="selectPriorityFilter(4)"
+            [attr.aria-pressed]="selectedPriority === 4"
             class="py-1 text-center rounded text-[11px] font-mono font-semibold transition-all border"
             [ngClass]="selectedPriority === 4 ? 'bg-slate-700 text-white border-slate-700 shadow-2xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">
             P4
+          </button>
+          <button (click)="selectPriorityFilter(5)"
+            [attr.aria-pressed]="selectedPriority === 5"
+            class="py-1 text-center rounded text-[11px] font-mono font-semibold transition-all border"
+            [ngClass]="selectedPriority === 5 ? 'bg-slate-700 text-white border-slate-700 shadow-2xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">
+            P5
           </button>
         </div>
       </div>
@@ -156,8 +168,9 @@
       <div class="flex items-center gap-3">
         <button (click)="isMobileSidebarOpen = true"
           class="md:hidden p-1.5 -ml-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-          title="Toggle filters">
-          <i class="fa-solid fa-bars text-sm"></i>
+          aria-label="Open task filters and views">
+          <i class="fa-solid fa-filter text-sm"></i>
+          <span class="sr-only">Filters</span>
         </button>
 
         <div class="flex items-center gap-2">
@@ -183,10 +196,10 @@
         <!-- Search Input -->
         <div class="relative w-44 sm:w-60">
           <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-          <input type="text" [(ngModel)]="searchQuery" placeholder="Search tasks..."
+          <input type="text" [(ngModel)]="searchQuery" placeholder="Search tasks..." aria-label="Search tasks"
             class="w-full pl-8 pr-7 h-8 text-xs bg-slate-50/70 border border-slate-200 rounded-md text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 outline-none transition-all" />
           @if (searchQuery) {
-            <button (click)="searchQuery = ''" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            <button (click)="searchQuery = ''" aria-label="Clear task search" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
               <i class="fa-solid fa-xmark text-xs"></i>
             </button>
           }
@@ -215,12 +228,16 @@
           <button (click)="viewMode = 'list'"
             class="px-2 py-1 rounded transition-colors"
             [ngClass]="viewMode === 'list' ? 'bg-white text-slate-900 shadow-2xs font-medium' : 'text-slate-500 hover:text-slate-700'"
+            [attr.aria-pressed]="viewMode === 'list'"
+            aria-label="List view"
             title="List view (1)">
             <i class="fa-solid fa-list text-[10px]"></i>
           </button>
           <button (click)="viewMode = 'grid'"
             class="px-2 py-1 rounded transition-colors"
             [ngClass]="viewMode === 'grid' ? 'bg-white text-slate-900 shadow-2xs font-medium' : 'text-slate-500 hover:text-slate-700'"
+            [attr.aria-pressed]="viewMode === 'grid'"
+            aria-label="Grid view"
             title="Grid view (2)">
             <i class="fa-solid fa-table-cells-large text-[10px]"></i>
           </button>
@@ -242,6 +259,7 @@
         <div class="relative flex-1">
           <i class="fa-solid fa-wand-magic-sparkles text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
           <input type="text" #quickAddInputEl [(ngModel)]="quickAddText" (input)="onQuickAddInput()" (keydown.enter)="submitQuickAdd()"
+            aria-label="Quick add a task"
             placeholder="Quick Add: Type e.g. 'Review proposal tomorrow 3pm #work p1' and press Enter..."
             class="w-full pl-8 pr-3 h-8.5 text-xs bg-white border border-slate-200 rounded-md text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 outline-none transition-all" />
         </div>
@@ -284,7 +302,17 @@
     <div class="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 bg-white">
       
       <!-- Empty State -->
-      @if (filteredTasks.length === 0) {
+      @if (isLoadingTasks) {
+        <div class="h-full flex items-center justify-center py-16 text-sm text-slate-600" role="status" aria-live="polite">
+          <i class="fa-solid fa-circle-notch fa-spin mr-2" aria-hidden="true"></i>Loading tasks…
+        </div>
+      } @else if (taskLoadError) {
+        <div class="h-full flex flex-col items-center justify-center py-16 text-center" role="alert">
+          <p class="text-sm font-semibold text-slate-800">Tasks could not be loaded</p>
+          <p class="text-xs text-slate-600 mt-1">{{ taskLoadError }}</p>
+          <button (click)="loadTasks()" class="mt-4 min-h-11 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-sm font-medium">Try again</button>
+        </div>
+      } @else if (filteredTasks.length === 0) {
         <div class="h-full flex flex-col items-center justify-center py-16 text-center">
           <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3 text-base">
             <i class="fa-regular fa-clipboard-check"></i>
@@ -316,6 +344,8 @@
                 <!-- Left: Checkbox & Title Details -->
                 <div class="flex items-center gap-3 flex-1 min-w-0">
                   <button type="button" (click)="toggleComplete(task)" 
+                    [attr.aria-label]="(task.isCompleted ? 'Mark incomplete: ' : 'Mark complete: ') + task.title"
+                    [attr.aria-pressed]="!!task.isCompleted"
                     class="w-4 h-4 rounded-full border flex items-center justify-center transition-all shrink-0 cursor-pointer hover:border-slate-500"
                     [ngClass]="task.isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300'"
                     title="Toggle completion">
@@ -387,6 +417,8 @@
                     <div class="flex items-start gap-2.5 flex-1 min-w-0">
                       <button type="button" 
                         (click)="toggleComplete(task)" 
+                        [attr.aria-label]="(task.isCompleted ? 'Mark incomplete: ' : 'Mark complete: ') + task.title"
+                        [attr.aria-pressed]="!!task.isCompleted"
                         class="mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center transition-colors shrink-0 hover:border-slate-500"
                         [ngClass]="task.isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300'">
                         @if (task.isCompleted) {
@@ -466,14 +498,14 @@
     class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center z-50 p-4"
     (click)="closeTaskForm()"
   >
-    <div 
+    <div role="dialog" aria-modal="true" aria-labelledby="task-form-title" data-task-dialog tabindex="-1"
       class="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col transform transition-all"
       (click)="$event.stopPropagation()"
     >
       <div class="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
         <div class="flex items-center gap-2">
           <div class="w-2 h-2 rounded-full bg-slate-900"></div>
-          <h3 class="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+          <h3 id="task-form-title" class="text-xs font-semibold text-slate-900 uppercase tracking-wider">
             {{ editingTask ? 'Edit Task' : 'New Task' }}
           </h3>
         </div>
@@ -489,10 +521,11 @@
       <div class="p-5 space-y-4 overflow-y-auto flex-1 text-slate-900">
         <!-- Title -->
         <div>
-          <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+          <label for="task-title" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
             Title *
           </label>
           <input 
+            id="task-title"
             type="text" 
             [(ngModel)]="newTask.title" 
             placeholder="Task title or summary"
@@ -502,10 +535,11 @@
 
         <!-- Description -->
         <div>
-          <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+          <label for="task-description" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
             Description
           </label>
           <textarea 
+            id="task-description"
             [(ngModel)]="newTask.description" 
             rows="3" 
             placeholder="Add context, sub-items, or notes..."
@@ -516,11 +550,13 @@
         <!-- Category & Subcategory -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            <label for="task-category" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
               Category *
             </label>
             <select 
+              id="task-category"
               [(ngModel)]="newTask.taskCategoryId"
+              (ngModelChange)="onTaskCategoryChange($event)"
               class="w-full h-9 px-2 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors cursor-pointer"
             >
               <option [ngValue]="0" disabled>Select category</option>
@@ -531,10 +567,11 @@
           </div>
 
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            <label for="task-subcategory" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
               Subcategory
             </label>
             <select 
+              id="task-subcategory"
               [(ngModel)]="newTask.taskSubtypeId"
               class="w-full h-9 px-2 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors cursor-pointer"
             >
@@ -549,10 +586,11 @@
         <!-- Priority & Schedule -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            <label for="task-priority" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
               Priority (1-5)
             </label>
             <input 
+              id="task-priority"
               type="number" 
               min="1" 
               max="5" 
@@ -562,10 +600,11 @@
           </div>
 
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            <label for="task-start-time" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
               Start Time
             </label>
             <input 
+              id="task-start-time"
               type="datetime-local" 
               [(ngModel)]="newTask.startTime"
               class="w-full h-9 px-2 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors"
@@ -573,10 +612,11 @@
           </div>
 
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            <label for="task-end-time" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
               End Time
             </label>
             <input 
+              id="task-end-time"
               type="datetime-local" 
               [(ngModel)]="newTask.endTime"
               class="w-full h-9 px-2 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors"

@@ -5,15 +5,16 @@ import { TimetableItemService } from './timetable-item.service';
 import { TaskCategoryService } from './task-category.service';
 import { TaskSubtypeService } from './task-subtype.service';
 import { ToastService } from './toast.service';
+import { localDateKey } from '../utils/local-date-time';
 
 export interface FlowcusBackup {
   version: string;
   exportedAt: string;
-  tasks: any[];
-  categories: any[];
-  subtypes: any[];
-  timetables: any[];
-  timetableItems: any[];
+  tasks: unknown[];
+  categories: unknown[];
+  subtypes: unknown[];
+  timetables: unknown[];
+  timetableItems: unknown[];
 }
 
 @Injectable({
@@ -33,25 +34,28 @@ export class DataPortabilityService {
   public async exportJson(): Promise<void> {
     try {
       const [tasks, categories, subtypes, timetables] = await Promise.all([
-        this.taskService.getAll().catch(() => []),
-        this.categoryService.getAll().catch(() => []),
-        this.subtypeService.getAll().catch(() => []),
-        this.timetableService.getAll().catch(() => [])
+        this.taskService.getAll(),
+        this.categoryService.getAll(),
+        this.subtypeService.getAll(),
+        this.timetableService.getAll()
       ]);
+      const timetableItems = (await Promise.all(
+        (timetables || []).map(timetable => this.timetableItemService.getItems(timetable.id))
+      )).flat();
 
       const backup: FlowcusBackup = {
         version: '1.0.0',
         exportedAt: new Date().toISOString(),
-        tasks: tasks || [],
-        categories: categories || [],
-        subtypes: subtypes || [],
-        timetables: timetables || [],
-        timetableItems: []
+        tasks: tasks ?? [],
+        categories: categories ?? [],
+        subtypes: subtypes ?? [],
+        timetables: timetables ?? [],
+        timetableItems
       };
 
       const jsonString = JSON.stringify(backup, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
-      const dateStr = new Date().toISOString().split('T')[0];
+      const dateStr = localDateKey(new Date());
       this.downloadFile(blob, `flowcus-backup-${dateStr}.json`);
       this.toast.success('System backup exported successfully');
     } catch {
@@ -63,7 +67,7 @@ export class DataPortabilityService {
   public async exportMarkdown(): Promise<void> {
     try {
       const tasks = await this.taskService.getAll();
-      const dateStr = new Date().toISOString().split('T')[0];
+      const dateStr = localDateKey(new Date());
       let md = `# FlowCus Tasks — ${dateStr}\n\n`;
       md += `*Exported from FlowCus productivity workspace*\n\n`;
 
@@ -75,7 +79,7 @@ export class DataPortabilityService {
         md += `*No pending tasks.*\n\n`;
       } else {
         for (const t of pending) {
-          const priorityStr = t.priority === 3 ? ' [High Priority]' : t.priority === 2 ? ' [Medium]' : '';
+          const priorityStr = t.priority ? ` [P${t.priority}]` : '';
           const timeStr = t.startTime ? ` (${t.startTime.substring(0, 5)})` : '';
           md += `- [ ] **${t.title}**${priorityStr}${timeStr}\n`;
           if (t.description) {
@@ -112,6 +116,7 @@ export class DataPortabilityService {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Keep the object URL alive until the browser has started consuming the download.
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 }

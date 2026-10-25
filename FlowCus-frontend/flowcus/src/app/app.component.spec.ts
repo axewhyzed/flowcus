@@ -20,10 +20,11 @@ describe('AppComponent', () => {
     expect(app.title).toEqual('flowcus');
   });
 
-  it('should render title', () => {
+  it('should render the navigation shell and routed page outlet', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, flowcus');
+    expect(compiled.querySelector('app-header')).not.toBeNull();
+    expect(compiled.querySelector('router-outlet')).not.toBeNull();
   });
 });

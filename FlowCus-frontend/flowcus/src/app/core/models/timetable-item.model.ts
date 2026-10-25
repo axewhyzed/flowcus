@@ -6,7 +6,7 @@ export interface TimetableItem {
   dayOfWeek: number;
   startTime: string; // Format: "HH:mm:ss"
   endTime: string;   // Format: "HH:mm:ss"
-  specificDate?: string;
+  specificDate?: string | null;
   isDeleted: boolean;
 
   // Optional display properties (populated via joins)

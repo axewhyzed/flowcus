@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import { Task } from '../models/task.model';
+import { Task, TaskCreateResponse, TaskPatch } from '../models/task.model';
 import { API_ENDPOINTS } from '../constants/api-endpoints';
 
 @Injectable({ providedIn: 'root' })
@@ -16,11 +16,12 @@ export class TaskService {
   }
 
   create(data: Partial<Task>) {
-    return this.api.post<Task>(API_ENDPOINTS.TASKS, data);
+    return this.api.post<TaskCreateResponse>(API_ENDPOINTS.TASKS, data);
   }
 
-  update(id: number, data: Partial<Task>) {
-    return this.api.put<Task>(`${API_ENDPOINTS.TASKS}/${id}`, data);
+  /** Apply a partial update without sending unrelated form fields. */
+  updatePartial(id: number, patch: TaskPatch) {
+    return this.api.patch<{ message: string }>(`${API_ENDPOINTS.TASKS}/${id}`, patch);
   }
 
   toggleComplete(id: number, isCompleted?: boolean) {

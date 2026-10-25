@@ -3,10 +3,10 @@
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: 'auth/login',
-    REGISTER: 'auth/register',
     CHANGE_PASSWORD: 'auth/change-password',
     LOGOUT: 'auth/logout',
-    ME: 'auth/me'
+    ME: 'auth/me',
+    CSRF: 'auth/csrf'
   },
   TASKS: 'tasks',
   TASK_CATEGORY: 'task-category',

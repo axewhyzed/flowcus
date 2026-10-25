@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import { LoginRequest, LoginResponse, RegisterRequest } from '../models/auth.model';
+import { LoginRequest, LoginResponse } from '../models/auth.model';
 import { API_ENDPOINTS } from '../constants/api-endpoints';
 import { BehaviorSubject } from 'rxjs';
 
@@ -13,7 +13,13 @@ export class AuthService {
   private currentUser: any = null;
   private restorePromise: Promise<boolean> | null = null;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService) {
+    this.api.sessionExpired$.subscribe(() => {
+      this.currentUser = null;
+      this.isAuthenticatedSubject.next(false);
+      this.restorePromise = null;
+    });
+  }
 
   get isAuthenticated(): boolean {
     return !!this.currentUser;
@@ -24,17 +30,11 @@ export class AuthService {
   }
 
   async login(data: LoginRequest) {
-    // 1. Post credentials -> Server sets HttpOnly cookie
+    // Cookie mode keeps the JWT out of JavaScript-accessible storage and the response body.
     const res = await this.api.post<LoginResponse>(API_ENDPOINTS.AUTH.LOGIN, data);
+    this.api.setCsrfToken(res.csrfToken);
 
-    if (res.token) {
-      this.api.setAuthToken(res.token);
-    }
-
-    this.currentUser = res.user;
-    this.isAuthenticatedSubject.next(true);
-    
-    // 2. Validate session immediately by fetching user profile
+    // Validate the HttpOnly cookie and retrieve a fresh CSRF token in case response fields change.
     const isSessionValid = await this.checkAuthStatus();
     if (!isSessionValid) {
       throw new Error('Login succeeded, but the session could not be restored.');
@@ -51,15 +51,11 @@ export class AuthService {
       // Ignore errors during logout
     } finally {
       this.currentUser = null;
-      this.api.clearAuthToken();
+      this.api.clearSession();
       this.isAuthenticatedSubject.next(false);
     }
 
     return response;
-  }
-
-  register(data: RegisterRequest) {
-    return this.api.post<any>(API_ENDPOINTS.AUTH.REGISTER, data);
   }
 
   me() {
@@ -71,13 +67,16 @@ export class AuthService {
   async checkAuthStatus(): Promise<boolean> {
     try {
       const userDto = await this.me();
+      const csrf = await this.api.get<{ csrfToken: string }>(API_ENDPOINTS.AUTH.CSRF);
+      this.api.setCsrfToken(csrf.csrfToken);
       this.currentUser = userDto;
       this.isAuthenticatedSubject.next(true);
       return true;
     } catch (err) {
       this.currentUser = null;
-      this.api.clearAuthToken();
+      this.api.clearSession();
       this.isAuthenticatedSubject.next(false);
+      this.restorePromise = null;
       return false;
     }
   }

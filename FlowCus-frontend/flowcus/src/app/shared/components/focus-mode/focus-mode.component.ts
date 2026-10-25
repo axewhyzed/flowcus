@@ -7,6 +7,7 @@ import { TaskService } from '../../../core/services/task.service';
 import { Task } from '../../../core/models/task.model';
 import { ToastService } from '../../../core/services/toast.service';
 import { Subscription, interval } from 'rxjs';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-focus-mode',
@@ -14,7 +15,7 @@ import { Subscription, interval } from 'rxjs';
   imports: [CommonModule, FormsModule],
   template: `
     @if (isOpen) {
-      <div class="fixed inset-0 z-50 bg-slate-950 text-slate-100 flex flex-col justify-between p-6 sm:p-10 select-none animate-fade-in backdrop-blur-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Focus mode" class="fixed inset-0 z-50 bg-slate-950 text-slate-100 flex flex-col justify-between p-6 sm:p-10 select-none animate-fade-in backdrop-blur-2xl">
         
         <!-- Top Toolbar -->
         <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
@@ -92,7 +93,7 @@ import { Subscription, interval } from 'rxjs';
               {{ displayTime }}
             </h1>
             <p class="text-xs uppercase tracking-widest text-slate-500 font-mono mt-2">
-              {{ isCountingDown ? 'Time Remaining in Current Block' : 'Focus Stopwatch' }}
+              {{ activeBlock ? 'Time Remaining in Current Block' : 'Time Remaining in Focus Sprint' }}
             </p>
           </div>
 
@@ -108,7 +109,7 @@ import { Subscription, interval } from 'rxjs';
             <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
               <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-list-check text-slate-500"></i>
-                <span>Assigned Focus Tasks</span>
+                <span>Suggested Focus Tasks</span>
               </h3>
               <span class="text-[11px] font-mono text-slate-500">
                 {{ completedCount }}/{{ blockTasks.length }} completed
@@ -119,13 +120,15 @@ import { Subscription, interval } from 'rxjs';
             <div class="space-y-2 max-h-56 overflow-y-auto pr-1 text-left">
               @if (blockTasks.length === 0) {
                 <div class="text-center py-6 text-slate-500 text-xs">
-                  No tasks assigned to this block. Add one below to lock in your focus.
+                  No open tasks are available here. Add one below to get started.
                 </div>
               }
 
               @for (task of blockTasks; track task.taskId) {
                 <div class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/70 hover:border-slate-700 transition-all group">
                   <button (click)="toggleTask(task)"
+                    [attr.aria-label]="(task.isCompleted ? 'Mark incomplete: ' : 'Mark complete: ') + task.title"
+                    [attr.aria-pressed]="!!task.isCompleted"
                     class="w-5 h-5 rounded border flex items-center justify-center transition-colors shrink-0 cursor-pointer"
                     [ngClass]="task.isCompleted ? 'bg-emerald-500 border-emerald-400 text-white' : 'border-slate-700 bg-slate-900 group-hover:border-slate-500'">
                     @if (task.isCompleted) {
@@ -136,7 +139,7 @@ import { Subscription, interval } from 'rxjs';
                     [ngClass]="task.isCompleted ? 'line-through text-slate-500' : 'text-slate-200'">
                     {{ task.title }}
                   </span>
-                  @if (task.priority === 3) {
+                  @if (task.priority === 1) {
                     <span class="text-[10px] text-red-400 font-mono shrink-0">High</span>
                   }
                 </div>
@@ -146,9 +149,12 @@ import { Subscription, interval } from 'rxjs';
             <!-- Quick Add Task Inside Zen Session -->
             <div class="mt-3 pt-3 border-t border-slate-800 flex gap-2">
               <input type="text" [(ngModel)]="newTaskTitle" (keydown.enter)="quickAddTask()"
+                aria-label="Add a focus task"
                 placeholder="Quick-add task to focus on..."
                 class="flex-1 h-8 px-3 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-600" />
               <button (click)="quickAddTask()"
+                [disabled]="!newTaskTitle.trim()"
+                aria-label="Add focus task"
                 class="h-8 px-3 bg-white text-slate-950 font-medium text-xs rounded-lg hover:bg-slate-200 transition-colors shrink-0 cursor-pointer">
                 Add
               </button>
@@ -197,12 +203,14 @@ export class FocusModeComponent implements OnInit, OnDestroy {
   private subs = new Subscription();
   private timerSub?: Subscription;
   private remainingSeconds = 0;
+  private sessionTotalSeconds = 25 * 60;
 
   constructor(
     private activeBlockService: ActiveBlockService,
     private soundService: SoundFeedbackService,
     private taskService: TaskService,
-    private toast: ToastService
+    private toast: ToastService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -212,6 +220,7 @@ export class FocusModeComponent implements OnInit, OnDestroy {
         if (open) {
           this.initSession();
         } else {
+          this.persistFocusState();
           this.stopTimer();
           this.soundService.stopAmbient();
           this.activeAmbient = 'none';
@@ -238,12 +247,13 @@ export class FocusModeComponent implements OnInit, OnDestroy {
 
   private initSession(): void {
     this.loadBlockTasks();
-    if (this.activeBlock && this.activeBlock.remainingMinutes > 0) {
+    if (!this.restoreFocusState()) {
       this.isCountingDown = true;
-      this.remainingSeconds = this.activeBlock.remainingMinutes * 60;
-    } else {
-      this.isCountingDown = false;
-      this.remainingSeconds = 25 * 60;
+      this.sessionTotalSeconds = this.activeBlock && this.activeBlock.remainingMinutes > 0
+        ? this.activeBlock.remainingMinutes * 60
+        : 25 * 60;
+      this.remainingSeconds = this.sessionTotalSeconds;
+      this.progressPercent = 0;
     }
     this.updateDisplayTime();
     this.startTimer();
@@ -269,16 +279,16 @@ export class FocusModeComponent implements OnInit, OnDestroy {
         this.remainingSeconds--;
         this.updateDisplayTime();
         if (this.activeBlock && this.activeBlock.totalMinutes > 0) {
-          const totalSecs = this.activeBlock.totalMinutes * 60;
-          const elapsedSecs = totalSecs - this.remainingSeconds;
-          this.progressPercent = Math.min(100, Math.max(0, (elapsedSecs / totalSecs) * 100));
+          const elapsedSecs = this.sessionTotalSeconds - this.remainingSeconds;
+          this.progressPercent = Math.min(100, Math.max(0, (elapsedSecs / this.sessionTotalSeconds) * 100));
         } else {
-          const totalSecs = 25 * 60;
-          const elapsedSecs = totalSecs - this.remainingSeconds;
-          this.progressPercent = Math.min(100, Math.max(0, (elapsedSecs / totalSecs) * 100));
+          const elapsedSecs = this.sessionTotalSeconds - this.remainingSeconds;
+          this.progressPercent = Math.min(100, Math.max(0, (elapsedSecs / this.sessionTotalSeconds) * 100));
         }
+        this.persistFocusState();
       } else {
         this.stopTimer();
+        this.clearFocusState();
         this.soundService.playCelebration();
         this.toast.success('Focus block finished! Well done.');
       }
@@ -300,7 +310,8 @@ export class FocusModeComponent implements OnInit, OnDestroy {
   }
 
   public async toggleTask(task: Task): Promise<void> {
-    const newStatus = !task.isCompleted;
+    const previousStatus = !!task.isCompleted;
+    const newStatus = !previousStatus;
     task.isCompleted = newStatus;
     if (newStatus) {
       this.soundService.playSuccess();
@@ -308,8 +319,11 @@ export class FocusModeComponent implements OnInit, OnDestroy {
       this.soundService.playClick();
     }
     try {
-      await this.taskService.toggleComplete(task.taskId);
-    } catch {}
+      await this.taskService.toggleComplete(task.taskId, newStatus);
+    } catch {
+      task.isCompleted = previousStatus;
+      this.toast.error('Could not update this task. Please try again.');
+    }
   }
 
   public async quickAddTask(): Promise<void> {
@@ -322,12 +336,14 @@ export class FocusModeComponent implements OnInit, OnDestroy {
     };
 
     try {
-      const created = await this.taskService.create(taskData);
-      this.blockTasks.push(created);
+      await this.taskService.create(taskData);
       this.newTaskTitle = '';
+      await this.loadBlockTasks();
       this.soundService.playClick();
       this.toast.success('Task added to session');
-    } catch {}
+    } catch {
+      this.toast.error('Could not add the task. Your text is still here; try again.');
+    }
   }
 
   public setAmbient(type: 'none' | 'brown' | 'white' | 'binaural'): void {
@@ -348,12 +364,16 @@ export class FocusModeComponent implements OnInit, OnDestroy {
   }
 
   public wrapUpBlock(): void {
+    this.stopTimer();
+    this.remainingSeconds = 0;
+    this.clearFocusState();
     this.soundService.playCelebration();
     this.toast.success(`Great focus session! Completed ${this.completedCount} task(s).`);
     this.close();
   }
 
   public close(): void {
+    this.persistFocusState();
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
@@ -362,7 +382,62 @@ export class FocusModeComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
+    this.persistFocusState();
     this.stopTimer();
     this.soundService.stopAmbient();
+  }
+
+  private focusStorageKey(): string {
+    return `flowcus_focus_mode_${this.authService.user?.id ?? 'anonymous'}`;
+  }
+
+  private restoreFocusState(): boolean {
+    if (typeof sessionStorage === 'undefined') return false;
+    let serialized: string | null;
+    try {
+      serialized = sessionStorage.getItem(this.focusStorageKey());
+    } catch {
+      return false;
+    }
+    if (!serialized) return false;
+    try {
+      const state = JSON.parse(serialized);
+      if (!Number.isFinite(state.remainingSeconds) || state.remainingSeconds <= 0) {
+        this.clearFocusState();
+        return false;
+      }
+      this.remainingSeconds = state.remainingSeconds;
+      this.sessionTotalSeconds = Number.isFinite(state.sessionTotalSeconds) && state.sessionTotalSeconds > 0
+        ? state.sessionTotalSeconds
+        : 25 * 60;
+      this.progressPercent = Number.isFinite(state.progressPercent) ? state.progressPercent : 0;
+      this.isCountingDown = state.isCountingDown !== false;
+      return true;
+    } catch {
+      this.clearFocusState();
+      return false;
+    }
+  }
+
+  private persistFocusState(): void {
+    if (typeof sessionStorage === 'undefined' || this.remainingSeconds <= 0) return;
+    try {
+      sessionStorage.setItem(this.focusStorageKey(), JSON.stringify({
+        remainingSeconds: this.remainingSeconds,
+        sessionTotalSeconds: this.sessionTotalSeconds,
+        progressPercent: this.progressPercent,
+        isCountingDown: this.isCountingDown
+      }));
+    } catch {
+      // A running focus timer remains usable when browser storage is disabled.
+    }
+  }
+
+  private clearFocusState(): void {
+    try {
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(this.focusStorageKey());
+    } catch {
+      // Keep the focus timer usable when browser storage is unavailable.
+    }
   }
 }

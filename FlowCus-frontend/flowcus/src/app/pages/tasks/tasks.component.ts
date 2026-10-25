@@ -12,6 +12,7 @@ import { TaskSubtype } from '../../core/models/task-subtype.model';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { NlpTaskParserService, ParsedTaskDraft } from '../../core/services/nlp-task-parser.service';
+import { localDateTimeToIso, toDateTimeLocalValue as formatDateTimeLocalValue } from '../../core/utils/local-date-time';
 
 @Component({
   selector: 'app-tasks',
@@ -53,14 +54,25 @@ export class TasksComponent implements OnInit {
   completionFilter: 'all' | 'active' | 'completed' = 'all';
   viewMode: 'list' | 'grid' = 'list';
   isMobileSidebarOpen: boolean = false;
+  isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
+  isLoadingTasks = false;
+  taskLoadError: string | null = null;
   showShortcutsModal: boolean = false;
+  private taskDialogReturnFocus: HTMLElement | null = null;
 
-  getPriorityBadgeClass(priority?: number): string {
+  @HostListener('window:resize')
+  onViewportResize() {
+    this.isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (!this.isMobileViewport) this.isMobileSidebarOpen = false;
+  }
+
+  getPriorityBadgeClass(priority?: number | null): string {
     switch (priority) {
       case 1: return 'bg-rose-50 text-rose-700 border-rose-200';
       case 2: return 'bg-orange-50 text-orange-700 border-orange-200';
       case 3: return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 4: return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 4: return 'bg-sky-50 text-sky-700 border-sky-200';
+      case 5: return 'bg-slate-50 text-slate-600 border-slate-200';
       default: return 'bg-slate-100 text-slate-600 border-slate-200';
     }
   }
@@ -85,6 +97,23 @@ export class TasksComponent implements OnInit {
       if (event.key === 'Escape') {
         event.preventDefault();
         this.closeTaskForm();
+        return;
+      }
+      if (event.key === 'Tab') {
+        const dialog = document.querySelector<HTMLElement>('[data-task-dialog]');
+        const focusable = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )) : [];
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) {
+          event.preventDefault();
+          first.focus();
+        }
         return;
       }
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -116,7 +145,7 @@ export class TasksComponent implements OnInit {
     if (event.key === '?' || (event.shiftKey && event.key === '/')) {
       event.preventDefault();
       this.showShortcutsModal = !this.showShortcutsModal;
-    } else if (event.key.toLowerCase() === 'q' || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) {
+    } else if (event.key.toLowerCase() === 'q' && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
       this.quickAddInputEl?.nativeElement?.focus();
     } else if (event.key.toLowerCase() === 'n' || event.key.toLowerCase() === 'c') {
@@ -210,12 +239,17 @@ export class TasksComponent implements OnInit {
   }
 
   async loadTasks() {
+    this.isLoadingTasks = true;
+    this.taskLoadError = null;
     try {
       const response = await this.taskService.getAll();
       this.tasks = response ?? [];
     } catch (error) {
       console.error('Error loading tasks:', error);
       this.tasks = [];
+      this.taskLoadError = 'We could not load your tasks. Check your connection and try again.';
+    } finally {
+      this.isLoadingTasks = false;
     }
   }
 
@@ -231,25 +265,25 @@ export class TasksComponent implements OnInit {
 
   // Sidebar counters
   get countAll(): number {
-    return this.tasks.filter(t => !t.isCompleted).length;
+    return this.tasks.filter(t => !t.isDeleted && !t.isCompleted).length;
   }
 
   get countToday(): number {
-    const today = new Date().toDateString();
-    return this.tasks.filter(t => !t.isCompleted && t.startTime && new Date(t.startTime).toDateString() === today).length;
+    const today = new Date();
+    return this.tasks.filter(task => !task.isDeleted && !task.isCompleted && this.isTaskForToday(task, today)).length;
   }
 
   get countUpcoming(): number {
     const now = new Date();
-    return this.tasks.filter(t => !t.isCompleted && t.startTime && new Date(t.startTime) > now).length;
+    return this.tasks.filter(t => !t.isDeleted && !t.isCompleted && t.startTime && new Date(t.startTime) > now).length;
   }
 
   get countCompleted(): number {
-    return this.tasks.filter(t => t.isCompleted).length;
+    return this.tasks.filter(t => !t.isDeleted && t.isCompleted).length;
   }
 
   getCategoryTaskCount(categoryId: number): number {
-    return this.tasks.filter(t => !t.isCompleted && t.taskCategoryId === categoryId).length;
+    return this.tasks.filter(t => !t.isDeleted && !t.isCompleted && t.taskCategoryId === categoryId).length;
   }
 
   get currentViewTitle(): string {
@@ -287,10 +321,10 @@ export class TasksComponent implements OnInit {
 
   get filteredTasks(): Task[] {
     const now = new Date();
-    const todayStr = now.toDateString();
 
     return this.tasks
       .filter(task => {
+        if (task.isDeleted) return false;
         // Search query filter
         const matchesSearch = !this.searchQuery.trim() || (
           task.title?.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
@@ -306,10 +340,7 @@ export class TasksComponent implements OnInit {
         // View filter (all / today / upcoming / completed)
         let matchesView = true;
         if (this.activeView === 'today') {
-          matchesView = !task.isCompleted && (
-            (task.startTime && new Date(task.startTime).toDateString() === todayStr) ||
-            (!task.startTime && new Date(task.createdOn).toDateString() === todayStr)
-          );
+          matchesView = !task.isCompleted && this.isTaskForToday(task, now);
         } else if (this.activeView === 'upcoming') {
           matchesView = !task.isCompleted && !!task.startTime && new Date(task.startTime) > now;
         } else if (this.activeView === 'completed') {
@@ -338,6 +369,20 @@ export class TasksComponent implements OnInit {
     return this.subcategories.filter(s => s.categoryId === Number(categoryId));
   }
 
+  onTaskCategoryChange(categoryId: number): void {
+    const selectedSubtype = this.subcategories.find(subtype => subtype.id === this.newTask.taskSubtypeId);
+    if (selectedSubtype && selectedSubtype.categoryId !== Number(categoryId)) {
+      this.newTask.taskSubtypeId = null;
+    }
+  }
+
+  private isTaskForToday(task: Task, today: Date): boolean {
+    const todayKey = today.toDateString();
+    const relevantDate = task.startTime || task.createdOn;
+    const date = new Date(relevantDate);
+    return !Number.isNaN(date.getTime()) && date.toDateString() === todayKey;
+  }
+
   async toggleComplete(task: Task) {
     const previousState = !!task.isCompleted;
     task.isCompleted = !previousState;
@@ -353,6 +398,7 @@ export class TasksComponent implements OnInit {
   }
 
   openTaskForm(task?: Task) {
+    this.taskDialogReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (task) {
       this.editingTask = { ...task };
       this.newTask = {
@@ -368,12 +414,16 @@ export class TasksComponent implements OnInit {
       }
     }
     this.showTaskForm = true;
+    setTimeout(() => document.querySelector<HTMLElement>('[data-task-dialog] input:not([disabled])')?.focus(), 0);
   }
 
   closeTaskForm() {
     this.showTaskForm = false;
     this.editingTask = null;
     this.newTask = this.getEmptyTaskForm();
+    const returnFocus = this.taskDialogReturnFocus;
+    this.taskDialogReturnFocus = null;
+    setTimeout(() => returnFocus?.focus(), 0);
   }
 
   async saveTask() {
@@ -387,13 +437,36 @@ export class TasksComponent implements OnInit {
       return;
     }
 
+    const startTimeInput = String(this.newTask.startTime || '');
+    const endTimeInput = String(this.newTask.endTime || '');
+    const startTime = localDateTimeToIso(startTimeInput);
+    const endTime = localDateTimeToIso(endTimeInput);
+    if ((startTimeInput && !startTime) || (endTimeInput && !endTime)) {
+      this.toastService.warning('Please enter valid start and end times.');
+      return;
+    }
+    if (startTime && endTime && new Date(startTime) >= new Date(endTime)) {
+      this.toastService.warning('End time must be after start time.');
+      return;
+    }
+
+    const formData: Partial<Task> = {
+      title: this.newTask.title?.trim(),
+      description: this.newTask.description?.trim() || null,
+      taskCategoryId: Number(this.newTask.taskCategoryId),
+      taskSubtypeId: this.newTask.taskSubtypeId ?? null,
+      priority: this.newTask.priority ?? null,
+      startTime,
+      endTime
+    };
+
     try {
       const isEditing = !!this.editingTask;
       let response: unknown;
       if (this.editingTask) {
-        response = await this.taskService.update(this.editingTask.taskId, this.newTask);
+        response = await this.taskService.updatePartial(this.editingTask.taskId, formData);
       } else {
-        response = await this.taskService.create(this.newTask);
+        response = await this.taskService.create(formData);
       }
       await this.loadTasks();
       this.closeTaskForm();
@@ -460,13 +533,7 @@ export class TasksComponent implements OnInit {
   }
 
   private toDateTimeLocalValue(value: string | Date | null | undefined): string {
-    if (!value) return '';
-
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-
-    const pad = (part: number) => part.toString().padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return formatDateTimeLocalValue(value);
   }
 
   Object = Object;

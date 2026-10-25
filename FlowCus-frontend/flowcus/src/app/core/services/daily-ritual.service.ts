@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { AuthService } from './auth.service';
+import { localDateKey } from '../utils/local-date-time';
 
 @Injectable({
   providedIn: 'root'
@@ -14,18 +16,18 @@ export class DailyRitualService {
   private weeklyReviewModalSubject = new BehaviorSubject<boolean>(false);
   public weeklyReviewModal$: Observable<boolean> = this.weeklyReviewModalSubject.asObservable();
 
-  constructor() {}
+  constructor(private authService: AuthService) {}
 
-  public getTodayKey(): string {
-    return new Date().toISOString().split('T')[0];
+  public getTodayKey(date = new Date()): string {
+    return localDateKey(date);
   }
 
   public isMorningKickoffCompletedToday(): boolean {
-    return localStorage.getItem(`flowcus_kickoff_${this.getTodayKey()}`) === 'true';
+    return this.getStorageValue('kickoff') === 'true';
   }
 
   public isEveningShutdownCompletedToday(): boolean {
-    return localStorage.getItem(`flowcus_shutdown_${this.getTodayKey()}`) === 'true';
+    return this.getStorageValue('shutdown') === 'true';
   }
 
   public openMorningKickoff(): void {
@@ -37,7 +39,7 @@ export class DailyRitualService {
   }
 
   public completeMorningKickoff(): void {
-    localStorage.setItem(`flowcus_kickoff_${this.getTodayKey()}`, 'true');
+    this.setStorageValue('kickoff');
     this.closeMorningKickoff();
   }
 
@@ -50,7 +52,7 @@ export class DailyRitualService {
   }
 
   public completeEveningShutdown(): void {
-    localStorage.setItem(`flowcus_shutdown_${this.getTodayKey()}`, 'true');
+    this.setStorageValue('shutdown');
     this.closeEveningShutdown();
   }
 
@@ -60,5 +62,26 @@ export class DailyRitualService {
 
   public closeWeeklyReview(): void {
     this.weeklyReviewModalSubject.next(false);
+  }
+
+  private getStorageKey(ritual: 'kickoff' | 'shutdown'): string {
+    const userId = this.authService.user?.id ?? 'anonymous';
+    return `flowcus_${ritual}_${userId}_${this.getTodayKey()}`;
+  }
+
+  private getStorageValue(ritual: 'kickoff' | 'shutdown'): string | null {
+    try {
+      return typeof localStorage === 'undefined' ? null : localStorage.getItem(this.getStorageKey(ritual));
+    } catch {
+      return null;
+    }
+  }
+
+  private setStorageValue(ritual: 'kickoff' | 'shutdown'): void {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(this.getStorageKey(ritual), 'true');
+    } catch {
+      // Ritual state is a convenience; storage restrictions must not block the workflow.
+    }
   }
 }

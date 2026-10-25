@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ErrorHandlingService } from './error-handling.service';
 
@@ -9,11 +10,18 @@ import { ErrorHandlingService } from './error-handling.service';
 })
 export class ApiService {
   private axiosInstance: AxiosInstance;
+  private csrfToken: string | null = null;
+  private sessionExpiredSubject = new Subject<void>();
+  readonly sessionExpired$ = this.sessionExpiredSubject.asObservable();
 
   constructor(
     private errorHandler: ErrorHandlingService,
     private router: Router
   ) {
+    // Remove JWTs left by earlier releases; browser auth now uses the HttpOnly cookie.
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('auth_token');
+    }
     this.axiosInstance = axios.create({
       baseURL: environment.apiUrl,
       timeout: 30000,
@@ -25,13 +33,26 @@ export class ApiService {
     });
 
     this.axiosInstance.interceptors.request.use((config) => {
-      const token = this.getStoredToken();
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      const method = config.method?.toUpperCase();
+      const isUnsafeMethod = method && !['GET', 'HEAD', 'OPTIONS'].includes(method);
+      const isLoginRequest = (config.url || '').includes('auth/login');
+      if (isLoginRequest) {
+        config.headers['X-Auth-Mode'] = 'cookie';
+      }
+      if (isUnsafeMethod && !isLoginRequest) {
+        const csrfToken = this.csrfToken || this.getCsrfCookie();
+        if (csrfToken) {
+          config.headers['X-CSRF-Token'] = csrfToken;
+        }
       }
 
       // Inject client timezone offset for backend date/time alignment
       if (typeof window !== 'undefined') {
+        const timezoneId = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (timezoneId) {
+          config.headers['X-Timezone-Id'] = timezoneId;
+        }
+        // Keep the offset for older servers and as a fallback for invalid/missing IANA IDs.
         config.headers['X-Timezone-Offset'] = new Date().getTimezoneOffset().toString();
       }
 
@@ -45,7 +66,7 @@ export class ApiService {
         if (error.response?.status === 401) {
           const requestUrl = error.config?.url || '';
           if (!requestUrl.includes('auth/login')) {
-            this.clearAuthToken();
+            this.sessionExpiredSubject.next();
             this.router.navigate(['/login']);
           }
         }
@@ -86,23 +107,26 @@ export class ApiService {
     return response.data;
   }
 
-  setAuthToken(token: string): void {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('auth_token', token);
-    }
+  setCsrfToken(token: string | null | undefined): void {
+    this.csrfToken = token || null;
   }
 
-  clearAuthToken(): void {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('auth_token');
-    }
+  clearSession(): void {
+    this.csrfToken = null;
   }
 
-  private getStoredToken(): string | null {
-    if (typeof localStorage === 'undefined') {
-      return null;
-    }
+  private getCsrfCookie(): string | null {
+    if (typeof document === 'undefined') return null;
 
-    return localStorage.getItem('auth_token');
+    const cookie = document.cookie
+      .split('; ')
+      .find(value => value.startsWith('XSRF-TOKEN='));
+    if (!cookie) return null;
+
+    try {
+      return decodeURIComponent(cookie.substring('XSRF-TOKEN='.length));
+    } catch {
+      return cookie.substring('XSRF-TOKEN='.length);
+    }
   }
 }

@@ -1,6 +1,11 @@
 /* You can add global styles to this file, and also import other style files */
 @import "tailwindcss";
 
+@theme {
+  /* Keep the existing slate utility names while meeting readable body-text contrast on white. */
+  --color-slate-400: #64748b;
+}
+
 /* Custom global styles */
 @layer base {
   html, body {
@@ -21,11 +26,11 @@
   /* Routed components participate properly in the flex layout */
   app-main-layout,
   app-dashboard,
-  app-task,
-  app-timetable,
+  app-tasks,
+  app-timetables,
   app-task-types,
   app-user-management,
-  app-user,
+  app-user-profile,
   app-login {
     display: flex;
     flex-direction: column;
@@ -33,6 +38,25 @@
     min-height: 0;
     width: 100%;
     height: 100%;
+  }
+
+  :focus-visible {
+    outline: 2px solid #0369a1 !important;
+    outline-offset: 2px !important;
+  }
+
+  @media (pointer: coarse) {
+    button,
+    [role='button'] {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    input,
+    select,
+    textarea {
+      min-height: 44px;
+    }
   }
 
   /* Custom subtle scrollbars for internal panes */

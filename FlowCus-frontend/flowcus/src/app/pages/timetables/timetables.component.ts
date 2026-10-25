@@ -14,6 +14,7 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { TaskService } from '../../core/services/task.service';
 import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
 import { Task } from '../../core/models/task.model';
+import { ActiveBlockService } from '../../core/services/active-block.service';
 
 interface TimetableItemDetail extends TimetableItem {
   categoryName?: string;
@@ -53,6 +54,7 @@ export class TimetablesComponent implements OnInit {
     taskCategoryId: 0,
     taskSubtypeId: null as number | null,
     dayOfWeek: 0,
+    specificDate: '',
     startTime: '',
     endTime: ''
   };
@@ -63,11 +65,13 @@ export class TimetablesComponent implements OnInit {
 
   loading = false;
   errorMessage = '';
+  loadErrorMessage = '';
 
   windowWidth: number = 1024;
   activeMobileDayIndex: number = new Date().getDay();
   tasks: Task[] = [];
   expandedBlockId: number | null = null;
+  private modalReturnFocus: HTMLElement | null = null;
 
   constructor(
     @Inject(PLATFORM_ID) private platformId: Object,
@@ -78,6 +82,7 @@ export class TimetablesComponent implements OnInit {
     private toastService: ToastService,
     private confirmService: ConfirmService,
     private taskService: TaskService,
+    private activeBlockService: ActiveBlockService,
     public soundService: SoundFeedbackService
   ) {
     if (isPlatformBrowser(this.platformId) && typeof window !== 'undefined') {
@@ -177,6 +182,24 @@ export class TimetablesComponent implements OnInit {
       return;
     }
 
+    if (this.showItemForm || this.showTemplateModal || this.showTimetableForm) {
+      if (event.key === 'Tab') {
+        const dialog = document.querySelector<HTMLElement>('[data-timetable-dialog]');
+        const focusable = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )) : [];
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) {
+          event.preventDefault(); first.focus();
+        }
+      }
+      return;
+    }
+
     if (isInput) return;
 
     if (event.key.toLowerCase() === 'b' && this.selectedTimetable) {
@@ -223,6 +246,7 @@ export class TimetablesComponent implements OnInit {
   async loadTimetables(): Promise<void> {
     try {
       this.loading = true;
+      this.loadErrorMessage = '';
       this.timetables = await this.timetableService.getAll();
       if (this.timetables.length > 0 && !this.selectedTimetable) {
         const active = this.timetables.find(t => t.isActive) || this.timetables[0];
@@ -230,7 +254,7 @@ export class TimetablesComponent implements OnInit {
       }
     } catch (err: unknown) {
       const error = err as Error;
-      this.errorMessage = 'Failed to load timetables';
+      this.loadErrorMessage = 'We could not load your schedules. Check your connection and try again.';
       console.error('Error loading timetables:', error);
     } finally {
       this.loading = false;
@@ -279,6 +303,7 @@ export class TimetablesComponent implements OnInit {
 
   // Timetable CRUD
   openTimetableForm(timetable?: Timetable): void {
+    this.rememberModalFocus();
     if (timetable) {
       this.editingTimetable = timetable;
       this.timetableForm = { name: timetable.name, isActive: timetable.isActive };
@@ -287,6 +312,7 @@ export class TimetablesComponent implements OnInit {
       this.timetableForm = { name: '', isActive: false };
     }
     this.showTimetableForm = true;
+    this.focusTimetableModal();
   }
 
   async saveTimetable(): Promise<void> {
@@ -314,6 +340,7 @@ export class TimetablesComponent implements OnInit {
       }
 
       await this.loadTimetables();
+      await this.activeBlockService.refresh();
       this.closeTimetableForm();
       this.toastService.successFrom(response, isEditing ? 'Timetable updated successfully.' : 'Timetable created successfully.');
     } catch (err: unknown) {
@@ -335,6 +362,7 @@ export class TimetablesComponent implements OnInit {
     try {
       const response = await this.timetableService.delete(id);
       await this.loadTimetables();
+      await this.activeBlockService.refresh();
       if (this.selectedTimetable?.id === id) {
         this.selectedTimetable = null;
         this.timetableItems = [];
@@ -351,6 +379,7 @@ export class TimetablesComponent implements OnInit {
     try {
       const response = await this.timetableService.activate(id);
       await this.loadTimetables();
+      await this.activeBlockService.refresh();
       this.toastService.successFrom(response, 'Timetable activated successfully.');
     } catch (err: unknown) {
       const error = err as Error;
@@ -364,15 +393,19 @@ export class TimetablesComponent implements OnInit {
     this.editingTimetable = null;
     this.timetableForm = { name: '', isActive: false };
     this.errorMessage = '';
+    this.restoreModalFocus();
   }
 
   // Routine Templates
   openTemplateModal(): void {
+    this.rememberModalFocus();
     this.showTemplateModal = true;
+    this.focusTimetableModal();
   }
 
   closeTemplateModal(): void {
     this.showTemplateModal = false;
+    this.restoreModalFocus();
   }
 
   async applyRoutineTemplate(templateName: string): Promise<void> {
@@ -383,6 +416,7 @@ export class TimetablesComponent implements OnInit {
       this.closeTemplateModal();
       this.toastService.success(res?.message || `Applied ${res?.name} template!`);
       await this.loadTimetables();
+      await this.activeBlockService.refresh();
       if (res?.timetableId) {
         const newlyCreated = this.timetables.find(t => t.id === res.timetableId);
         if (newlyCreated) {
@@ -397,12 +431,13 @@ export class TimetablesComponent implements OnInit {
 
   async shiftToday(minutes: number): Promise<void> {
     if (!this.selectedTimetable) {
-      this.toastService.warning('Please select an active timetable first.');
+      this.toastService.warning('Select a timetable before shifting its blocks.');
       return;
     }
 
     try {
-      const res = await this.timetableService.shiftToday(minutes, this.activeMobileDayIndex);
+      const res = await this.timetableService.shiftToday(minutes, this.activeMobileDayIndex, this.selectedTimetable.id);
+      await this.activeBlockService.refresh();
       this.toastService.success(res?.message || `Shifted schedule by +${minutes}m`);
       if (this.selectedTimetable) {
         await this.loadTimetableItems(this.selectedTimetable.id);
@@ -414,6 +449,7 @@ export class TimetablesComponent implements OnInit {
 
   // Timetable Item CRUD
   openItemForm(item?: TimetableItemDetail, defaultDay?: number): void {
+    this.rememberModalFocus();
     if (!this.selectedTimetable) return;
 
     if (item) {
@@ -422,6 +458,7 @@ export class TimetablesComponent implements OnInit {
         taskCategoryId: item.taskCategoryId,
         taskSubtypeId: item.taskSubtypeId || null,
         dayOfWeek: item.dayOfWeek,
+        specificDate: this.dateKey(item.specificDate),
         startTime: this.convertTimeStringTo12Hour(item.startTime),
         endTime: this.convertTimeStringTo12Hour(item.endTime)
       };
@@ -431,11 +468,13 @@ export class TimetablesComponent implements OnInit {
         taskCategoryId: 0,
         taskSubtypeId: null,
         dayOfWeek: defaultDay !== undefined ? defaultDay : (this.activeMobileDayIndex ?? 0),
+        specificDate: '',
         startTime: '',
         endTime: ''
       };
     }
     this.showItemForm = true;
+    this.focusTimetableModal();
   }
 
   async saveItem(): Promise<void> {
@@ -463,8 +502,15 @@ export class TimetablesComponent implements OnInit {
       return;
     }
 
-    // Check for overlapping time slots
-    if (this.hasOverlap(this.itemForm.dayOfWeek, startTime24, endTime24, this.editingItem?.id)) {
+    const specificDate = this.dateKey(this.itemForm.specificDate) || null;
+    const dayOfWeek = specificDate
+      ? this.dayOfWeekForDate(specificDate)
+      : this.itemForm.dayOfWeek;
+
+    // A one-off block conflicts with recurring blocks on that weekday and
+    // with other one-off blocks on the same date. Recurring blocks conflict
+    // with one-offs on their weekday because they will eventually coincide.
+    if (this.hasOverlap(dayOfWeek, startTime24, endTime24, this.editingItem?.id, specificDate)) {
       this.errorMessage = 'This time slot overlaps with an existing entry';
       this.toastService.warning(this.errorMessage);
       return;
@@ -474,7 +520,8 @@ export class TimetablesComponent implements OnInit {
       timetableId: this.selectedTimetable.id,
       taskCategoryId: this.itemForm.taskCategoryId,
       taskSubtypeId: this.itemForm.taskSubtypeId,
-      dayOfWeek: this.itemForm.dayOfWeek,
+      dayOfWeek,
+      specificDate,
       startTime: startTime24,
       endTime: endTime24
     };
@@ -487,6 +534,7 @@ export class TimetablesComponent implements OnInit {
       } else {
         response = await this.timetableItemService.create(itemData);
       }
+      await this.activeBlockService.refresh();
       await this.loadTimetableItems(this.selectedTimetable.id);
       this.closeItemForm();
       this.toastService.successFrom(response, isEditing ? 'Time block updated successfully.' : 'Time block created successfully.');
@@ -510,6 +558,7 @@ export class TimetablesComponent implements OnInit {
 
     try {
       const response = await this.timetableItemService.delete(id);
+      await this.activeBlockService.refresh();
       await this.loadTimetableItems(this.selectedTimetable.id);
       this.toastService.successFrom(response, 'Time block deleted successfully.');
     } catch (err: unknown) {
@@ -523,25 +572,47 @@ export class TimetablesComponent implements OnInit {
     this.showItemForm = false;
     this.editingItem = null;
     this.errorMessage = '';
+    this.restoreModalFocus();
   }
 
-  hasOverlap(dayOfWeek: number, startTime: string, endTime: string, excludeId?: number): boolean {
+  private rememberModalFocus(): void {
+    if (!this.modalReturnFocus && typeof document !== 'undefined') {
+      this.modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
+  }
+
+  private focusTimetableModal(): void {
+    setTimeout(() => {
+      const dialog = document.querySelector<HTMLElement>('[data-timetable-dialog]');
+      (dialog?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), button:not([disabled])') || dialog)?.focus();
+    }, 0);
+  }
+
+  private restoreModalFocus(): void {
+    if (this.showItemForm || this.showTemplateModal || this.showTimetableForm) return;
+    const target = this.modalReturnFocus;
+    this.modalReturnFocus = null;
+    setTimeout(() => target?.focus(), 0);
+  }
+
+  hasOverlap(dayOfWeek: number, startTime: string, endTime: string, excludeId?: number, specificDate: string | null = null): boolean {
     const startMinutes = this.timeToMinutes(startTime);
     const endMinutes = this.timeToMinutes(endTime);
 
     const itemsOnDay = this.timetableItems.filter(
-      item => item.dayOfWeek === dayOfWeek && item.id !== excludeId
+      item => item.id !== excludeId &&
+        (specificDate
+          ? (item.specificDate
+              ? this.dateKey(item.specificDate) === specificDate
+              : item.dayOfWeek === dayOfWeek)
+          : item.dayOfWeek === dayOfWeek)
     );
 
     for (const item of itemsOnDay) {
       const existingStart = this.timeToMinutes(item.startTime);
       const existingEnd = this.timeToMinutes(item.endTime);
 
-      if (
-        (startMinutes >= existingStart && startMinutes < existingEnd) ||
-        (endMinutes > existingStart && endMinutes <= existingEnd) ||
-        (startMinutes <= existingStart && endMinutes >= existingEnd)
-      ) {
+      if (startMinutes < existingEnd && endMinutes > existingStart) {
         return true;
       }
     }
@@ -550,7 +621,51 @@ export class TimetablesComponent implements OnInit {
 
   // Calendar View Helpers
   getItemsForDay(dayOfWeek: number): TimetableItemDetail[] {
-    return this.timetableItems.filter(item => item.dayOfWeek === dayOfWeek);
+    return this.timetableItems.filter(item => !item.specificDate && item.dayOfWeek === dayOfWeek);
+  }
+
+  getOneOffItems(): TimetableItemDetail[] {
+    return this.timetableItems
+      .filter(item => !!this.dateKey(item.specificDate))
+      .sort((a, b) => {
+        const dateOrder = this.dateKey(a.specificDate).localeCompare(this.dateKey(b.specificDate));
+        return dateOrder || a.startTime.localeCompare(b.startTime);
+      });
+  }
+
+  setSpecificDate(value: string): void {
+    this.itemForm.specificDate = this.dateKey(value);
+    if (this.itemForm.specificDate) {
+      this.itemForm.dayOfWeek = this.dayOfWeekForDate(this.itemForm.specificDate);
+    }
+  }
+
+  formatSpecificDate(value: string | null | undefined): string {
+    const localDate = this.localDateFromKey(this.dateKey(value));
+    return localDate
+      ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(localDate)
+      : '';
+  }
+
+  private dateKey(value: string | null | undefined): string {
+    if (!value) return '';
+    const key = value.slice(0, 10);
+    return this.localDateFromKey(key) ? key : '';
+  }
+
+  private localDateFromKey(value: string): Date | null {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const [, year, month, day] = match;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) {
+      return null;
+    }
+    return date;
+  }
+
+  private dayOfWeekForDate(value: string): number {
+    return this.localDateFromKey(value)?.getDay() ?? this.itemForm.dayOfWeek;
   }
 
   getDaySummary(dayOfWeek: number): DaySummary {
@@ -584,17 +699,6 @@ export class TimetablesComponent implements OnInit {
   getCategoryColor(categoryId: number): string {
     const category = this.taskCategories.find(c => c.id === categoryId);
     return category?.colorHex || '#6B7280';
-  }
-
-  getItemPosition(item: TimetableItemDetail): { top: number; height: number } {
-    const startMinutes = this.timeToMinutes(item.startTime);
-    const endMinutes = this.timeToMinutes(item.endTime);
-    const duration = endMinutes - startMinutes;
-
-    return {
-      top: (startMinutes / 30) * 40, // 40px per 30-minute block
-      height: (duration / 30) * 40
-    };
   }
 
   deselectTimetable(): void {

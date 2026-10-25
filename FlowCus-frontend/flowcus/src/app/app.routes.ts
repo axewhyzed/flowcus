@@ -47,9 +47,13 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/user-management/user-management.component').then(m => m.UserManagementComponent), 
         canActivate: [AdminGuard] 
       },
+      {
+        path: 'not-found',
+        loadComponent: () => import('./shared/components/not-found/not-found.component').then(m => m.NotFoundComponent)
+      },
     ]
   },
 
   // 3. Wildcard
-  { path: '**', redirectTo: '/dashboard' }
+  { path: '**', redirectTo: '/not-found' }
 ];

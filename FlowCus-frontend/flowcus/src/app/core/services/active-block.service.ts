@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { TimetableItem } from '../models/timetable-item.model';
 import { TaskCategory } from '../models/task-category.model';
 import { TaskSubtype } from '../models/task-subtype.model';
+import { localDateKey } from '../utils/local-date-time';
 
 export interface ActiveBlockInfo {
   id: number;
@@ -58,6 +59,7 @@ export class ActiveBlockService implements OnDestroy {
   private categories: TaskCategory[] = [];
   private subtypes: TaskSubtype[] = [];
   private todayItems: TimetableItem[] = [];
+  private loadVersion = 0;
 
   constructor(
     private timetableService: TimetableService,
@@ -74,6 +76,7 @@ export class ActiveBlockService implements OnDestroy {
       if (isAuth) {
         this.loadData();
       } else {
+        this.loadVersion++;
         this.categories = [];
         this.subtypes = [];
         this.todayItems = [];
@@ -92,37 +95,56 @@ export class ActiveBlockService implements OnDestroy {
 
   public async loadData(): Promise<void> {
     if (!this.authService.isAuthenticated) {
+      this.loadVersion++;
       return;
     }
 
+    const version = ++this.loadVersion;
     try {
       const [cats, subs] = await Promise.all([
-        this.categoryService.getAll().catch(() => []),
-        this.subtypeService.getAll().catch(() => [])
+        this.categoryService.getAll(),
+        this.subtypeService.getAll()
       ]);
+      if (version !== this.loadVersion) return;
       this.categories = (cats as TaskCategory[]) || [];
       this.subtypes = (subs as TaskSubtype[]) || [];
     } catch {
+      if (version !== this.loadVersion) return;
       this.categories = [];
       this.subtypes = [];
     }
-    await this.loadActiveTimetableItems();
+    await this.loadActiveTimetableItems(version);
   }
 
-  private async loadActiveTimetableItems(): Promise<void> {
+  /** Reload schedules after timetable, item, or shift operations. */
+  public refresh(): Promise<void> {
+    return this.loadData();
+  }
+
+  private async loadActiveTimetableItems(version: number): Promise<void> {
     try {
       const timetables = await this.timetableService.getAll();
-      const active = timetables?.find(t => t.isActive) || timetables?.[0];
+      const active = timetables?.find(t => t.isActive && !t.isDeleted);
       if (active) {
         const items = await this.timetableItemService.getItems(active.id);
-        const todayDayIndex = new Date().getDay();
-        this.todayItems = (items || []).filter(i => !i.isDeleted && i.dayOfWeek === todayDayIndex);
+        if (version !== this.loadVersion) return;
+        const now = new Date();
+        const todayDayIndex = now.getDay();
+        const today = localDateKey(now);
+        this.todayItems = (items || []).filter(item => {
+          if (item.isDeleted) return false;
+          if (item.specificDate) return item.specificDate.slice(0, 10) === today;
+          return item.dayOfWeek === todayDayIndex;
+        });
       } else {
+        if (version !== this.loadVersion) return;
         this.todayItems = [];
       }
     } catch {
+      if (version !== this.loadVersion) return;
       this.todayItems = [];
     }
+    if (version !== this.loadVersion) return;
     this.computeActiveBlock();
   }
 

@@ -1,8 +1,10 @@
-<div class="flex h-full w-full bg-slate-50 flex-col md:flex-row overflow-hidden text-slate-900">
+<div class="flex h-full w-full bg-slate-50 flex-col xl:flex-row overflow-hidden text-slate-900"
+  [attr.inert]="showItemForm || showTemplateModal || showTimetableForm ? '' : null"
+  [attr.aria-hidden]="showItemForm || showTemplateModal || showTimetableForm ? 'true' : null">
   
   <!-- Left Sidebar (Timetables list) -->
   <div class="transition-all duration-300 bg-white border-b md:border-b-0 md:border-r border-slate-200/80 flex flex-col shrink-0"
-    [ngClass]="selectedTimetable ? 'w-full md:w-72 lg:w-80 h-auto md:h-full' : 'w-full max-w-2xl mx-auto h-full'">
+    [ngClass]="selectedTimetable ? 'w-full xl:w-72 2xl:w-80 h-auto xl:h-full' : 'w-full max-w-2xl mx-auto h-full'">
     
     <div class="p-4 md:px-5 md:py-4 border-b border-slate-100 bg-white sticky top-0 z-10 flex items-center justify-between gap-2">
       <div>
@@ -15,23 +17,30 @@
           <i class="fa-solid fa-shapes text-slate-500 text-[11px]"></i>
           <span>Templates</span>
         </button>
-        <button (click)="openTimetableForm()"
+        <button (click)="openTimetableForm()" aria-label="New timetable"
           class="h-8 px-3 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors flex items-center gap-1.5 shadow-2xs">
           <i class="fa-solid fa-plus text-[10px]"></i>
-          <span class="hidden md:inline">New</span>
+          <span class="hidden xl:inline">New</span>
         </button>
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-3.5 space-y-2" [class.hidden]="selectedTimetable && (windowWidth < 768)">
+    <div class="flex-1 overflow-y-auto p-3.5 space-y-2" [class.hidden]="selectedTimetable && (windowWidth < 1280)">
       @if (loading) {
-        <div class="py-8 flex flex-col items-center justify-center text-slate-400 gap-2">
+        <div class="py-8 flex flex-col items-center justify-center text-slate-600 gap-2" role="status" aria-live="polite">
           <i class="fa-solid fa-circle-notch fa-spin text-base"></i>
           <span class="text-xs">Loading schedules...</span>
         </div>
       }
 
-      @if (!loading && timetables.length === 0) {
+      @if (!loading && loadErrorMessage) {
+        <div class="mx-1 rounded-md border border-red-200 bg-red-50 p-3 text-center" role="alert">
+          <p class="text-xs font-medium text-red-800">{{ loadErrorMessage }}</p>
+          <button type="button" (click)="loadTimetables()" class="mt-2 min-h-11 px-3 rounded-md bg-white border border-red-200 text-xs font-medium text-red-800">Try again</button>
+        </div>
+      }
+
+      @if (!loading && !loadErrorMessage && timetables.length === 0) {
         <div class="text-center py-12 px-4">
           <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
             <i class="fa-regular fa-calendar text-sm"></i>
@@ -50,13 +59,14 @@
       }
 
       @for (timetable of timetables; track timetable.id) {
-        <div class="bg-white border rounded-lg p-3 hover:border-slate-300 transition-all cursor-pointer group relative"
+        <div class="bg-white border rounded-lg p-3 hover:border-slate-300 transition-all group relative"
           [ngClass]="selectedTimetable?.id === timetable.id ? 'border-slate-900 shadow-2xs bg-slate-50/40 ring-1 ring-slate-900/10' : 'border-slate-200/80'"
-          (click)="selectTimetable(timetable)">
+          role="group" [attr.aria-label]="'Timetable ' + timetable.name">
           
           <div class="flex items-start justify-between mb-1.5">
             <div class="flex-1 min-w-0 pr-2">
-              <h3 class="text-xs font-semibold text-slate-900 truncate group-hover:text-slate-700 transition-colors">{{ timetable.name }}</h3>
+              <button type="button" (click)="selectTimetable(timetable)" [attr.aria-pressed]="selectedTimetable?.id === timetable.id"
+                class="min-h-11 text-left text-xs font-semibold text-slate-900 truncate group-hover:text-slate-700 transition-colors">{{ timetable.name }}</button>
               <p class="text-[10px] text-slate-400 font-mono mt-0.5">{{ timetable.createdAt | date:'mediumDate' }}</p>
             </div>
             @if (timetable.isActive) {
@@ -89,13 +99,13 @@
 
   <!-- Right Detail View (Weekly Calendar) -->
   @if (selectedTimetable) {
-    <div class="flex-1 flex flex-col bg-slate-50 overflow-hidden h-full">
+    <div class="flex-1 min-w-0 flex flex-col bg-slate-50 overflow-hidden h-full">
       
       <!-- Top Action Bar -->
       <div class="bg-white border-b border-slate-200/80 px-4 py-3 md:px-6 md:py-3.5 flex flex-col gap-3 shrink-0 shadow-2xs z-10">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div class="flex items-center gap-3 overflow-hidden">
-            <button (click)="deselectTimetable()" class="md:hidden h-8 w-8 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center">
+            <button (click)="deselectTimetable()" aria-label="Back to timetables" class="xl:hidden h-11 w-11 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center">
               <i class="fa-solid fa-arrow-left text-xs"></i>
             </button>
             <div>
@@ -115,29 +125,29 @@
             <!-- Schedule Shift Controls -->
             <div class="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-[11px] text-slate-500">
               <span class="font-medium text-slate-600 mr-0.5"><i class="fa-solid fa-clock-rotate-left mr-1 text-[10px]"></i>Shift:</span>
-              <button (click)="shiftToday(15)" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 hover:text-slate-900 font-mono text-[10px] text-slate-700 border border-slate-200 transition-colors">+15m</button>
-              <button (click)="shiftToday(30)" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 hover:text-slate-900 font-mono text-[10px] text-slate-700 border border-slate-200 transition-colors">+30m</button>
-              <button (click)="shiftToday(60)" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 hover:text-slate-900 font-mono text-[10px] text-slate-700 border border-slate-200 transition-colors">+1h</button>
+              <button (click)="shiftToday(15)" [disabled]="!selectedTimetable" aria-label="Shift selected timetable by 15 minutes" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 hover:text-slate-900 font-mono text-[10px] text-slate-700 border border-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">+15m</button>
+              <button (click)="shiftToday(30)" [disabled]="!selectedTimetable" aria-label="Shift selected timetable by 30 minutes" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 hover:text-slate-900 font-mono text-[10px] text-slate-700 border border-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">+30m</button>
+              <button (click)="shiftToday(60)" [disabled]="!selectedTimetable" aria-label="Shift selected timetable by 60 minutes" class="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 hover:text-slate-900 font-mono text-[10px] text-slate-700 border border-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">+1h</button>
             </div>
 
             <button (click)="openTemplateModal()"
               title="Apply routine archetype template (T)"
               class="h-8 px-2.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-md transition-colors flex items-center gap-1.5 shadow-2xs">
               <i class="fa-solid fa-shapes text-slate-500 text-[11px]"></i>
-              <span class="hidden sm:inline">Routines</span>
+              <span class="hidden sm:inline">Routines</span><span class="sr-only">Apply routine template</span>
             </button>
 
             <button (click)="openItemForm()"
               title="Add time block (B)"
               class="h-8 px-3 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors flex items-center gap-1.5 shadow-2xs">
               <i class="fa-solid fa-plus text-[10px]"></i>
-              <span class="hidden sm:inline">Add Block</span>
+              <span class="hidden sm:inline">Add Block</span><span class="sr-only">Add time block</span>
             </button>
           </div>
         </div>
 
         <!-- Mobile Day Selector -->
-        <div class="md:hidden flex overflow-x-auto gap-1.5 pb-1 scrollbar-hide -mx-4 px-4">
+        <div class="xl:hidden flex overflow-x-auto gap-1.5 pb-1 scrollbar-hide -mx-4 px-4">
           @for (day of daysOfWeek; track day; let i = $index) {
             <button (click)="setActiveMobileDay(i)"
               class="px-3 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors border"
@@ -154,7 +164,7 @@
       <div class="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col">
         
         <!-- Desktop 7-Column Grid -->
-        <div class="hidden md:grid grid-cols-7 gap-2.5 w-full flex-1 min-h-[480px]">
+        <div class="hidden xl:grid grid-cols-7 gap-2.5 w-full flex-1 min-h-[480px]">
           @for (day of daysOfWeek; track day; let dayIndex = $index) {
             <div class="min-w-0 flex-1 h-full flex flex-col">
               <div class="bg-white rounded-lg border border-slate-200/80 shadow-2xs overflow-hidden h-full flex flex-col flex-1">
@@ -173,14 +183,15 @@
 
                 <div class="p-2 space-y-1.5 flex-1 bg-white min-h-[420px] flex flex-col">
                   @for (item of getItemsForDay(dayIndex); track item.id) {
-                    <div class="rounded-md p-2 border border-slate-200/70 border-l-[3px] cursor-pointer hover:border-slate-300 hover:shadow-2xs transition-all group bg-white"
+                    <div class="rounded-md p-2 border border-slate-200/70 border-l-[3px] hover:border-slate-300 hover:shadow-2xs transition-all group bg-white"
                       [style.border-left-color]="getCategoryColor(item.taskCategoryId)"
-                      (click)="openItemForm(item)">
+                      role="group" [attr.aria-label]="item.categoryName + ' timetable block'">
                       
                       <div class="flex justify-between items-start gap-1">
-                        <span class="font-medium text-[11px] text-slate-900 line-clamp-1 leading-snug">{{ item.categoryName }}</span>
-                        <button (click)="deleteItem(item.id); $event.stopPropagation()"
-                          class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 -mt-0.5 -mr-0.5 p-0.5 transition-opacity">
+                        <button type="button" (click)="openItemForm(item)" class="min-h-11 text-left font-medium text-[11px] text-slate-900 line-clamp-1 leading-snug" [attr.aria-label]="'Edit ' + item.categoryName + ' block'">{{ item.categoryName }}</button>
+                        <button type="button" (click)="deleteItem(item.id); $event.stopPropagation()"
+                          [attr.aria-label]="'Delete ' + item.categoryName + ' block'"
+                          class="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-500 -mt-0.5 -mr-0.5 p-0.5 min-h-11 min-w-11 transition-opacity">
                           <i class="fa-solid fa-xmark text-[10px]"></i>
                         </button>
                       </div>
@@ -197,7 +208,7 @@
                       <!-- Embedded Tasks in this Block -->
                       @if (getTasksForCategory(item.taskCategoryId).length > 0) {
                         <div class="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between" (click)="$event.stopPropagation()">
-                          <button (click)="toggleBlockTasks(item.id, $event)"
+                          <button (click)="toggleBlockTasks(item.id, $event)" [attr.aria-label]="'Toggle tasks for ' + item.categoryName + ' block'" [attr.aria-expanded]="expandedBlockId === item.id"
                             class="text-[9px] px-1.5 py-0.5 rounded bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium flex items-center gap-1 transition-colors">
                             <i class="fa-solid fa-list-check text-[8px] text-slate-500"></i>
                             <span>{{ getTasksForCategory(item.taskCategoryId).length }} tasks</span>
@@ -208,11 +219,11 @@
                           <div class="mt-1.5 space-y-1 bg-slate-50/80 p-2 rounded-md border border-slate-200 text-left" (click)="$event.stopPropagation()">
                             @for (t of getTasksForCategory(item.taskCategoryId); track t.taskId) {
                               <div class="flex items-center gap-1.5 text-[10px] text-slate-800 py-0.5">
-                                <input type="checkbox" [checked]="t.isCompleted" (click)="toggleTaskComplete(t, $event)"
-                                  class="w-3.5 h-3.5 rounded text-slate-900 border-slate-300 focus:ring-0 cursor-pointer shrink-0" />
-                                <span class="truncate flex-1" [ngClass]="t.isCompleted ? 'line-through text-slate-400' : 'text-slate-800'">
+                                <input type="checkbox" [id]="'scheduled-task-' + item.id + '-' + t.taskId" [checked]="t.isCompleted" (click)="toggleTaskComplete(t, $event)"
+                                  class="w-5 h-5 rounded text-slate-900 border-slate-300 focus:ring-0 cursor-pointer shrink-0" />
+                                <label [for]="'scheduled-task-' + item.id + '-' + t.taskId" class="truncate flex-1 min-h-11 flex items-center cursor-pointer" [ngClass]="t.isCompleted ? 'line-through text-slate-600' : 'text-slate-800'">
                                   {{ t.title }}
-                                </span>
+                                </label>
                               </div>
                             }
                           </div>
@@ -234,27 +245,27 @@
         </div>
 
         <!-- Mobile Single Day Card -->
-        <div class="md:hidden flex flex-col gap-3 pb-20">
+        <div class="xl:hidden flex flex-col gap-3 pb-4">
           <div class="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden">
             <div class="bg-slate-50/60 p-3.5 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <h3 class="font-semibold text-slate-900 text-sm">{{ daysOfWeek[activeMobileDayIndex] }}</h3>
                 <p class="text-[11px] text-slate-500 font-mono">Daily Total: {{ minutesToHours(getDaySummary(activeMobileDayIndex).totalMinutes) }}</p>
               </div>
-              <button (click)="openItemForm()" class="h-7 w-7 rounded-md bg-slate-900 text-white flex items-center justify-center text-xs">
+              <button (click)="openItemForm()" aria-label="Add time block" class="h-11 w-11 rounded-md bg-slate-900 text-white flex items-center justify-center text-xs">
                 <i class="fa-solid fa-plus"></i>
               </button>
             </div>
 
             <div class="p-3 space-y-2">
               @for (item of getItemsForDay(activeMobileDayIndex); track item.id) {
-                <div class="flex gap-2.5 relative pl-3.5 cursor-pointer" (click)="openItemForm(item)">
+                <div class="flex gap-2.5 relative pl-3.5">
                   <div class="absolute left-0 top-0 bottom-0 w-[3px] rounded-full"
                        [style.background-color]="getCategoryColor(item.taskCategoryId)"></div>
                   
                   <div class="flex-1 bg-white border border-slate-200 rounded-md p-2.5 shadow-2xs">
                     <div class="flex justify-between items-start mb-1">
-                      <span class="font-medium text-xs text-slate-900">{{ item.categoryName }}</span>
+                      <button type="button" (click)="openItemForm(item)" class="min-h-11 text-left font-medium text-xs text-slate-900" [attr.aria-label]="'Edit ' + item.categoryName + ' block'">{{ item.categoryName }}</button>
                       <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                         {{ convertTimeStringTo12Hour(item.startTime) }} - {{ convertTimeStringTo12Hour(item.endTime) }}
                       </span>
@@ -275,9 +286,9 @@
                         <div class="space-y-1">
                           @for (t of getTasksForCategory(item.taskCategoryId); track t.taskId) {
                             <div class="flex items-center gap-1.5 text-[11px]">
-                              <input type="checkbox" [checked]="t.isCompleted" (click)="toggleTaskComplete(t, $event)"
-                                class="w-3.5 h-3.5 rounded text-slate-900 border-slate-300 focus:ring-0 cursor-pointer" />
-                              <span class="truncate flex-1 text-slate-800" [class.line-through]="t.isCompleted">{{ t.title }}</span>
+                              <input type="checkbox" [id]="'mobile-scheduled-task-' + item.id + '-' + t.taskId" [checked]="t.isCompleted" (click)="toggleTaskComplete(t, $event)"
+                                class="w-5 h-5 rounded text-slate-900 border-slate-300 focus:ring-0 cursor-pointer" />
+                              <label [for]="'mobile-scheduled-task-' + item.id + '-' + t.taskId" class="truncate flex-1 min-h-11 flex items-center cursor-pointer text-slate-800" [class.line-through]="t.isCompleted">{{ t.title }}</label>
                             </div>
                           }
                         </div>
@@ -287,7 +298,7 @@
                       <span class="text-[10px] text-slate-400 font-mono">
                         {{ minutesToHours(timeToMinutes(item.endTime) - timeToMinutes(item.startTime)) }}
                       </span>
-                      <button (click)="deleteItem(item.id); $event.stopPropagation()" class="text-slate-400 hover:text-red-500 p-1">
+                      <button type="button" (click)="deleteItem(item.id)" [attr.aria-label]="'Delete ' + item.categoryName + ' block'" class="text-slate-600 hover:text-red-500 p-1 min-h-11 min-w-11">
                         <i class="fa-regular fa-trash-can text-xs"></i>
                       </button>
                     </div>
@@ -305,6 +316,39 @@
           </div>
         </div>
 
+        @if (getOneOffItems().length > 0) {
+          <section class="mt-4 rounded-lg border border-indigo-200/80 bg-indigo-50/40 p-3 md:p-4" aria-labelledby="one-off-dates-title">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 id="one-off-dates-title" class="text-xs font-semibold text-slate-900">One-off dates</h3>
+                <p class="text-[11px] text-slate-500 mt-0.5">These blocks apply only on their listed date and do not repeat weekly.</p>
+              </div>
+              <span class="text-[10px] font-mono text-slate-500">{{ getOneOffItems().length }} scheduled</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              @for (item of getOneOffItems(); track item.id) {
+                <article class="flex items-stretch gap-2 rounded-md border border-slate-200 bg-white p-2.5 shadow-2xs">
+                  <button type="button" (click)="openItemForm(item)"
+                    class="min-w-0 flex-1 text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                    <span class="block truncate text-xs font-semibold text-slate-900">{{ item.categoryName || 'Scheduled block' }}</span>
+                    @if (item.subtypeName) {
+                      <span class="block truncate text-[10px] text-slate-500 mt-0.5">{{ item.subtypeName }}</span>
+                    }
+                    <span class="block text-[10px] font-medium text-indigo-700 mt-1">{{ formatSpecificDate(item.specificDate) }}</span>
+                    <span class="block text-[10px] font-mono text-slate-500 mt-0.5">
+                      {{ convertTimeStringTo12Hour(item.startTime) }} - {{ convertTimeStringTo12Hour(item.endTime) }}
+                    </span>
+                  </button>
+                  <button type="button" (click)="deleteItem(item.id)" aria-label="Delete one-off block"
+                    class="self-start p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50">
+                    <i class="fa-solid fa-xmark text-xs" aria-hidden="true"></i>
+                  </button>
+                </article>
+              }
+            </div>
+          </section>
+        }
+
       </div>
     </div>
   }
@@ -313,23 +357,23 @@
 <!-- Routine Templates Modal (Zero-Friction One-Click Setup) -->
 @if (showTemplateModal) {
   <div class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center z-50 p-4" (click)="closeTemplateModal()">
-    <div class="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col" (click)="$event.stopPropagation()">
+    <div role="dialog" aria-modal="true" aria-labelledby="routine-template-title" data-timetable-dialog tabindex="-1" class="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col" (click)="$event.stopPropagation()">
       <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
         <div>
           <div class="flex items-center gap-2">
             <div class="w-2 h-2 rounded-full bg-slate-900"></div>
-            <h3 class="text-xs font-semibold text-slate-900 uppercase tracking-wider">Routine Templates</h3>
+            <h3 id="routine-template-title" class="text-xs font-semibold text-slate-900 uppercase tracking-wider">Routine Templates</h3>
           </div>
           <p class="text-[11px] text-slate-400 mt-0.5">Apply a pre-configured 7-day schedule archetype.</p>
         </div>
-        <button (click)="closeTemplateModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors">
+        <button (click)="closeTemplateModal()" aria-label="Close routine templates" class="text-slate-600 hover:text-slate-900 p-1 rounded-md hover:bg-slate-100 transition-colors">
           <i class="fa-solid fa-xmark text-sm"></i>
         </button>
       </div>
 
       <div class="p-5 space-y-2.5 max-h-[70vh] overflow-y-auto">
         <!-- Student -->
-        <div (click)="applyRoutineTemplate('student')"
+        <div role="button" tabindex="0" (click)="applyRoutineTemplate('student')" (keydown.enter)="applyRoutineTemplate('student')" (keydown.space)="applyRoutineTemplate('student'); $event.preventDefault()"
           class="border border-slate-200/80 hover:border-slate-400 hover:bg-slate-50/50 rounded-lg p-3.5 cursor-pointer transition-all flex items-start gap-3 group">
           <div class="w-8 h-8 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center text-xs shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
             <i class="fa-solid fa-graduation-cap"></i>
@@ -344,7 +388,7 @@
         </div>
 
         <!-- Developer -->
-        <div (click)="applyRoutineTemplate('developer')"
+        <div role="button" tabindex="0" (click)="applyRoutineTemplate('developer')" (keydown.enter)="applyRoutineTemplate('developer')" (keydown.space)="applyRoutineTemplate('developer'); $event.preventDefault()"
           class="border border-slate-200/80 hover:border-slate-400 hover:bg-slate-50/50 rounded-lg p-3.5 cursor-pointer transition-all flex items-start gap-3 group">
           <div class="w-8 h-8 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center text-xs shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
             <i class="fa-solid fa-code"></i>
@@ -359,7 +403,7 @@
         </div>
 
         <!-- Freelancer / Creator -->
-        <div (click)="applyRoutineTemplate('freelancer')"
+        <div role="button" tabindex="0" (click)="applyRoutineTemplate('freelancer')" (keydown.enter)="applyRoutineTemplate('freelancer')" (keydown.space)="applyRoutineTemplate('freelancer'); $event.preventDefault()"
           class="border border-slate-200/80 hover:border-slate-400 hover:bg-slate-50/50 rounded-lg p-3.5 cursor-pointer transition-all flex items-start gap-3 group">
           <div class="w-8 h-8 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center text-xs shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
             <i class="fa-solid fa-briefcase"></i>
@@ -374,7 +418,7 @@
         </div>
 
         <!-- Balanced General -->
-        <div (click)="applyRoutineTemplate('general')"
+        <div role="button" tabindex="0" (click)="applyRoutineTemplate('general')" (keydown.enter)="applyRoutineTemplate('general')" (keydown.space)="applyRoutineTemplate('general'); $event.preventDefault()"
           class="border border-slate-200/80 hover:border-slate-400 hover:bg-slate-50/50 rounded-lg p-3.5 cursor-pointer transition-all flex items-start gap-3 group">
           <div class="w-8 h-8 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center text-xs shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
             <i class="fa-solid fa-scale-balanced"></i>
@@ -402,15 +446,15 @@
 <!-- Timetable Form Modal -->
 @if (showTimetableForm) {
   <div class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center z-50 p-4" (click)="closeTimetableForm()">
-    <div class="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-sm overflow-hidden flex flex-col" (click)="$event.stopPropagation()">
+    <div role="dialog" aria-modal="true" aria-labelledby="timetable-form-title" data-timetable-dialog tabindex="-1" class="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-sm overflow-hidden flex flex-col" (click)="$event.stopPropagation()">
       <div class="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
         <div class="flex items-center gap-2">
           <div class="w-2 h-2 rounded-full bg-slate-900"></div>
-          <h3 class="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+          <h3 id="timetable-form-title" class="text-xs font-semibold text-slate-900 uppercase tracking-wider">
             {{ editingTimetable ? 'Edit Timetable' : 'New Timetable' }}
           </h3>
         </div>
-        <button (click)="closeTimetableForm()" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors">
+        <button (click)="closeTimetableForm()" aria-label="Close timetable form" class="text-slate-600 hover:text-slate-900 p-1 rounded-md hover:bg-slate-100 transition-colors">
           <i class="fa-solid fa-xmark text-sm"></i>
         </button>
       </div>
@@ -423,8 +467,8 @@
         }
 
         <div>
-          <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Name *</label>
-          <input type="text" [(ngModel)]="timetableForm.name"
+          <label for="timetable-name" class="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Name *</label>
+          <input id="timetable-name" type="text" [(ngModel)]="timetableForm.name"
             class="w-full h-9 px-3 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors"
             placeholder="e.g., Semester 1 Schedule" />
         </div>
@@ -457,16 +501,16 @@
 <!-- Item Form Modal -->
 @if (showItemForm) {
   <div class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center z-50 p-4" (click)="closeItemForm()">
-    <div class="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col"
+    <div role="dialog" aria-modal="true" aria-labelledby="time-block-form-title" data-timetable-dialog tabindex="-1" class="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col"
       (click)="$event.stopPropagation()">
       <div class="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
         <div class="flex items-center gap-2">
           <div class="w-2 h-2 rounded-full bg-slate-900"></div>
-          <h3 class="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+          <h3 id="time-block-form-title" class="text-xs font-semibold text-slate-900 uppercase tracking-wider">
             {{ editingItem ? 'Edit Time Block' : 'Add Time Block' }}
           </h3>
         </div>
-        <button (click)="closeItemForm()" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition-colors">
+        <button (click)="closeItemForm()" aria-label="Close time block form" class="text-slate-600 hover:text-slate-900 p-1 rounded-md hover:bg-slate-100 transition-colors">
           <i class="fa-solid fa-xmark text-sm"></i>
         </button>
       </div>
@@ -479,18 +523,30 @@
         }
 
         <div>
-          <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Day of Week *</label>
-          <select [(ngModel)]="itemForm.dayOfWeek"
+          <label for="timetable-specific-date" class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Specific date <span class="font-normal normal-case">(optional; otherwise repeats weekly)</span></label>
+          <input id="timetable-specific-date" type="date" [ngModel]="itemForm.specificDate"
+            (ngModelChange)="setSpecificDate($event)"
+            class="w-full h-9 px-3 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors" />
+          @if (itemForm.specificDate) {
+            <p class="text-[10px] text-indigo-700 mt-1">One-off on {{ formatSpecificDate(itemForm.specificDate) }}. Clear the date to make this a weekly block.</p>
+          }
+        </div>
+
+        @if (!itemForm.specificDate) {
+        <div>
+          <label for="timetable-day" class="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Day of Week *</label>
+          <select id="timetable-day" [(ngModel)]="itemForm.dayOfWeek"
             class="w-full h-9 px-3 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors cursor-pointer">
             @for (day of daysOfWeek; track day; let i = $index) {
               <option [ngValue]="i">{{ day }}</option>
             }
           </select>
         </div>
+        }
 
         <div>
-          <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Task Category *</label>
-          <select [(ngModel)]="itemForm.taskCategoryId"
+          <label for="timetable-category" class="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Task Category *</label>
+          <select id="timetable-category" [(ngModel)]="itemForm.taskCategoryId"
             class="w-full h-9 px-3 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors cursor-pointer">
             <option [ngValue]="0">Select a category</option>
             @for (category of taskCategories; track category.id) {
@@ -501,8 +557,8 @@
 
         @if (itemForm.taskCategoryId > 0 && getSubtypesForCategory(itemForm.taskCategoryId).length > 0) {
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Subcategory (Optional)</label>
-            <select [(ngModel)]="itemForm.taskSubtypeId"
+            <label for="timetable-subcategory" class="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Subcategory (Optional)</label>
+            <select id="timetable-subcategory" [(ngModel)]="itemForm.taskSubtypeId"
               class="w-full h-9 px-3 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors cursor-pointer">
               <option [ngValue]="null">None</option>
               @for (subtype of getSubtypesForCategory(itemForm.taskCategoryId); track subtype.id) {
@@ -514,8 +570,8 @@
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Start Time *</label>
-            <select [(ngModel)]="itemForm.startTime"
+            <label for="timetable-start-time" class="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Start Time *</label>
+            <select id="timetable-start-time" [(ngModel)]="itemForm.startTime"
               class="w-full h-9 px-2 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors cursor-pointer font-mono">
               <option value="">Select time</option>
               @for (time of timeSlots; track time) {
@@ -525,8 +581,8 @@
           </div>
 
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">End Time *</label>
-            <select [(ngModel)]="itemForm.endTime"
+            <label for="timetable-end-time" class="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">End Time *</label>
+            <select id="timetable-end-time" [(ngModel)]="itemForm.endTime"
               class="w-full h-9 px-2 text-xs bg-slate-50/50 border border-slate-200 rounded-md focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 outline-none transition-colors cursor-pointer font-mono">
               <option value="">Select time</option>
               @for (time of timeSlots; track time) {
