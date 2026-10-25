@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Linking, TouchableOpacity } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import tw from 'twrnc';
 
-const AboutScreen = ({ navigation }: any) => {
+const AboutScreen = () => {
   const { colors } = useTheme();
 
   const openLink = (url: string) => {
@@ -49,27 +49,15 @@ const AboutScreen = ({ navigation }: any) => {
         </Text>
         <Text style={[tw`text-xl font-semibold mb-4`, { color: colors.primary }]}>Connect With Us</Text>
         <View style={tw`flex-row items-center`}>
-          <Icon
-            name="github"
-            size={30}
-            color={colors.primary}
-            style={tw`mx-4`}
-            onPress={() => openLink('https://github.com/axewhyzed')}
-          />
-          <Icon
-            name="linkedin"
-            size={30}
-            color={colors.primary}
-            style={tw`mx-4`}
-            onPress={() => openLink('https://linkedin.com/in/mihir-bambhaniya')}
-          />
-          <Icon 
-            name="email-outline" 
-            size={30} 
-            color={colors.primary} 
-            style={tw`mx-4`} 
-            onPress={() => openLink('mailto:support@flowcus.com')} 
-          />
+          <TouchableOpacity onPress={() => openLink('https://github.com/axewhyzed')} style={tw`min-w-11 min-h-11 mx-1 items-center justify-center`} accessibilityRole="link" accessibilityLabel="FlowCus on GitHub">
+            <Icon name="github" size={28} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => openLink('https://linkedin.com/in/mihir-bambhaniya')} style={tw`min-w-11 min-h-11 mx-1 items-center justify-center`} accessibilityRole="link" accessibilityLabel="Mihir Bambhaniya on LinkedIn">
+            <Icon name="linkedin" size={28} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => openLink('mailto:support@flowcus.com')} style={tw`min-w-11 min-h-11 mx-1 items-center justify-center`} accessibilityRole="link" accessibilityLabel="Email FlowCus support">
+            <Icon name="email-outline" size={28} color={colors.primary} />
+          </TouchableOpacity>
         </View>
       </View>
 

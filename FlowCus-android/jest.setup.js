@@ -5,7 +5,7 @@ jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 jest.mock(
   '@env',
   () => ({
-    API_URL: 'http://localhost:5000/api',
+    API_BASE_URL: 'http://localhost:5000/api',
   }),
   { virtual: true }
 );

@@ -1,6 +1,6 @@
 // src/screens/HomeScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Text, RefreshControl, Alert } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Text, RefreshControl, Alert, ActivityIndicator } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import tw from 'twrnc';
@@ -10,14 +10,15 @@ import { fetchDashboardStats, fetchCurrentFocus } from '../redux/slices/dashboar
 import { fetchTasks } from '../redux/slices/tasks';
 import apiClient from '../services/apiClient';
 import StatsCard from "../components/StatsCard";
+import { HomeScreenProps } from '../navigation/types';
 
-const HomeScreen = ({ navigation }: any) => {
+const HomeScreen = ({ navigation }: HomeScreenProps) => {
     const { colors } = useTheme();
     const dispatch = useDispatch<AppDispatch>();
     
     // Redux State
     const { user } = useSelector((state: RootState) => state.auth);
-    const { stats, currentFocus, isLoading } = useSelector((state: RootState) => state.dashboard);
+    const { stats, currentFocus, isLoading, isCurrentFocusLoading, statsError, currentFocusError } = useSelector((state: RootState) => state.dashboard);
     const { list: taskList } = useSelector((state: RootState) => state.tasks);
 
     // Local State
@@ -61,7 +62,7 @@ const HomeScreen = ({ navigation }: any) => {
     const handleShiftSchedule = async (minutes: number) => {
         setIsShifting(true);
         try {
-            const res = await apiClient.post('/timetable/shift-today', { minutes });
+            const res = await apiClient.post('/timetable/shift-today', { minutes, dayOfWeek: new Date().getDay() });
             Alert.alert("Schedule Shifted", res.data?.message || `Shifted schedule by +${minutes} minutes.`);
             loadData();
         } catch {
@@ -84,12 +85,13 @@ const HomeScreen = ({ navigation }: any) => {
         }
     };
 
-    const focusTitle = currentFocus?.title || currentFocus?.taskName || (currentFocus as any)?.categoryName;
+    const focusTitle = currentFocus?.title || currentFocus?.taskName || currentFocus?.categoryName;
 
     return (
         <View style={[tw`flex-1`, { backgroundColor: colors.background }]}>
             <ScrollView 
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={tw`pb-36`}
                 refreshControl={
                     <RefreshControl refreshing={isLoading} onRefresh={loadData} />
                 }
@@ -105,7 +107,7 @@ const HomeScreen = ({ navigation }: any) => {
                                 {formattedDate}
                             </Text>
                         </View>
-                        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+                        <TouchableOpacity onPress={() => navigation.navigate('Profile')} accessibilityRole="button" accessibilityLabel="Open profile">
                             <Icon name="account-circle" size={38} color={colors.primary} />
                         </TouchableOpacity>
                     </View>
@@ -113,22 +115,22 @@ const HomeScreen = ({ navigation }: any) => {
 
                 {/* Rollover Unfinished Tasks Banner */}
                 {pastUnfinishedTasks.length > 0 && (
-                    <View style={tw`mx-6 my-2 p-4 rounded-xl bg-amber-50 border border-amber-200 flex-row items-center justify-between shadow-sm`}>
+                    <View style={[tw`mx-6 my-2 p-4 rounded-xl border flex-row items-center justify-between shadow-sm`, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         <View style={tw`flex-1 mr-3`}>
                             <View style={tw`flex-row items-center`}>
-                                <Icon name="clock-alert-outline" size={18} color="#b45309" style={tw`mr-1.5`} />
-                                <Text style={tw`font-bold text-amber-900 text-sm`}>
+                                <Icon name="clock-alert-outline" size={18} color={colors.primary} style={tw`mr-1.5`} />
+                                <Text style={[tw`font-bold text-sm`, { color: colors.text }]}>
                                     {pastUnfinishedTasks.length} Unfinished {pastUnfinishedTasks.length === 1 ? 'Task' : 'Tasks'}
                                 </Text>
                             </View>
-                            <Text style={tw`text-xs text-amber-800 mt-0.5`}>
+                            <Text style={[tw`text-xs mt-0.5`, { color: colors.text, opacity: 0.8 }]}>
                                 Roll over past backlog to today without guilt.
                             </Text>
                         </View>
                         <TouchableOpacity 
                             onPress={handleRolloverTasks}
                             disabled={isRollingOver}
-                            style={tw`px-3 py-1.5 bg-amber-600 rounded-lg active:scale-95`}
+                            style={[tw`px-3 min-h-11 justify-center rounded-lg active:scale-95`, { backgroundColor: colors.primary }]}
                         >
                             <Text style={tw`text-white font-bold text-xs`}>
                                 {isRollingOver ? '...' : 'Rollover'}
@@ -158,9 +160,9 @@ const HomeScreen = ({ navigation }: any) => {
                         </View>
                     ) : (
                         <View style={tw`mb-4`}>
-                            <Text style={tw`text-xl font-bold text-white`}>Free Time / No Block Active</Text>
+                            <Text style={tw`text-xl font-bold text-white`}>{isCurrentFocusLoading ? 'Loading schedule…' : currentFocusError ? 'Schedule unavailable' : 'Free Time / No Block Active'}</Text>
                             <Text style={tw`text-xs text-blue-100 mt-1`}>
-                                Ready to focus? Tap below to launch a deep work session.
+                                {isCurrentFocusLoading ? 'Checking your active schedule.' : currentFocusError ? 'We could not load your current schedule. You can still start an ad-hoc session.' : 'Ready to focus? Tap below to launch a deep work session.'}
                             </Text>
                         </View>
                     )}
@@ -178,61 +180,71 @@ const HomeScreen = ({ navigation }: any) => {
                 </View>
 
                 {/* Running Late / Shift Schedule Widget */}
-                <View style={tw`mx-6 mb-3 p-3 rounded-xl bg-gray-50 border border-gray-200 flex-row items-center justify-between`}>
+                <View style={[tw`mx-6 mb-3 p-3 rounded-xl border flex-row items-center justify-between`, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={tw`flex-row items-center`}>
-                        <Icon name="clock-fast" size={18} color="#6b7280" style={tw`mr-1.5`} />
-                        <Text style={tw`text-xs font-medium text-gray-700`}>Running Late?</Text>
+                        <Icon name="clock-fast" size={18} color={colors.text} style={tw`mr-1.5`} />
+                        <Text style={[tw`text-xs font-medium`, { color: colors.text }]}>Running Late?</Text>
                     </View>
                     <View style={tw`flex-row items-center gap-1.5`}>
                         <TouchableOpacity 
                             onPress={() => handleShiftSchedule(15)}
                             disabled={isShifting}
-                            style={tw`px-2.5 py-1 bg-white border border-gray-200 rounded-md active:scale-95`}
+                            style={[tw`px-3 min-h-11 justify-center rounded-md border active:scale-95`, { backgroundColor: colors.background, borderColor: colors.border }]}
                         >
-                            <Text style={tw`text-xs font-bold text-blue-600`}>+15m</Text>
+                            <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>+15m</Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                             onPress={() => handleShiftSchedule(30)}
                             disabled={isShifting}
-                            style={tw`px-2.5 py-1 bg-white border border-gray-200 rounded-md active:scale-95`}
+                            style={[tw`px-3 min-h-11 justify-center rounded-md border active:scale-95`, { backgroundColor: colors.background, borderColor: colors.border }]}
                         >
-                            <Text style={tw`text-xs font-bold text-blue-600`}>+30m</Text>
+                            <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>+30m</Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                             onPress={() => handleShiftSchedule(60)}
                             disabled={isShifting}
-                            style={tw`px-2.5 py-1 bg-white border border-gray-200 rounded-md active:scale-95`}
+                            style={[tw`px-3 min-h-11 justify-center rounded-md border active:scale-95`, { backgroundColor: colors.background, borderColor: colors.border }]}
                         >
-                            <Text style={tw`text-xs font-bold text-blue-600`}>+1h</Text>
+                            <Text style={[tw`text-xs font-bold`, { color: colors.primary }]}>+1h</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 {/* Stats Cards */}
+                {!stats && isLoading && (
+                    <View style={tw`px-6 py-3 flex-row items-center`} accessibilityRole="progressbar" accessibilityLabel="Loading dashboard statistics">
+                        <ActivityIndicator color={colors.primary} />
+                        <Text style={[tw`ml-2 text-xs`, { color: colors.text }]}>Loading statistics…</Text>
+                    </View>
+                )}
+                {statsError && (
+                    <View style={[tw`mx-6 my-2 p-3 rounded-xl border`, { backgroundColor: colors.card, borderColor: colors.border }]} accessibilityRole="alert">
+                        <Text style={[tw`text-sm`, { color: colors.text }]}>{stats ? 'Statistics could not be refreshed.' : 'Statistics could not be loaded.'}</Text>
+                        <TouchableOpacity onPress={() => dispatch(fetchDashboardStats())} style={tw`min-h-11 justify-center`} accessibilityRole="button" accessibilityLabel="Retry loading dashboard statistics">
+                            <Text style={{ color: colors.primary }}>Try again</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={tw`px-4 py-2`}>
                     <StatsCard
                         title="Daily Avg"
                         value={stats?.dailyAvg || "--"}
                         icon="clock-outline"
-                        trend="neutral"
                     />
                     <StatsCard
                         title="Completion"
                         value={stats?.completionRate != null ? `${stats.completionRate}%` : "--"}
                         icon="check-circle-outline"
-                        trend="up"
                     />
                     <StatsCard
-                        title="Sessions"
-                        value={stats?.totalSessions?.toString() || "0"}
-                        icon="timer-outline"
-                        trend="neutral"
+                        title="Tasks completed"
+                        value={stats?.completedTasks?.toString() || "0"}
+                        icon="check-all"
                     />
                     <StatsCard
                         title="Streak"
                         value={stats?.streakDays ? `${stats.streakDays}d` : "0d"}
                         icon="fire"
-                        trend="up"
                     />
                 </ScrollView>
 
@@ -243,6 +255,8 @@ const HomeScreen = ({ navigation }: any) => {
                         <TouchableOpacity
                             style={[tw`items-center justify-center p-4 rounded-xl`, { backgroundColor: colors.primary, width: '30%' }]}
                             onPress={() => navigation.navigate('FocusSession')}
+                            accessibilityRole="button"
+                            accessibilityLabel="Open focus timer"
                         >
                             <Icon name="timer-sand" size={24} color="#fff" />
                             <Text style={tw`text-white mt-2 font-medium`}>Timer</Text>
@@ -251,6 +265,8 @@ const HomeScreen = ({ navigation }: any) => {
                         <TouchableOpacity
                             style={[tw`items-center justify-center p-4 rounded-xl relative border border-gray-100`, { backgroundColor: colors.card, width: '30%' }]}
                             onPress={() => navigation.navigate('Tasks')}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Open tasks, ${activeTasksCount} active`}
                         >
                             {activeTasksCount > 0 && (
                                 <View style={tw`absolute -top-2 -right-2 bg-red-500 rounded-full w-5 h-5 justify-center items-center shadow-sm`}>
@@ -264,11 +280,22 @@ const HomeScreen = ({ navigation }: any) => {
                         <TouchableOpacity
                             style={[tw`items-center justify-center p-4 rounded-xl border border-gray-100`, { backgroundColor: colors.card, width: '30%' }]}
                             onPress={() => navigation.navigate('Timetable')}
+                            accessibilityRole="button"
+                            accessibilityLabel="Open schedule"
                         >
                             <Icon name="calendar-month" size={24} color={colors.primary} />
                             <Text style={[tw`mt-2 font-medium`, { color: colors.text }]}>Schedule</Text>
                         </TouchableOpacity>
                     </View>
+                    <TouchableOpacity
+                        style={[tw`items-center justify-center p-4 rounded-xl border border-gray-100`, { backgroundColor: colors.card, width: '48%' }]}
+                        onPress={() => navigation.navigate('Analytics')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open analytics"
+                    >
+                        <Icon name="chart-line" size={24} color={colors.primary} />
+                        <Text style={[tw`mt-2 font-medium`, { color: colors.text }]}>Analytics</Text>
+                    </TouchableOpacity>
                 </View>
 
             </ScrollView>

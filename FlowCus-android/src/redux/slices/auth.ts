@@ -1,5 +1,6 @@
 // src/redux/slices/auth.ts
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
 import apiClient from '../../services/apiClient';
 import { saveAuth, clearAuth, getAuth } from '../../services/storage';
 
@@ -8,6 +9,20 @@ export interface User {
   username: string;
   name: string;
   isAdmin: boolean;
+}
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+interface LoginResponse {
+  token: string;
+  user: User;
+}
+
+interface AuthThunkConfig {
+  rejectValue: string;
 }
 
 interface AuthState {
@@ -26,49 +41,62 @@ const initialState: AuthState = {
 
 // --- Thunks ---
 
-export const login = createAsyncThunk(
+export const login = createAsyncThunk<User, LoginCredentials, AuthThunkConfig>(
   'auth/login',
-  async (credentials: any, { rejectWithValue }) => {
+  async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post('/auth/login', credentials);
-      const { token, refreshToken, user } = response.data;
-      await saveAuth({ accessToken: token, refreshToken });
+      const response = await apiClient.post<LoginResponse>('/auth/login', credentials);
+      const { token, user } = response.data;
+      await saveAuth({ accessToken: token });
       return user;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Login failed');
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error) ? error.response?.data?.error : null;
+      return rejectWithValue(typeof message === 'string' ? message : 'Login failed');
     }
   }
 );
 
 export const logout = createAsyncThunk('auth/logout', async () => {
-  await clearAuth();
+  try {
+    await apiClient.post('/auth/logout');
+  } catch {
+    // Local logout must still complete when the server is unreachable.
+  } finally {
+    await clearAuth();
+  }
 });
 
-export const restoreSession = createAsyncThunk(
+export const restoreSession = createAsyncThunk<User, void, AuthThunkConfig>(
   'auth/restoreSession',
   async (_, { rejectWithValue }) => {
     try {
       const authData = await getAuth();
       if (!authData) return rejectWithValue('No session');
-      const response = await apiClient.get('/auth/me');
+      const response = await apiClient.get<User>('/auth/me');
       return response.data;
-    } catch (error) {
-      await clearAuth();
-      return rejectWithValue('Session expired');
+    } catch (error: unknown) {
+      // A network outage is not proof that a credential expired. Keep the
+      // Keychain entry so the user can retry once connectivity returns.
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        await clearAuth();
+        return rejectWithValue('Session expired');
+      }
+      return rejectWithValue('Could not verify your session. Check your connection and log in again.');
     }
   }
 );
 
 // NEW: Update Profile Name
-export const updateProfileName = createAsyncThunk(
+export const updateProfileName = createAsyncThunk<string, string, AuthThunkConfig>(
   'auth/updateProfile',
   async (name: string, { rejectWithValue }) => {
     try {
       // Calls PUT /api/users (Matches UserController.cs)
       await apiClient.put('/users', { name });
       return name;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Update failed');
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error) ? error.response?.data?.error : null;
+      return rejectWithValue(typeof message === 'string' ? message : 'Update failed');
     }
   }
 );
@@ -80,6 +108,12 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     clearError: (state) => { state.error = null; },
+    sessionExpired: (state) => {
+      state.user = null;
+      state.isAuthenticated = false;
+      state.isLoading = false;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     // Login
@@ -109,6 +143,8 @@ const authSlice = createSlice({
     builder.addCase(restoreSession.rejected, (state) => {
       state.isAuthenticated = false;
       state.isLoading = false;
+      state.user = null;
+      state.error = null;
     });
 
     // Update Profile
@@ -120,5 +156,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError } = authSlice.actions;
+export const { clearError, sessionExpired } = authSlice.actions;
 export default authSlice.reducer;

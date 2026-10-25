@@ -10,6 +10,8 @@ import tasksReducer from './slices/tasks';
 import categoriesReducer from './slices/categories';
 import timetableReducer from './slices/timetable'; // <--- NEW
 import subtypesReducer from './slices/subtypes';
+import { setUnauthorizedHandler } from '../services/apiClient';
+import { sessionExpired } from './slices/auth';
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -32,9 +34,13 @@ export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: false,
+      serializableCheck: {
+        ignoredActions: ['persist/FLUSH', 'persist/REHYDRATE', 'persist/PAUSE', 'persist/PERSIST', 'persist/PURGE', 'persist/REGISTER'],
+      },
     }),
 });
+
+setUnauthorizedHandler(() => store.dispatch(sessionExpired()));
 
 export const persistor = persistStore(store);
 

@@ -21,7 +21,7 @@ export const fetchCategories = createAsyncThunk(
   'categories/fetchAll',
   async () => {
     // FIX: Changed '/task-categories' to '/task-category' to match Controller
-    const response = await apiClient.get('/task-category'); 
+    const response = await apiClient.get<Category[]>('/task-category');
     return response.data;
   }
 );

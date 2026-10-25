@@ -6,30 +6,15 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import tw from 'twrnc';
 import FcCard from './../components/design/FcCard';
 
-type Trend = 'up' | 'down' | 'neutral';
-
 interface Props {
   title: string;
   value: string;
   delta?: string;
   icon?: string;
-  trend?: Trend;
 }
 
-const trendMap: Record<Trend, { icon: string; color: string }> = {
-  up:      { icon: 'arrow-up',   color: '#10B981' },
-  down:    { icon: 'arrow-down', color: '#EF4444' },
-  neutral: { icon: 'minus',      color: '#F59E0B' },
-};
-
-const StatsCard: React.FC<Props> = ({ title, value, delta, icon, trend }) => {
+const StatsCard: React.FC<Props> = ({ title, value, delta, icon }) => {
   const { colors } = useTheme();
-
-  // Guard against undefined trend before indexing
-  const { icon: trendIcon, color: trendColor } = 
-    trend 
-      ? trendMap[trend] 
-      : { icon: '', color: colors.text };
 
   return (
     <FcCard
@@ -53,14 +38,9 @@ const StatsCard: React.FC<Props> = ({ title, value, delta, icon, trend }) => {
         {title}
       </Text>
 
-      {(delta || trend) && (
-        <Text style={tw`flex-row items-center text-xs font-medium mt-2`}>
-          {trendIcon.length > 0 && (
-            <Icon name={trendIcon} size={14} color={trendColor} />
-          )}
-          <Text style={{ color: delta ? colors.primary : trendColor, marginLeft: trendIcon ? 4 : 0 }}>
-            {delta ?? (trend === 'up' ? '+5.4%' : trend === 'down' ? '-2.1%' : '0%')}
-          </Text>
+      {delta && (
+        <Text style={[tw`text-xs font-medium mt-2`, { color: colors.primary }]}>
+          {delta}
         </Text>
       )}
     </FcCard>

@@ -8,20 +8,24 @@ import TimetableScreen from '../../screens/TimetableScreen';
 import SubtypesScreen from '../../screens/SubtypesScreen';
 import ProfileScreen from '../../screens/ProfileScreen';
 import SettingsScreen from '../../screens/SettingsScreen';
+import AnalyticsScreen from '../../screens/AnalyticsScreen';
+import { DrawerParamList } from '../../navigation/types';
 import colors from '../../config/colors';
 import FcCard from '../design/FcCard';
 import tw from 'twrnc';
+import { useTheme } from '@react-navigation/native';
 
-const Drawer = createDrawerNavigator();
+const Drawer = createDrawerNavigator<DrawerParamList>();
 
-const DrawerNavigator = () => (
-  <Drawer.Navigator
+const DrawerNavigator = () => {
+  const { colors: themeColors } = useTheme();
+  return <Drawer.Navigator
     drawerContent={(props) => (
       <DrawerContentScrollView {...props} contentContainerStyle={tw`pt-0`}>
         <View style={tw`px-4 pt-4`}>
           <FcCard showDivider={false} containerStyle={tw`mb-4`}>
-            <Text style={tw`text-lg font-bold text-gray-800`}>Flowcus</Text>
-            <Text style={tw`text-sm text-gray-500`}>Personal Focus & Productivity</Text>
+          <Text style={[tw`text-lg font-bold`, { color: themeColors.text }]}>Flowcus</Text>
+            <Text style={[tw`text-sm`, { color: themeColors.text, opacity: 0.7 }]}>Personal Focus & Productivity</Text>
           </FcCard>
         </View>
         <DrawerItemList {...props} />
@@ -47,6 +51,11 @@ const DrawerNavigator = () => (
         component={SubtypesScreen} 
         options={{ drawerIcon: ({color}) => <Icon name="tag-multiple" size={22} color={color} /> }}
     />
+    <Drawer.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
+        options={{ drawerIcon: ({color}) => <Icon name="chart-line" size={22} color={color} /> }}
+    />
     <Drawer.Screen 
         name="Profile" 
         component={ProfileScreen} 
@@ -57,7 +66,7 @@ const DrawerNavigator = () => (
         component={SettingsScreen} 
         options={{ drawerIcon: ({color}) => <Icon name="cog-outline" size={22} color={color} /> }}
     />
-  </Drawer.Navigator>
-);
+  </Drawer.Navigator>;
+};
 
 export default DrawerNavigator;

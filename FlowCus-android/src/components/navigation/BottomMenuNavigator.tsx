@@ -6,9 +6,10 @@ import HomeScreen from '../../screens/HomeScreen';
 import AboutScreen from '../../screens/AboutScreen';
 import ContactScreen from '../../screens/ContactScreen';
 import tw from 'twrnc';
-import colors from '../../config/colors';
+import { BottomTabParamList } from '../../navigation/types';
+import { useTheme } from '@react-navigation/native';
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<BottomTabParamList>();
 
 const AnimatedTabIcon = ({ name, color, focused }: { name: string; color: string; focused: boolean }) => {
   const scale = React.useRef(new Animated.Value(1)).current;
@@ -28,14 +29,18 @@ const AnimatedTabIcon = ({ name, color, focused }: { name: string; color: string
   );
 };
 
-const Tabs = () => (
-  <Tab.Navigator
+const Tabs = () => {
+  const { colors: themeColors } = useTheme();
+  return <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
       tabBarShowLabel: false,
+      tabBarAccessibilityLabel: route.name,
       tabBarStyle: [
-        tw`absolute bottom-8 mx-8 h-12 rounded-full bg-white shadow-lg border border-gray-200`,
+        tw`absolute bottom-8 mx-8 h-14 rounded-full shadow-lg border`,
         {
+          backgroundColor: themeColors.card,
+          borderColor: themeColors.border,
           elevation: 8,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
@@ -56,14 +61,14 @@ const Tabs = () => (
             iconName = 'phone';
             break;
         }
-        return <AnimatedTabIcon name={iconName} color={colors.text} focused={focused} />;
+        return <AnimatedTabIcon name={iconName} color={color || themeColors.text} focused={focused} />;
       },
     })}
   >
-    <Tab.Screen name="Home" component={HomeScreen} />
-    <Tab.Screen name="About" component={AboutScreen} />
-    <Tab.Screen name="Contact" component={ContactScreen} />
-  </Tab.Navigator>
-);
+    <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarAccessibilityLabel: 'Home' }} />
+    <Tab.Screen name="About" component={AboutScreen} options={{ tabBarAccessibilityLabel: 'About' }} />
+    <Tab.Screen name="Contact" component={ContactScreen} options={{ tabBarAccessibilityLabel: 'Contact' }} />
+  </Tab.Navigator>;
+};
 
 export default Tabs;

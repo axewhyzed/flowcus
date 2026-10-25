@@ -7,8 +7,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logout, updateProfileName } from '../redux/slices/auth';
 import { AppDispatch, RootState } from '../redux/store';
 import { useTheme } from '@react-navigation/native';
+import { ProfileScreenProps } from '../navigation/types';
 
-const ProfileScreen = ({ navigation }: any) => {
+const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
     const { colors } = useTheme();
     const dispatch = useDispatch<AppDispatch>();
     const { user } = useSelector((state: RootState) => state.auth);
@@ -41,14 +42,14 @@ const ProfileScreen = ({ navigation }: any) => {
     return (
         <ScrollView style={[tw`flex-1`, { backgroundColor: colors.background }]}>
             {/* Header / Avatar */}
-            <View style={tw`items-center py-8 bg-white shadow-sm mb-6`}>
+            <View style={[tw`items-center py-8 shadow-sm mb-6`, { backgroundColor: colors.card }]}>
                 <View style={[tw`w-24 h-24 rounded-full justify-center items-center mb-4`, { backgroundColor: colors.primary }]}>
                     <Text style={tw`text-4xl text-white font-bold`}>
                         {user.name ? user.name.charAt(0).toUpperCase() : user.username.charAt(0).toUpperCase()}
                     </Text>
                 </View>
                 <Text style={[tw`text-2xl font-bold`, { color: colors.text }]}>{user.name || "No Name Set"}</Text>
-                <Text style={tw`text-gray-500 text-base mb-2`}>@{user.username}</Text>
+                <Text style={[tw`text-base mb-2`, { color: colors.text, opacity: 0.7 }]}>@{user.username}</Text>
                 
                 {/* User Type Badge */}
                 <View style={[
@@ -72,6 +73,8 @@ const ProfileScreen = ({ navigation }: any) => {
                         setNewName(user.name || '');
                         setEditModalVisible(true);
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit display name"
                 >
                     <View style={[tw`p-2 rounded-lg mr-4`, { backgroundColor: '#eff6ff' }]}>
                         <Icon name="account-edit-outline" size={24} color={colors.primary} />
@@ -83,6 +86,8 @@ const ProfileScreen = ({ navigation }: any) => {
                 <TouchableOpacity 
                     style={tw`flex-row items-center py-4 mt-8`} 
                     onPress={handleLogout}
+                    accessibilityRole="button"
+                    accessibilityLabel="Log out of FlowCus"
                 >
                     <View style={[tw`p-2 rounded-lg mr-4`, { backgroundColor: '#fef2f2' }]}>
                         <Icon name="logout" size={24} color="#ef4444" />
@@ -92,14 +97,14 @@ const ProfileScreen = ({ navigation }: any) => {
             </View>
 
             {/* Edit Name Modal */}
-            <Modal visible={editModalVisible} transparent animationType="fade">
+            <Modal visible={editModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
                 <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50 px-6`}>
-                    <View style={tw`bg-white w-full rounded-2xl p-6`}>
-                        <Text style={tw`text-xl font-bold mb-4 text-gray-800`}>Update Profile</Text>
+                    <View style={[tw`w-full rounded-2xl p-6`, { backgroundColor: colors.card }]}>
+                        <Text style={[tw`text-xl font-bold mb-4`, { color: colors.text }]}>Update Profile</Text>
                         
-                        <Text style={tw`text-gray-500 mb-2`}>Full Name</Text>
+                        <Text style={[tw`mb-2`, { color: colors.text, opacity: 0.8 }]}>Full Name</Text>
                         <TextInput
-                            style={tw`border border-gray-300 p-4 rounded-xl text-lg mb-6 text-black`}
+                            style={[tw`border p-4 rounded-xl text-lg mb-6`, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
                             value={newName}
                             onChangeText={setNewName}
                             placeholder="Enter your name"
@@ -110,7 +115,7 @@ const ProfileScreen = ({ navigation }: any) => {
                                 onPress={() => setEditModalVisible(false)} 
                                 style={tw`px-6 py-3 mr-2`}
                             >
-                                <Text style={tw`text-gray-500 font-bold`}>Cancel</Text>
+                            <Text style={[tw`font-bold`, { color: colors.text, opacity: 0.75 }]}>Cancel</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity 

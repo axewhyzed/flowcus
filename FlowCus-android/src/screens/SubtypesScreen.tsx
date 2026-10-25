@@ -8,10 +8,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../redux/store';
 import { fetchCategories } from '../redux/slices/categories';
 import { fetchSubtypes, createSubtype, deleteSubtype, Subtype } from '../redux/slices/subtypes';
+import { SubtypesScreenProps } from '../navigation/types';
 
 const MAX_SUBTYPES = 5;
 
-const SubtypesScreen = ({ navigation }: any) => {
+const SubtypesScreen = ({ navigation }: SubtypesScreenProps) => {
     const { colors } = useTheme();
     const dispatch = useDispatch<AppDispatch>();
 
@@ -89,9 +90,9 @@ const SubtypesScreen = ({ navigation }: any) => {
     return (
         <View style={[tw`flex-1`, { backgroundColor: colors.background }]}>
             {/* Header */}
-            <View style={tw`px-6 pt-6 pb-4 bg-white shadow-sm z-10`}>
+            <View style={[tw`px-6 pt-6 pb-4 shadow-sm z-10`, { backgroundColor: colors.card }]}>
                 <View style={tw`flex-row justify-between items-center mb-3`}>
-                    <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
+                    <TouchableOpacity onPress={() => navigation.toggleDrawer()} accessibilityRole="button" accessibilityLabel="Open navigation menu">
                         <Icon name="menu" size={28} color={colors.text} />
                     </TouchableOpacity>
                     <Text style={[tw`text-xl font-bold`, { color: colors.text }]}>My Subtypes</Text>
@@ -121,6 +122,9 @@ const SubtypesScreen = ({ navigation }: any) => {
                                         borderColor: isSelected ? colors.primary : '#e5e7eb'
                                     }
                                 ]}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: isSelected }}
+                                accessibilityLabel={`Filter by ${item.name}`}
                             >
                                 <Text style={{ color: isSelected ? '#fff' : colors.text, fontWeight: isSelected ? 'bold' : 'normal' }}>
                                     {item.name}
@@ -154,7 +158,7 @@ const SubtypesScreen = ({ navigation }: any) => {
                                 </Text>
                             </View>
 
-                            <TouchableOpacity onPress={() => handleDelete(item)} style={tw`p-2`}>
+                            <TouchableOpacity onPress={() => handleDelete(item)} style={tw`p-2 min-w-10 min-h-10 items-center justify-center`} accessibilityRole="button" accessibilityLabel={`Delete subtype ${item.name}`}>
                                 <Icon name="trash-can-outline" size={20} color="#ef4444" />
                             </TouchableOpacity>
                         </View>
@@ -175,23 +179,26 @@ const SubtypesScreen = ({ navigation }: any) => {
                     { backgroundColor: subtypes.length >= MAX_SUBTYPES ? '#9ca3af' : colors.primary }
                 ]}
                 onPress={handleOpenModal}
+                accessibilityRole="button"
+                accessibilityLabel="Add subtype"
+                disabled={subtypes.length >= MAX_SUBTYPES}
             >
                 <Icon name="plus" size={30} color="#fff" />
             </TouchableOpacity>
 
             {/* Add Modal */}
-            <Modal visible={modalVisible} transparent animationType="fade">
+            <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
                 <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50 px-6`}>
-                    <View style={tw`bg-white w-full rounded-2xl p-6`}>
-                        <Text style={tw`text-xl font-bold mb-2 text-gray-800`}>
+                    <View style={[tw`w-full rounded-2xl p-6`, { backgroundColor: colors.card }]}>
+                        <Text style={[tw`text-xl font-bold mb-2`, { color: colors.text }]}>
                             Add Subtype
                         </Text>
-                        <Text style={tw`text-sm text-gray-500 mb-4`}>
+                        <Text style={[tw`text-sm mb-4`, { color: colors.text, opacity: 0.75 }]}>
                             For {categories.find(c => c.id === selectedCategoryId)?.name || 'category'} (Limit: {subtypes.length}/{MAX_SUBTYPES})
                         </Text>
                         
                         <TextInput
-                            style={tw`border border-gray-300 p-4 rounded-xl text-base mb-6 text-black`}
+                            style={[tw`border p-4 rounded-xl text-base mb-6`, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
                             placeholder="e.g., Coding, Homework, Cardio"
                             placeholderTextColor="#9ca3af"
                             value={newSubtypeName}

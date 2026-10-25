@@ -1,22 +1,17 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Tabs from './BottomMenuNavigator';
-import ProfileScreen from '../../screens/ProfileScreen';
 import FocusSession from '../../screens/FocusSession';
 import TasksScreen from '../../screens/TasksScreen';
-import AnalyticsScreen from '../../screens/AnalyticsScreen';
-import SettingsScreen from '../../screens/SettingsScreen';
+import { MainStackParamList } from '../../navigation/types';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<MainStackParamList>();
 
 const StackNavigator = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="Tabs" component={Tabs} />
-    <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="FocusSession" component={FocusSession} />
     <Stack.Screen name="Tasks" component={TasksScreen} />
-    <Stack.Screen name="Analytics" component={AnalyticsScreen} />
-    <Stack.Screen name="Settings" component={SettingsScreen} />
   </Stack.Navigator>
 );
 

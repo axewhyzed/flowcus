@@ -11,8 +11,9 @@ The mobile companion application for Flowcus, built with React Native, TypeScrip
 - **Productivity Metrics:** Real-time analytics synchronized with backend API:
   - Daily Average focus hours
   - Completion Rate percentage
-  - Total Sessions logged
+  - Completed task count (not a focus-session count)
   - Streak Days counter
+- **Analytics Focus Duration:** The seven-day focus chart and average use completed tasks with valid start/end times; completion streaks use each task's completion date, including unscheduled tasks.
 - **Active Focus Card:** Identifies what task or scheduled block is currently active, with direct fallback to active timetable schedules and a "Free time!" resting state.
 - **Active Tasks Counter:** Displays pending uncompleted tasks count.
 
@@ -123,6 +124,25 @@ API_BASE_URL=http://10.0.2.2:7176/api
 # API_BASE_URL=http://192.168.1.50:7176/api
 ```
 
+`API_BASE_URL` is the environment variable read by the app. Debug builds allow local HTTP for emulator/device development. Release builds require an HTTPS URL; the app rejects an unset or insecure release URL.
+
+### Release signing
+
+Release APK/AAB tasks fail unless all of these are provided through environment variables or Gradle properties:
+
+```text
+FLOWCUS_RELEASE_STORE_FILE
+FLOWCUS_RELEASE_STORE_PASSWORD
+FLOWCUS_RELEASE_KEY_ALIAS
+FLOWCUS_RELEASE_KEY_PASSWORD
+```
+
+Keep the keystore and passwords in your deployment secret store. Do not commit them or use the generated Android debug key to sign a release.
+
+### Timetable reminders
+
+Android may ask for notification and exact-alarm access when you create a timetable block. Weekly reminders are restored after device reboot. If access is denied, the schedule remains saved and you can grant access in Android Settings later.
+
 ### 3. Start Metro
 ```bash
 npm start
@@ -149,3 +169,7 @@ Executes unit tests and component render verification using preconfigured native
 npx tsc --noEmit
 ```
 Verifies full TypeScript type compliance across all components, navigation props, Redux slices, and native module bridges.
+
+### Android Verification Standard
+
+For Android code changes, source review, the complete Jest suite, the TypeScript check above, and native Gradle unit tests (`./gradlew testDebugUnitTest` from the `android` directory) are the required verification. A physical device or emulator run is not required for completion.

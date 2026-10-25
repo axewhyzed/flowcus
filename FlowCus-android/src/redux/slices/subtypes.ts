@@ -1,5 +1,6 @@
 // src/redux/slices/subtypes.ts
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
 import apiClient from '../../services/apiClient';
 
 export interface Subtype {
@@ -15,6 +16,10 @@ interface SubtypesState {
   error: string | null;
 }
 
+interface SubtypeThunkConfig {
+  rejectValue: string;
+}
+
 const initialState: SubtypesState = {
   list: [],
   isLoading: false,
@@ -23,33 +28,35 @@ const initialState: SubtypesState = {
 
 // Fetch All Subtypes
 export const fetchSubtypes = createAsyncThunk('subtypes/fetchAll', async () => {
-  const response = await apiClient.get('/task-subtype');
+  const response = await apiClient.get<Subtype[]>('/task-subtype');
   return response.data;
 });
 
 // Create Subtype
-export const createSubtype = createAsyncThunk(
+export const createSubtype = createAsyncThunk<Subtype, { categoryId: number; name: string }, SubtypeThunkConfig>(
   'subtypes/create',
   async (data: { categoryId: number; name: string }, { rejectWithValue }) => {
     try {
-      const response = await apiClient.post('/task-subtype', data);
+      const response = await apiClient.post<{ id: number }>('/task-subtype', data);
       return { ...data, id: response.data.id } as Subtype;
-    } catch (error: any) {
-      const msg = error.response?.data?.message || error.response?.data?.error || 'Failed to create subtype (Max 5 per user)';
+    } catch (error: unknown) {
+      const responseData = axios.isAxiosError(error) ? error.response?.data : null;
+      const msg = responseData?.message || responseData?.error || 'Failed to create subtype (Max 5 per user)';
       return rejectWithValue(msg);
     }
   }
 );
 
 // Delete Subtype
-export const deleteSubtype = createAsyncThunk(
+export const deleteSubtype = createAsyncThunk<number, number, SubtypeThunkConfig>(
   'subtypes/delete',
   async (id: number, { rejectWithValue }) => {
     try {
       await apiClient.delete(`/task-subtype/${id}`);
       return id;
-    } catch (error: any) {
-      const msg = error.response?.data?.message || error.response?.data?.error || 'Failed to delete subtype';
+    } catch (error: unknown) {
+      const responseData = axios.isAxiosError(error) ? error.response?.data : null;
+      const msg = responseData?.message || responseData?.error || 'Failed to delete subtype';
       return rejectWithValue(msg);
     }
   }

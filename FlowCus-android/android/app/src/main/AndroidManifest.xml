@@ -4,8 +4,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
       tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
@@ -16,6 +17,7 @@
       android:icon="@mipmap/ic_launcher"
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
+      android:usesCleartextTraffic="${usesCleartextTraffic}"
       android:theme="@style/AppTheme"
       android:supportsRtl="true">
       <activity
@@ -34,6 +36,17 @@
         android:name=".AlarmReceiver"
         android:enabled="true"
         android:exported="false">
+      </receiver>
+      <receiver
+        android:name=".AlarmBootReceiver"
+        android:enabled="true"
+        android:exported="true">
+        <intent-filter>
+          <action android:name="android.intent.action.BOOT_COMPLETED" />
+          <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+          <action android:name="android.intent.action.TIME_SET" />
+          <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+        </intent-filter>
       </receiver>
     </application>
 </manifest>

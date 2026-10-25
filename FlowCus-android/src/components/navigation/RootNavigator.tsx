@@ -4,8 +4,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootState } from '../../redux/store';
 import DrawerNavigator from './DrawerNavigator';
 import LoginScreen from '../../screens/LoginScreen';
+import { RootStackParamList } from '../../navigation/types';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const RootNavigator = () => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);

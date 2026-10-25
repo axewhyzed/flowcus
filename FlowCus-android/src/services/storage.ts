@@ -3,7 +3,6 @@ import * as Keychain from 'react-native-keychain';
 
 interface AuthData {
   accessToken: string;
-  refreshToken: string;
 }
 
 export const saveAuth = async (data: AuthData) => {

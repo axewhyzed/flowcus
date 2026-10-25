@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ViewStyle, GestureResponderEvent } from 'react-native';
 import tw from 'twrnc';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useTheme } from '@react-navigation/native';
 
 type FcCardProps = {
   title?: string;
@@ -23,13 +24,15 @@ const FcCard: React.FC<FcCardProps> = ({
   containerStyle,
   showDivider = true,
 }) => {
+  const { colors } = useTheme();
   const CardWrapper = onPress ? TouchableOpacity : View;
 
   return (
     <CardWrapper
       onPress={onPress}
       style={[
-        tw`bg-white p-4 rounded-2xl shadow-md mb-4`,
+        tw`p-4 rounded-2xl shadow-md mb-4`,
+        { backgroundColor: colors.card },
         {
           elevation: 3,
           shadowColor: '#000',
@@ -42,15 +45,15 @@ const FcCard: React.FC<FcCardProps> = ({
     >
       {(title || subtitle || icon) && (
         <View style={tw`flex-row items-center mb-2`}>
-          {icon && <Icon name={icon} size={24} style={tw`mr-3 text-gray-600`} />}
+          {icon && <Icon name={icon} size={24} color={colors.text} style={tw`mr-3`} />}
           <View>
-            {title && <Text style={tw`text-base font-semibold text-gray-900`}>{title}</Text>}
-            {subtitle && <Text style={tw`text-sm text-gray-500`}>{subtitle}</Text>}
+            {title && <Text style={[tw`text-base font-semibold`, { color: colors.text }]}>{title}</Text>}
+            {subtitle && <Text style={[tw`text-sm`, { color: colors.text, opacity: 0.72 }]}>{subtitle}</Text>}
           </View>
         </View>
       )}
 
-      {showDivider && (title || subtitle || icon) && <View style={tw`h-px bg-gray-200 my-2`} />}
+      {showDivider && (title || subtitle || icon) && <View style={[tw`h-px my-2`, { backgroundColor: colors.border }]} />}
 
       <View>{children}</View>
     </CardWrapper>

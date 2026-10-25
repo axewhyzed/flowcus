@@ -28,6 +28,11 @@ export async function requestUsagePermission(): Promise<string> {
   return await ScreenTime.requestUsagePermission();
 }
 
+export async function hasUsageStatsPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android' || !ScreenTime) return false;
+  return await ScreenTime.hasUsageStatsPermission();
+}
+
 export async function getScreenTime(): Promise<FormattedAppUsage[]> {
   if (Platform.OS !== 'android' || !ScreenTime) {
     return [];
@@ -50,7 +55,7 @@ export async function getScreenTime(): Promise<FormattedAppUsage[]> {
     .filter((entry): entry is FormattedAppUsage => entry.lastUsed !== '');
   } catch (error) {
     console.error('Error getting screen time:', error);
-    return [];
+    throw error;
   }
 }
 

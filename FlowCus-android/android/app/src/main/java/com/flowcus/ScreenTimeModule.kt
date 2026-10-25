@@ -53,6 +53,11 @@ class ScreenTimeModule(private val reactContext: ReactApplicationContext) : Reac
     }
 
     @ReactMethod
+    fun hasUsageStatsPermission(promise: Promise) {
+        promise.resolve(hasUsageStatsPermission(reactContext))
+    }
+
+    @ReactMethod
     fun getDeviceTimezone(promise: Promise) {
         try {
             val timezoneId = java.util.TimeZone.getDefault().id
