@@ -35,10 +35,12 @@ Backend config values that affect expected results:
 | Setting | Default in code | Behavior |
 |---|---:|---|
 | `AuthSettings:MaxFailedAttempts` | `3` | Account locks after 3 failed password attempts per tier |
-| `AuthSettings:LockoutMinutes` | `5` (Tier 1) | Progressive lockout: Tier 1: 5m; Tier 2: 15m; Tier 3+: 60m (repeats 60m until correct password) |
+| `AuthSettings:FirstLockoutMinutes` | `5` | Progressive lockout Tier 1 duration |
+| `AuthSettings:SecondLockoutMinutes` | `15` | Progressive lockout Tier 2 duration |
+| `AuthSettings:MaxLockoutMinutes` | `60` | Tier 3+ duration |
 | `AuthSettings:IpRateLimitPerMinute` | `30` | More than 30 login attempts per minute from one IP returns `429` |
 | `AuthSettings:UserRateLimitPerMinute` | `10` | More than 10 login attempts per minute for one username returns `429` |
-| `Jwt` expiry | 7 days | Login token and cookie expire after 7 days |
+| `Jwt` expiry | 7 days | Cookie and bearer token expire after 7 days; token version is checked against the database on every request |
 | Subtype limit | 5 active subtypes per user | Enforced by DB trigger with advisory lock |
 | Timetable limit | 5 active/non-deleted timetables per user | Enforced by DB trigger with advisory lock |
 
@@ -117,22 +119,25 @@ Use this column while testing:
 | AUTH-003 | Required username validation | Submit login with blank username and any password | Username required message appears; request is not sent |  |
 | AUTH-004 | Required password validation | Submit login with `qa_user_a` and blank password | Password required message appears; request is not sent |  |
 | AUTH-005 | Minimum password validation | Submit `qa_user_a` / `12345` | Submit remains disabled or validation prevents login because password length is less than 6 |  |
-| AUTH-006 | Valid user login | Submit `qa_user_a` / `UserPass123!` | Success toast appears; user lands on `/dashboard`; auth token is stored; HttpOnly cookie is set by API |  |
+| AUTH-006 | Valid user login | Submit `qa_user_a` / `UserPass123!` | Success toast appears; user lands on `/dashboard`; HttpOnly `auth_session` and readable `XSRF-TOKEN` cookies are set; browser response contains no JWT |  |
 | AUTH-007 | Valid admin login | Submit `qa_admin` / `AdminPass123!` | Dashboard loads; Admin badge appears where applicable; Admin Mode toggle is available in the header |  |
 | AUTH-008 | Invalid password | Submit `qa_user_a` / `WrongPass123!` | Error toast or login error shows `Invalid credentials.`; user remains on login page |  |
 | AUTH-009 | Unknown username | Submit `missing_user` / `UserPass123!` | Error shows invalid credentials; no details reveal whether username exists |  |
-| AUTH-010 | Tier 1 lockout (5 min) after 3 failures | Attempt wrong password for `qa_user_a` 3 times | API returns `423 Locked` with message: "Account is temporarily locked due to multiple failed login attempts. Please try again in 5 minutes."; `lockout_count` becomes 1 |  |
-| AUTH-011 | Tier 2 lockout (15 min) after next 3 failures | Wait for Tier 1 to expire, then fail 3 more times | API returns `423 Locked` with message indicating 15 minutes lockout; `lockout_count` becomes 2 |  |
-| AUTH-011a | Tier 3+ lockout (60 min) after next 3 failures | Wait for Tier 2 to expire, then fail 3 more times | API returns `423 Locked` with message indicating 60 minutes lockout; `lockout_count` becomes 3+ |  |
+| AUTH-010 | Tier 1 lockout (5 min) after 3 failures | Attempt wrong password for `qa_user_a` 3 times | API returns generic `401 Invalid credentials.`; `lockout_count` becomes 1 and `lockout_until` is about 5 minutes ahead |  |
+| AUTH-011 | Tier 2 lockout (15 min) after next 3 failures | Wait for Tier 1 to expire, then fail 3 more times | API returns the same generic 401; `lockout_count` becomes 2 and `lockout_until` is about 15 minutes ahead |  |
+| AUTH-011a | Tier 3+ lockout (60 min) after next 3 failures | Wait for Tier 2 to expire, then fail 3 more times | API returns the same generic 401; `lockout_count` becomes 3+ and `lockout_until` is about 60 minutes ahead |  |
 | AUTH-011b | Lockout reset on successful login | Wait for lockout expiry, then submit correct password | Login succeeds; both `failed_attempts` and `lockout_count` are reset to 0 |  |
 | AUTH-012 | IP login rate limit | Send more than 30 login attempts within 1 minute from same IP | API returns `429` with `Too many requests. Please try again later.` |  |
 | AUTH-013 | Username login rate limit | Send more than 10 attempts within 1 minute for `qa_user_a` | API returns `429` |  |
 | AUTH-014 | Session restore after refresh | Login, refresh `/dashboard` | User stays authenticated; `/api/auth/me` restores user state |  |
-| AUTH-015 | Logout | Click Logout | Cookie is cleared by API; token is removed from local storage; redirected to `/login`; protected pages redirect |  |
-| AUTH-016 | Logout endpoint requires auth | Call `POST /api/auth/logout` without token/cookie | API returns `401` |  |
+| AUTH-015 | Logout | Click Logout | CSRF-protected request clears session and XSRF cookies, increments token version, then redirects to `/login`; no JWT is stored in local storage |  |
+| AUTH-016 | Logout without session | Call `POST /api/auth/logout` without cookie or bearer token | API returns success with expired cookies; no user session is changed |  |
 | AUTH-017 | Expired/invalid token handling | Manually set an invalid `auth_token`, open `/dashboard` | API returns `401`; app clears token and redirects to login |  |
-| AUTH-018 | Deleted user token invalidation | Login as a test user, delete that user as admin, reuse old token | API rejects token because user no longer exists |  |
-| AUTH-019 | Role change invalidates old role token | Login as admin, have another admin remove admin rights, call admin endpoint with old token | API rejects token because role claim no longer matches DB role |  |
+| AUTH-018 | Deleted user token invalidation | Login as a test user, delete that user as admin, reuse old token | API rejects token on the next request because user is deleted and token version changed |  |
+| AUTH-019 | Role change invalidates old role token | Login as admin, have another admin remove admin rights, call admin endpoint with old token | API rejects token on the next request because the database token version and role no longer match |  |
+| AUTH-020 | Cookie write without CSRF token | Send POST/PATCH/DELETE with `auth_session` but no `X-CSRF-Token` | API returns 403 before controller mutation |  |
+| AUTH-021 | Cookie write from untrusted Origin | Send unsafe cookie-auth request with valid token pair from an unapproved Origin | API returns 403; no record changes |  |
+| AUTH-022 | Bearer requests are CSRF-exempt | Send authenticated unsafe request with a valid Bearer token and no cookie | API handles normal authorization and request validation; CSRF check is skipped |  |
 | AUTH-020 | Cookie and bearer auth both work | Login via UI, then call an API with the stored bearer token; also call with only cookie | Both authenticated requests succeed when token/cookie is valid |  |
 
 ## Navigation And Layout Tests
@@ -262,6 +267,12 @@ Tasks belong to the current user. Category is required. Subcategory is optional 
 | TASK-036 | Long title | Submit title over 200 characters via API | DB rejects due column limit or API returns database error |  |
 | TASK-037 | Special characters | Title `Plan & review <QA> "FlowCus"` | Task saves and displays safely without breaking layout |  |
 | TASK-038 | Toggle task completion | Click completion checkbox or `PATCH /api/tasks/{id}/toggle-complete` | `is_completed` becomes true, `is_deleted` stays false, title renders with strikethrough styling |  |
+| TASK-039 | Partial priority update | `PATCH /api/tasks/{id}` with `{ "priority": 3 }` | Only priority changes; title, category, schedule, and completion remain unchanged |  |
+| TASK-040 | Explicitly clear nullable task field | `PATCH /api/tasks/{id}` with `{ "startTime": null }` | Start time is cleared and end time/reference constraints remain valid |  |
+| TASK-041 | Retry task creation with same idempotency key | POST the same task twice with identical `Idempotency-Key` | Both responses return the same task id; only one task row exists |  |
+| TASK-042 | Reuse idempotency key with different payload | POST a changed task body using an existing key | API returns 409 and leaves the original task unchanged |  |
+| TASK-043 | Completion timestamp is set once | Complete a task, then repeat the completed update | `completedOn` is set on the transition and remains unchanged while the task stays completed |  |
+| TASK-044 | Completion timestamp clears when reopened | Reopen a completed task | `is_completed` becomes false and `completedOn` becomes null |  |
 | TASK-039 | Untoggle completed task | Click completed checkbox again | `is_completed` reverts to false, strikethrough styling is removed |  |
 | TASK-040 | Status filter (All / Active / Completed) | Select 'Completed' filter chip | Only tasks with `is_completed = true` render; select 'Active' renders only uncompleted non-deleted tasks |  |
 
@@ -477,7 +488,7 @@ Run this shorter checklist before every release:
 
 | ID | Test case | Steps | Expected outcome | Status |
 |---|---|---|---|---|
-| MOB-001 | Dynamic Greeting & Dashboard Stats | Launch app as logged-in user | Greeting shows "Good morning/afternoon/evening"; stats display Daily Avg, Completion Rate, Total Sessions, Streak Days |  |
+| MOB-001 | Dynamic Greeting & Dashboard Stats | Launch app as logged-in user | Greeting shows "Good morning/afternoon/evening"; stats display Daily Avg, Completion Rate, completed task count, and Streak Days. The completed task count is not a focus-session count. |  |
 | MOB-002 | Current Focus Resolution | Active timetable has block during now | Active block shows task title or timetable name with start/end time; "Free time!" if no block active |  |
 | MOB-003 | Task Completion Checkbox | Tap green checkmark circle on task | `is_completed` toggles to true; title displays strikethrough styling; task count excludes completed tasks |  |
 | MOB-004 | Task Status Filters | Tap chips: 'All', 'Active', 'Completed' | List filters instantly according to completion status |  |
@@ -493,13 +504,15 @@ Run this shorter checklist before every release:
 
 ## Automated Test Suites
 
-### 1. Backend (.NET 8 xUnit)
+### 1. Backend (.NET 10 xUnit)
 ```bash
 cd FlowCus-backend
 dotnet test FlowCus.sln
 ```
 - **Total Tests:** 22 passing (0 failures)
 - **Coverage:** Auth validation, progressive lockout transitions (Tier 1: 5m, Tier 2: 15m, Tier 3+: 60m), task date/duration constraints (zero-duration support), priority bounds (1-5), timetable overlap detection.
+- Backend unit tests also cover JWT placeholder rejection, CSRF origin/token policy, password policy, patch field presence/clearing, subtype clearing after category changes, and idempotency key/payload fingerprinting.
+- Completion timestamp tests verify the service writes and clears `completedOn` with the completion state.
 
 ### 2. Web Frontend (Angular 19 Build)
 ```bash

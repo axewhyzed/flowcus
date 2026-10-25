@@ -5,7 +5,7 @@ Complete instructions for setting up, developing, testing, and deploying the Flo
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
 2. [Database Setup (PostgreSQL)](#database-setup-postgresql)
-3. [Backend API Setup (.NET 8)](#backend-api-setup-net-8)
+3. [Backend API Setup (.NET 10)](#backend-api-setup-net-10)
 4. [Web Frontend Setup (Angular 19)](#web-frontend-setup-angular-19)
 5. [Mobile Setup (React Native Android)](#mobile-setup-react-native-android)
 6. [Testing & Verification](#testing--verification)
@@ -18,7 +18,7 @@ Complete instructions for setting up, developing, testing, and deploying the Flo
 ## Prerequisites
 
 ### Required Software
-- **.NET 8.0 SDK or later** (for FlowCus-backend)
+- **.NET 10.0 SDK or later** (for FlowCus-backend)
 - **Node.js 18.x or 20.x LTS** with npm (for Angular web frontend & React Native)
 - **PostgreSQL 14 or later** (tested on PostgreSQL 14–17)
 - **Git**
@@ -46,13 +46,20 @@ CREATE DATABASE flowcus;
 \q
 ```
 
-### 2. Apply Schema & Triggers
+### 2. Install Trigger Functions, Then Create Tables
 Navigate to the `FlowCus-db` directory and execute the table and function definitions:
 
 ```bash
 cd FlowCus-db
 
-# 1. Base Tables
+# Trigger functions must exist before their table triggers are created.
+psql -U postgres -d flowcus -f functions/user_data_functions/enforce_subtype_limit.sql
+psql -U postgres -d flowcus -f functions/user_data_functions/enforce_timetable_limit.sql
+psql -U postgres -d flowcus -f functions/user_data_functions/enforce_timetable_item_integrity.sql
+psql -U postgres -d flowcus -f functions/user_data_functions/enforce_category_usage.sql
+psql -U postgres -d flowcus -f functions/user_data_functions/enforce_task_integrity.sql
+
+# Base tables (the table scripts install their triggers).
 psql -U postgres -d flowcus -f tables/userlist.sql
 psql -U postgres -d flowcus -f tables/task_category.sql
 psql -U postgres -d flowcus -f tables/task_subtypes.sql
@@ -60,21 +67,45 @@ psql -U postgres -d flowcus -f tables/tasks.sql
 psql -U postgres -d flowcus -f tables/timetables.sql
 psql -U postgres -d flowcus -f tables/timetable_items.sql
 
-# 2. Limit Enforcement Functions & Triggers
-psql -U postgres -d flowcus -f functions/user_data_functions/enforce_subtype_limit.sql
-psql -U postgres -d flowcus -f functions/user_data_functions/enforce_timetable_limit.sql
-psql -U postgres -d flowcus -f functions/user_data_functions/fn_update_task.sql
+# RLS function definitions, followed by the isolated per-user policies.
+psql -U postgres -d flowcus -f functions/system_functions/setup_rls_policies_all_tables.sql
+psql -U postgres -d flowcus -f functions/system_functions/setup_table_rls_policies.sql
+psql -U postgres -d flowcus -c "SELECT public.setup_rls_policies_all_tables();"
 ```
 
+For an existing database, install all five trigger functions listed above and then run
+`psql -U postgres -d flowcus -v ON_ERROR_STOP=1 -f migrations/20261024_backend_hardening.sql`.
+The migration stops if existing timetable items overlap; resolve those rows first.
+
+### 3. Configure a Least-Privilege API Database Role
+
+Do not run the API as PostgreSQL `postgres`, a superuser, or the schema owner. RLS only constrains non-superuser roles that do not own the tables.
+
+```sql
+CREATE ROLE flowcus_app LOGIN;
+GRANT CONNECT ON DATABASE flowcus TO flowcus_app;
+GRANT USAGE ON SCHEMA public TO flowcus_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO flowcus_app;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO flowcus_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO flowcus_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO flowcus_app;
+```
+
+Set the role password interactively with `\password flowcus_app`, then use this role in the API connection string. The API sets transaction-local `app.user_id` and `app.is_admin` values from the validated session for each database operation. RLS scopes tasks, subtypes, timetables, and timetable items; categories are globally readable and admin-writable. User authentication records remain accessible only to the backend role.
+
 ### 3. Database Schema Highlights
-- **`userlist`**: Includes `failed_attempts (int)`, `lockout_until (timestamptz)`, and `lockout_count (int)` to enforce progressive brute-force lockout tiers.
-- **`tasks`**: Includes `is_completed (boolean NOT NULL DEFAULT false)` to isolate task completion from deletion (`is_deleted`), and `chk_time_order (end_time >= start_time)` to support instantaneous milestone entries.
+- **`userlist`**: Includes failed-login state and `token_version` for immediate session revocation after logout, password changes, role changes, or account deletion.
+- **`auth_rate_limit_events`**: Stores accepted login admissions for an atomic, database-backed sliding 60-second limit shared by all API instances. Existing databases must apply `FlowCus-db/migrations/20261024_sliding_auth_rate_limits.sql` before deploying this API version. The previous fixed-window bucket table is retained for rolling-deployment compatibility and is no longer read.
+- **`tasks`**: Tracks `completed_on` on completion transitions, separate from `updated_on`, `created_on`, and soft deletion. New completions have a reliable UTC date; legacy completed rows retain a null completion date because their original completion time was not recorded.
 - **`timetable_items`**: Includes `updated_on (timestamptz DEFAULT now())`.
-- **Advisory Locks**: Limit triggers execute `pg_advisory_xact_lock(user_id)` to prevent race condition bypasses when creating subtypes or timetables concurrently up to the 5-item limit.
+- **Advisory Locks**: Limit triggers serialize subtype/timetable caps; timetable-item triggers serialize overlap checks by timetable and weekday.
+- **RLS Context**: Authenticated database operations use transaction-local user/admin context. Run the RLS setup only with a non-superuser, non-owner application role.
 
 ---
 
-## Backend API Setup (.NET 8)
+## Backend API Setup (.NET 10)
 
 ### 1. Restore & Configuration
 Navigate to `FlowCus-backend`:
@@ -84,35 +115,35 @@ cd FlowCus-backend
 dotnet restore
 ```
 
-Verify or configure `appsettings.Development.json` (or `appsettings.json`):
+Supply secrets outside tracked JSON configuration. For local development, initialize User Secrets and set values interactively (replace the placeholders with your local values):
 
-```json
-{
-  "ConnectionStrings": {
-    "DBLocal": "Host=localhost;Port=5432;Database=flowcus;Username=postgres;Password=your_password;"
-  },
-  "Jwt": {
-    "Key": "your-super-secret-key-minimum-32-characters-long-for-security",
-    "Issuer": "FlowcusAPI",
-    "Audience": "FlowcusClient"
-  },
-  "AuthSettings": {
-    "MaxFailedAttempts": 3,
-    "BcryptWorkFactor": 12,
-    "IpRateLimitPerMinute": 30,
-    "UserRateLimitPerMinute": 10
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  }
-}
+```bash
+dotnet user-secrets init --project FlowCus.csproj
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=flowcus;Username=flowcus_app;Password=<local-secret>" --project FlowCus.csproj
+dotnet user-secrets set "Jwt:Key" "<random-secret-at-least-32-bytes>" --project FlowCus.csproj
 ```
 
-> [!NOTE]
-> The backend prioritizes `ConnectionStrings:DefaultConnection`. If empty or null, it falls back to `ConnectionStrings:DBLocal`.
+The API rejects the tracked JWT placeholder and any signing key shorter than 32 UTF-8 bytes. Production deployments should use a secret manager or protected environment variables. `appsettings.Production.json` is excluded from publish output.
+
+Forwarded headers are disabled by default. If the API runs behind a reverse proxy,
+configure only the proxy addresses or CIDR networks that can connect directly to
+the API, then enable forwarding in deployment configuration. For a single proxy
+at `10.0.0.8`, set:
+
+```text
+ForwardedHeaders__Enabled=true
+ForwardedHeaders__KnownProxies__0=10.0.0.8
+ForwardedHeaders__ForwardLimit=1
+```
+
+For a trusted proxy subnet, use `ForwardedHeaders__KnownNetworks__0` with its
+specific CIDR (for example, `10.0.0.0/24`). For multiple proxy hops, list each
+trusted proxy/network and set `ForwardedHeaders__ForwardLimit` to the number of
+trusted hops; the allowed range is 1–10. Keep the allowlist as narrow as the
+deployment permits. Never use catch-all networks such as `0.0.0.0/0` or `::/0`.
+The API refuses to start if forwarding is enabled without at least one trusted
+proxy or network. If this configuration is omitted behind a proxy, all clients
+will be rate-limited under the proxy's remote IP address.
 
 ### 2. Progressive Lockout Policy
 FlowCus features a progressive tiered lockout algorithm:
@@ -120,6 +151,7 @@ FlowCus features a progressive tiered lockout algorithm:
 - **Tier 2 (Attempts 4–6 fail):** Account locks for **15 minutes**.
 - **Tier 3+ (Attempts 7+ fail):** Account locks for **60 minutes**, repeating on subsequent failures.
 - **Reset:** Successful password authentication immediately resets both `failed_attempts` and `lockout_count` to 0.
+- Lockout failures use one generic invalid-credentials response to avoid revealing whether an account exists or is currently locked.
 
 ### 3. Run the Backend
 ```bash
@@ -194,7 +226,7 @@ npm run android
 FlowCus includes automated test suites across all application tiers:
 
 ### 1. Backend Automated Tests (xUnit)
-Run the 22 automated unit and integration tests covering authentication, progressive lockout tiers, task constraints, and timetable overlap logic:
+Run the backend unit tests covering security policy, task patch semantics, validation, and request idempotency:
 ```bash
 cd FlowCus-backend
 dotnet test FlowCus.sln

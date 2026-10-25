@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Cancel stale pull-request runs only. Push runs use unique groups so fast consecutive pushes
+  # cannot cancel an earlier component check whose changes are not part of the newest push diff.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    name: Detect changed components
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: filter
+        name: Select affected checks
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.before || github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+
+          backend=false
+          frontend=false
+          android=false
+
+          run_all=false
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$EVENT_NAME" == "merge_group" || \
+                -z "$BASE_SHA" || -z "$HEAD_SHA" || "$BASE_SHA" =~ ^0+$ ]] || \
+             ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null || \
+             ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+            run_all=true
+          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
+            # Match GitHub's PR diff: compare from the branches' merge base.
+            if ! git diff --name-only "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/changed-files.txt"; then
+              run_all=true
+            fi
+          elif ! git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/changed-files.txt"; then
+            run_all=true
+          fi
+
+          if [[ "$run_all" == true ]]; then
+            backend=true
+            frontend=true
+            android=true
+          else
+            while IFS= read -r path; do
+              case "$path" in
+                FlowCus-backend/*|FlowCus-db/*|global.json|Directory.Build.*|NuGet.config)
+                  backend=true
+                  ;;
+                FlowCus-frontend/*|.npmrc|.nvmrc|.node-version)
+                  frontend=true
+                  if [[ "$path" != FlowCus-frontend/* ]]; then android=true; fi
+                  ;;
+                FlowCus-android/*)
+                  android=true
+                  ;;
+                .github/*|.gitignore|.gitattributes)
+                  backend=true
+                  frontend=true
+                  android=true
+                  ;;
+              esac
+            done < "$RUNNER_TEMP/changed-files.txt"
+          fi
+
+          {
+            printf 'backend=%s\n' "$backend"
+            printf 'frontend=%s\n' "$frontend"
+            printf 'android=%s\n' "$android"
+          } >> "$GITHUB_OUTPUT"
+
+  backend:
+    name: Backend tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Run backend unit tests
+        # PostgreSQL integration tests stay local and opt-in; do not provision a DB in hosted CI.
+        run: dotnet test FlowCus-backend/FlowCus.Tests/FlowCus.Tests.csproj --configuration Release --filter "FullyQualifiedName!~AuthRateLimiterPostgresIntegrationTests"
+
+  frontend:
+    name: Frontend build and tests
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: FlowCus-frontend/flowcus/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: FlowCus-frontend/flowcus
+        run: npm ci
+      - name: Build frontend
+        working-directory: FlowCus-frontend/flowcus
+        run: npm run build
+      - name: Run frontend tests
+        working-directory: FlowCus-frontend/flowcus
+        run: npm test -- --watch=false --browsers=ChromeHeadless
+
+  android:
+    name: Android source, Jest, and Gradle checks
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: FlowCus-android/package-lock.json
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android JavaScript dependencies
+        working-directory: FlowCus-android
+        run: npm ci
+      - name: TypeScript source check
+        working-directory: FlowCus-android
+        run: npx tsc --noEmit
+      - name: Run Jest tests
+        working-directory: FlowCus-android
+        run: npm test -- --runInBand
+      - name: Run Gradle unit tests
+        working-directory: FlowCus-android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest
