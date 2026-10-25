@@ -1,6 +1,8 @@
----- FUNCTION USAGE ----:
--- Applies RLS + policies to ALL public tables
--- SELECT * FROM setup_rls_policies_all_tables();
+-- Enables fail-closed RLS for user-owned application tables.
+-- The API sets transaction-local app.user_id/app.is_admin values on each connection.
+-- The API database role must not be a superuser; superusers always bypass RLS.
+-- Execute after the base tables have been created:
+--   SELECT public.setup_rls_policies_all_tables();
 
 CREATE OR REPLACE FUNCTION public.setup_rls_policies_all_tables()
 RETURNS TEXT
@@ -8,82 +10,66 @@ LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-    tbl_record RECORD;
-    success_count INTEGER := 0;
-    error_count INTEGER := 0;
-    error_messages TEXT := '';
+    table_name TEXT;
 BEGIN
-    RAISE NOTICE 'Starting RLS policy setup for all tables in public schema...';
-    
-    FOR tbl_record IN 
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_type = 'BASE TABLE'
-        -- Optionally exclude specific tables:
-        -- AND table_name NOT IN ('knex_migrations', 'other_excluded_table')
-    LOOP
-        BEGIN
-            -- Enable RLS on the table
-            EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', tbl_record.table_name);
-            
-            -- Drop existing policies first to avoid conflicts
-            EXECUTE format('DROP POLICY IF EXISTS "appuser_select_all_%s" ON %I', tbl_record.table_name, tbl_record.table_name);
-            EXECUTE format('DROP POLICY IF EXISTS "appuser_insert_all_%s" ON %I', tbl_record.table_name, tbl_record.table_name);
-            EXECUTE format('DROP POLICY IF EXISTS "appuser_update_all_%s" ON %I', tbl_record.table_name, tbl_record.table_name);
-            EXECUTE format('DROP POLICY IF EXISTS "appguest_select_all_%s" ON %I', tbl_record.table_name, tbl_record.table_name);
-            
-            -- Create appuser policies
-            EXECUTE format('
-                CREATE POLICY "appuser_select_all_%s" 
-                ON %I 
-                FOR SELECT 
-                TO appuser 
-                USING (true)', 
-                tbl_record.table_name, tbl_record.table_name);
-                
-            EXECUTE format('
-                CREATE POLICY "appuser_insert_all_%s" 
-                ON %I 
-                FOR INSERT 
-                TO appuser 
-                WITH CHECK (true)', 
-                tbl_record.table_name, tbl_record.table_name);
-                
-            EXECUTE format('
-                CREATE POLICY "appuser_update_all_%s" 
-                ON %I 
-                FOR UPDATE 
-                TO appuser 
-                USING (true) 
-                WITH CHECK (true)', 
-                tbl_record.table_name, tbl_record.table_name);
-            
-            -- Create appguest policy
-            EXECUTE format('
-                CREATE POLICY "appguest_select_all_%s" 
-                ON %I 
-                FOR SELECT 
-                TO appguest 
-                USING (true)', 
-                tbl_record.table_name, tbl_record.table_name);
-            
-            RAISE NOTICE 'Applied RLS policies to table: %', tbl_record.table_name;
-            success_count := success_count + 1;
-            
-        EXCEPTION WHEN OTHERS THEN
-            error_count := error_count + 1;
-            error_messages := error_messages || 
-                format('Table %s: %s | ', tbl_record.table_name, SQLERRM);
-            RAISE WARNING 'Failed to apply RLS to %: %', tbl_record.table_name, SQLERRM;
-        END;
+    FOREACH table_name IN ARRAY ARRAY['tasks', 'task_subtypes', 'timetables', 'timetable_items', 'task_category'] LOOP
+        IF to_regclass(format('public.%I', table_name)) IS NULL THEN
+            CONTINUE;
+        END IF;
+
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', table_name);
+        EXECUTE format('ALTER TABLE public.%I FORCE ROW LEVEL SECURITY', table_name);
+
+        -- Remove the former permissive blanket policies if this function was run before.
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'appuser_select_all_' || table_name, table_name);
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'appuser_insert_all_' || table_name, table_name);
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'appuser_update_all_' || table_name, table_name);
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'appguest_select_all_' || table_name, table_name);
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'flowcus_user_scope', table_name);
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'flowcus_category_read', table_name);
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'flowcus_category_admin', table_name);
+
+        IF table_name = 'tasks' THEN
+            EXECUTE $policy$CREATE POLICY flowcus_user_scope ON public.tasks
+                USING (created_by = NULLIF(current_setting('app.user_id', true), '')::INTEGER
+                    OR current_setting('app.is_admin', true) = 'true')
+                WITH CHECK (created_by = NULLIF(current_setting('app.user_id', true), '')::INTEGER
+                    OR current_setting('app.is_admin', true) = 'true')$policy$;
+        ELSIF table_name = 'task_subtypes' THEN
+            EXECUTE $policy$CREATE POLICY flowcus_user_scope ON public.task_subtypes
+                USING (user_id = NULLIF(current_setting('app.user_id', true), '')::INTEGER
+                    OR current_setting('app.is_admin', true) = 'true')
+                WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::INTEGER
+                    OR current_setting('app.is_admin', true) = 'true')$policy$;
+        ELSIF table_name = 'timetables' THEN
+            EXECUTE $policy$CREATE POLICY flowcus_user_scope ON public.timetables
+                USING (user_id = NULLIF(current_setting('app.user_id', true), '')::INTEGER
+                    OR current_setting('app.is_admin', true) = 'true')
+                WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::INTEGER
+                    OR current_setting('app.is_admin', true) = 'true')$policy$;
+        ELSIF table_name = 'timetable_items' THEN
+            EXECUTE $policy$CREATE POLICY flowcus_user_scope ON public.timetable_items
+                USING (
+                    EXISTS (SELECT 1 FROM public.timetables t
+                    WHERE t.id = timetable_items.timetable_id
+                      AND t.user_id = NULLIF(current_setting('app.user_id', true), '')::INTEGER)
+                    OR current_setting('app.is_admin', true) = 'true'
+                )
+                WITH CHECK (
+                    EXISTS (SELECT 1 FROM public.timetables t
+                    WHERE t.id = timetable_items.timetable_id
+                      AND t.user_id = NULLIF(current_setting('app.user_id', true), '')::INTEGER)
+                    OR current_setting('app.is_admin', true) = 'true'
+                )$policy$;
+        ELSE
+            EXECUTE $policy$CREATE POLICY flowcus_category_read ON public.task_category
+                FOR SELECT USING (true)$policy$;
+            EXECUTE $policy$CREATE POLICY flowcus_category_admin ON public.task_category
+                FOR ALL USING (current_setting('app.is_admin', true) = 'true')
+                WITH CHECK (current_setting('app.is_admin', true) = 'true')$policy$;
+        END IF;
     END LOOP;
-    
-    RETURN format(
-        'Completed RLS policy setup. Success: %s, Errors: %s. Error details: %s',
-        success_count,
-        error_count,
-        CASE WHEN error_messages = '' THEN 'None' ELSE error_messages END
-    );
+
+    RETURN 'RLS policies applied to user-owned data and shared task categories.';
 END;
 $$;

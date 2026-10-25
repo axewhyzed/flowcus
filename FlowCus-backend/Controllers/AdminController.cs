@@ -1,5 +1,7 @@
 using FlowCus.Helpers;
 using FlowCus.Models; // Needs the User model
+using FlowCus.Services.Interfaces;
+using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
@@ -13,14 +15,18 @@ namespace FlowCus.Controllers
     public class AdminController : ControllerBase
     {
         private readonly IDbHelper _dbHelper;
+        private readonly IUserService _userService;
         private readonly ILogger<AdminController> _logger;
         private readonly int _bcryptWorkFactor;
 
-        public AdminController(IDbHelper dbHelper, ILogger<AdminController> logger, IConfiguration config)
+        public AdminController(IDbHelper dbHelper, IUserService userService, ILogger<AdminController> logger, IConfiguration config)
         {
             _dbHelper = dbHelper;
+            _userService = userService;
             _logger = logger;
-            _bcryptWorkFactor = int.Parse(config["AuthSettings:BcryptWorkFactor"] ?? "12");
+            _bcryptWorkFactor = int.TryParse(config["AuthSettings:BcryptWorkFactor"], out var workFactor) && workFactor is >= 4 and <= 16
+                ? workFactor
+                : 12;
         }
 
         // GET api/admin/users
@@ -98,31 +104,18 @@ namespace FlowCus.Controllers
 
         // POST api/admin/users
         [HttpPost("users")]
-        public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
+        public async Task<IActionResult> CreateUser([FromBody] UserCreateRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest(new { error = "Username and password are required." });
+            if (!PasswordPolicy.IsValid(request.Password))
+                return BadRequest(new { error = $"Password must be at least {PasswordPolicy.MinimumLength} characters long." });
 
             int? actorUserId = GetCurrentUserIdForLog();
 
             try
             {
-                // Hash the password
-                string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, _bcryptWorkFactor);
-
-                string sql = @"
-                    INSERT INTO userlist (username, password_hash, name, is_admin, created_on, is_deleted, failed_attempts, lockout_until)
-                    VALUES (@Username, @PasswordHash, @Name, @IsAdmin, now(), FALSE, 0, NULL)
-                    RETURNING id as Id, username as Username, name as Name, created_on as CreatedOn, is_admin as IsAdmin
-                ";
-
-                var result = await _dbHelper.QuerySingleAsync<dynamic>(sql, new
-                {
-                    Username = request.Username,
-                    PasswordHash = passwordHash,
-                    Name = request.Name,
-                    IsAdmin = request.IsAdmin
-                });
+                var result = await _userService.CreateUserAsync(request);
 
                 if (result == null)
                 {
@@ -131,13 +124,12 @@ namespace FlowCus.Controllers
                 }
 
                 int newUserId = result.Id;
-                string newUsername = result.Username;
 
-                _logger.LogInformation("Admin user created. ActorUserId={ActorUserId}, NewUserId={NewUserId}, Username={Username}", actorUserId, newUserId, newUsername);
+                _logger.LogInformation("Admin user created. ActorUserId={ActorUserId}, NewUserId={NewUserId}", actorUserId, newUserId);
                 return Ok(new
                 {
-                    Id = newUserId,
-                    Username = newUsername,
+                    result.Id,
+                    result.Username,
                     result.Name,
                     result.CreatedOn,
                     result.IsAdmin,
@@ -148,6 +140,10 @@ namespace FlowCus.Controllers
             {
                 _logger.LogWarning("Admin user create conflict. ActorUserId={ActorUserId}, Username={Username}", actorUserId, request.Username);
                 return Conflict(new { error = "Username already exists." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -178,36 +174,22 @@ namespace FlowCus.Controllers
 
                 if (request.IsAdmin.HasValue)
                 {
-                    if (request.IsAdmin.Value == false)
-                    {
-                        bool targetIsAdmin = await _dbHelper.ExecuteScalarAsync<bool>(
-                            "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE",
-                            new { Id = id });
-
-                        if (targetIsAdmin)
-                        {
-                            long otherAdminCount = await _dbHelper.ExecuteScalarAsync<long>(
-                                "SELECT COUNT(*) FROM userlist WHERE is_admin = TRUE AND is_deleted = FALSE AND id != @Id",
-                                new { Id = id });
-
-                            if (otherAdminCount == 0)
-                            {
-                                _logger.LogWarning("Admin user update rejected. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}, Reason=LastAdmin", actorUserId, id);
-                                return BadRequest(new { error = "Cannot remove admin rights from the last admin account." });
-                            }
-                        }
-                    }
-
                     updates.Add("is_admin = @IsAdmin");
                     parameters["IsAdmin"] = request.IsAdmin.Value;
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.Password))
                 {
+                    if (!PasswordPolicy.IsValid(request.Password))
+                        return BadRequest(new { error = $"Password must be at least {PasswordPolicy.MinimumLength} characters long." });
                     updates.Add("password_hash = @PasswordHash");
                     string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, _bcryptWorkFactor);
                     parameters["PasswordHash"] = passwordHash;
                 }
+
+                bool revokeTokens = request.IsAdmin.HasValue || !string.IsNullOrWhiteSpace(request.Password);
+                if (revokeTokens)
+                    updates.Add("token_version = token_version + 1");
 
                 if (updates.Count == 0)
                 {
@@ -218,7 +200,34 @@ namespace FlowCus.Controllers
                 updates.Add("updated_on = now()");
                 string sql = $"UPDATE userlist SET {string.Join(", ", updates)} WHERE id = @Id AND is_deleted = FALSE";
 
-                int rows = await _dbHelper.ExecuteAsync(sql, parameters);
+                int rows;
+                if (request.IsAdmin == false)
+                {
+                    rows = await _dbHelper.ExecuteInTransactionAsync(async (connection, transaction) =>
+                    {
+                        await connection.ExecuteAsync("SELECT pg_advisory_xact_lock(75429183::bigint)", transaction: transaction);
+                        bool targetIsAdmin = await connection.ExecuteScalarAsync<bool>(
+                            "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE FOR UPDATE",
+                            new { Id = id }, transaction);
+                        if (targetIsAdmin)
+                        {
+                            long otherAdminCount = await connection.ExecuteScalarAsync<long>(
+                                "SELECT COUNT(*) FROM userlist WHERE is_admin = TRUE AND is_deleted = FALSE AND id != @Id",
+                                new { Id = id }, transaction);
+                            if (otherAdminCount == 0) return -1;
+                        }
+                        return await connection.ExecuteAsync(sql, parameters, transaction);
+                    });
+                    if (rows == -1)
+                    {
+                        _logger.LogWarning("Admin user update rejected. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}, Reason=LastAdmin", actorUserId, id);
+                        return BadRequest(new { error = "Cannot remove admin rights from the last admin account." });
+                    }
+                }
+                else
+                {
+                    rows = await _dbHelper.ExecuteAsync(sql, parameters);
+                }
 
                 if (rows == 0)
                 {
@@ -272,19 +281,30 @@ namespace FlowCus.Controllers
                 }
 
                 // PREVENT DELETING THE LAST ADMIN
-                long adminCount = await _dbHelper.ExecuteScalarAsync<long>(
-                    "SELECT COUNT(*) FROM userlist WHERE is_admin = TRUE AND is_deleted = FALSE AND id != @Id",
-                    new { Id = id }
-                );
+                int rows = await _dbHelper.ExecuteInTransactionAsync(async (connection, transaction) =>
+                {
+                    await connection.ExecuteAsync("SELECT pg_advisory_xact_lock(75429183::bigint)", transaction: transaction);
+                    bool targetIsAdmin = await connection.ExecuteScalarAsync<bool>(
+                        "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE FOR UPDATE",
+                        new { Id = id }, transaction);
+                    if (targetIsAdmin)
+                    {
+                        long otherAdminCount = await connection.ExecuteScalarAsync<long>(
+                            "SELECT COUNT(*) FROM userlist WHERE is_admin = TRUE AND is_deleted = FALSE AND id != @Id",
+                            new { Id = id }, transaction);
+                        if (otherAdminCount == 0) return -1;
+                    }
 
-                if (adminCount == 0)
+                    return await connection.ExecuteAsync(
+                        "UPDATE userlist SET is_deleted = TRUE, token_version = token_version + 1, updated_on = now() WHERE id = @Id AND is_deleted = FALSE",
+                        new { Id = id }, transaction);
+                });
+
+                if (rows == -1)
                 {
                     _logger.LogWarning("Admin user delete rejected. ActorUserId={ActorUserId}, TargetUserId={TargetUserId}, Reason=LastAdmin", currentUserId, id);
                     return BadRequest(new { error = "Cannot delete the last admin account. Assign admin to another user first." });
                 }
-
-                string sql = "UPDATE userlist SET is_deleted = TRUE, updated_on = now() WHERE id = @Id";
-                int rows = await _dbHelper.ExecuteAsync(sql, new { Id = id });
 
                 if (rows == 1)
                 {
@@ -335,6 +355,11 @@ namespace FlowCus.Controllers
                 _logger.LogWarning("Admin category delete target not found. ActorUserId={ActorUserId}, CategoryId={CategoryId}", actorUserId, id);
                 return NotFound(new { error = "Category not found" });
             }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == "23503")
+            {
+                _logger.LogWarning(ex, "Category delete rejected because active records still reference it. CategoryId={CategoryId}", id);
+                return BadRequest(new { error = "Category is still used by tasks, subtypes, or timetable items." });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting category");
@@ -347,15 +372,6 @@ namespace FlowCus.Controllers
             var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             return int.TryParse(idClaim, out int userId) ? userId : null;
         }
-    }
-
-    // Helper classes for request bodies
-    public class CreateUserRequest
-    {
-        public string Username { get; set; } = "";
-        public string Password { get; set; } = "";
-        public string? Name { get; set; }
-        public bool IsAdmin { get; set; } = false;
     }
 
     public class UpdateUserRequest

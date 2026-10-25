@@ -4,5 +4,10 @@ obj/
 .git/
 .vs/
 .vscode/
+*.user
+*.tmp
+.env
+.env.*
+appsettings.Development.json
 appsettings.Production.json
 FlowCus.Tests/

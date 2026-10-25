@@ -1,4 +1,5 @@
 using FlowCus.Models;
+using FlowCus.Helpers;
 using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,10 +38,13 @@ namespace FlowCus.Controllers
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
             task.CreatedBy = userId;
+            string? idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
+            if (idempotencyKey != null && !IdempotencyKeyValidator.IsValid(idempotencyKey))
+                return BadRequest(new { message = "Idempotency-Key must be 1-100 characters using letters, numbers, '.', '_', ':', or '-'." });
 
             try
             {
-                var id = await _taskService.CreateAsync(task);
+                var id = await _taskService.CreateAsync(task, idempotencyKey);
                 _logger.LogInformation("Task created. UserId={UserId}, TaskId={TaskId}", userId, id);
                 return Ok(new { id, message = "Task created" });
             }
@@ -48,6 +52,10 @@ namespace FlowCus.Controllers
             {
                 _logger.LogWarning("Task create rejected. UserId={UserId}, Reason={Reason}", userId, ex.Message);
                 return BadRequest(new { message = ex.Message });
+            }
+            catch (IdempotencyConflictException ex)
+            {
+                return Conflict(new { message = ex.Message });
             }
             catch (Npgsql.PostgresException ex)
             {
@@ -87,6 +95,27 @@ namespace FlowCus.Controllers
             }
         }
 
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> Patch(int id, [FromBody] TaskPatchRequest request)
+        {
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
+            try
+            {
+                var success = await _taskService.PatchAsync(id, userId, request);
+                if (!success) return NotFound(new { message = "Task not found" });
+                return Ok(new { message = "Task updated" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Npgsql.PostgresException ex)
+            {
+                _logger.LogWarning(ex, "Task patch database error. UserId={UserId}, TaskId={TaskId}", userId, id);
+                return BadRequest(new { message = ex.MessageText });
+            }
+        }
+
         [HttpPatch("{id}/toggle-complete")]
         public async Task<IActionResult> ToggleComplete(int id, [FromBody] ToggleCompleteRequest? request = null)
         {
@@ -107,7 +136,10 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> RolloverYesterday()
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            int count = await _taskService.RolloverYesterdayTasksAsync(userId);
+            if (!TimezoneHelper.TryResolveRequestTimeZone(Request, out var timeZone, out var error))
+                return BadRequest(new { error });
+
+            int count = await _taskService.RolloverYesterdayTasksAsync(userId, timeZone, DateTime.UtcNow);
             _logger.LogInformation("Rollover unfinished tasks succeeded. UserId={UserId}, Count={Count}", userId, count);
             return Ok(new { rolledOverCount = count, message = $"{count} unfinished tasks rolled over to today." });
         }

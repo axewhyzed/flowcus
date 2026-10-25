@@ -72,6 +72,11 @@ namespace FlowCus.Controllers
                 _logger.LogWarning("Task category delete rejected. UserId={UserId}, CategoryId={CategoryId}, Reason={Reason}", GetCurrentUserIdForLog(), id, ex.Message);
                 return BadRequest(new { message = ex.Message });
             }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == "23503")
+            {
+                _logger.LogWarning(ex, "Task category delete raced with a new reference. UserId={UserId}, CategoryId={CategoryId}", GetCurrentUserIdForLog(), id);
+                return BadRequest(new { message = "Category is still used by tasks, subtypes, or timetable items." });
+            }
         }
 
         [HttpPut("{id}")]

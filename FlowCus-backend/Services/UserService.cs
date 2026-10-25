@@ -1,4 +1,3 @@
-using FlowCus.Controllers;
 using FlowCus.Helpers;
 using FlowCus.Models;
 using FlowCus.Services.Interfaces;
@@ -31,13 +30,19 @@ namespace FlowCus.Services
 
         public async Task<bool> CheckUsernameExistsAsync(string username)
         {
-            string sql = "SELECT COUNT(*) FROM userlist WHERE username = @Username AND is_deleted = FALSE";
+            string sql = "SELECT COUNT(*) FROM userlist WHERE username = @Username";
             long count = await _db.ExecuteScalarAsync<long>(sql, new { Username = username });
             return count > 0;
         }
 
         public async Task<User?> CreateUserAsync(UserCreateRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Username))
+                throw new ArgumentException("Username is required.", nameof(request));
+            if (!PasswordPolicy.IsValid(request.Password))
+                throw new ArgumentException($"Password must be at least {PasswordPolicy.MinimumLength} characters long.", nameof(request));
+
+            string username = request.Username.Trim();
             // Hash the password using BCrypt
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, _bcryptWorkFactor);
 
@@ -49,7 +54,7 @@ namespace FlowCus.Services
 
             return await _db.QuerySingleAsync<User>(sql, new
             {
-                Username = request.Username,
+                Username = username,
                 PasswordHash = passwordHash,
                 Name = request.Name,
                 IsAdmin = request.IsAdmin

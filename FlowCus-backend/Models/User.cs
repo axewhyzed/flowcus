@@ -36,6 +36,9 @@ namespace FlowCus.Models
         [Column("lockout_count")]
         public int LockoutCount { get; set; }
 
+        [Column("token_version")]
+        public int TokenVersion { get; set; }
+
         [Column("is_admin")]
         public bool IsAdmin { get; set; }
 

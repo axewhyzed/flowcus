@@ -13,6 +13,11 @@ CREATE TABLE task_category (
     icon_name VARCHAR(150)
 );
 
+CREATE TRIGGER trg_prevent_category_soft_delete_with_references
+    BEFORE UPDATE OF is_deleted ON task_category
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_category_soft_delete_with_references();
+
 -- Existing indexes (automatically created)
 -- task_category_pkey ON id (PRIMARY KEY)
 

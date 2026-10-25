@@ -1,10 +1,12 @@
 using FlowCus.Helpers;
+using FlowCus.Models;
 using FlowCus.Services;
 using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace FlowCus.Controllers
 {
@@ -12,30 +14,27 @@ namespace FlowCus.Controllers
     [Route("api/auth")]
     public class AuthController : ControllerBase
     {
-        private static readonly object s_rateLimitLock = new();
-
         private readonly IAuthService _authService;
+        private readonly IAuthRateLimiter _authRateLimiter;
         private readonly IDbHelper _dbHelper; 
+        private readonly IUserService _userService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
-        private readonly IMemoryCache _cache;
         private readonly IWebHostEnvironment _environment;
-
-        private readonly int _ipRateLimitPerMinute;
-        private readonly int _userRateLimitPerMinute;
+        private readonly string[] _allowedOrigins;
         private readonly int _bcryptWorkFactor;
 
-        public AuthController(IAuthService authService, IDbHelper dbHelper, IConfiguration configuration, ILogger<AuthController> logger, IMemoryCache cache, IWebHostEnvironment environment)
+        public AuthController(IAuthService authService, IAuthRateLimiter authRateLimiter, IUserService userService, IDbHelper dbHelper, IConfiguration configuration, ILogger<AuthController> logger, IWebHostEnvironment environment)
         {
             _authService = authService;
+            _authRateLimiter = authRateLimiter;
+            _userService = userService;
             _dbHelper = dbHelper;
             _configuration = configuration;
             _logger = logger;
-            _cache = cache;
             _environment = environment;
+            _allowedOrigins = SecurityConfiguration.GetAllowedOrigins(environment);
 
-            _ipRateLimitPerMinute = int.Parse(_configuration["AuthSettings:IpRateLimitPerMinute"] ?? "30");
-            _userRateLimitPerMinute = int.Parse(_configuration["AuthSettings:UserRateLimitPerMinute"] ?? "10");
             _bcryptWorkFactor = int.Parse(_configuration["AuthSettings:BcryptWorkFactor"] ?? "12");
         }
 
@@ -46,10 +45,19 @@ namespace FlowCus.Controllers
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest(new { error = "Username and password are required." });
 
-            string ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            if (IncrementAndCheckRateLimits(request.Username, ip))
+            bool cookieMode = string.Equals(Request.Headers["X-Auth-Mode"].ToString(), "cookie", StringComparison.OrdinalIgnoreCase);
+            if (cookieMode && !CsrfProtection.IsTrustedOrigin(Request.Headers["Origin"].FirstOrDefault(), _allowedOrigins))
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = "Untrusted request origin." });
+
+            string ip = AuthRateLimitIdentity.NormalizeIp(HttpContext.Connection.RemoteIpAddress);
+            var rateLimit = await _authRateLimiter.CheckAsync(
+                request.Username,
+                HttpContext.Connection.RemoteIpAddress,
+                HttpContext.RequestAborted);
+            if (!rateLimit.Allowed)
             {
                 _logger.LogWarning("Rate limit exceeded for user {Username} from IP {Ip}", request.Username, ip);
+                Response.Headers["Retry-After"] = rateLimit.RetryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 return StatusCode(429, new { error = "Too many requests. Please try again later." });
             }
 
@@ -61,39 +69,19 @@ namespace FlowCus.Controllers
                 {
                     _logger.LogWarning("Login failed. Username={Username}, Ip={Ip}, Reason={Reason}", request.Username, ip, result.ErrorMessage);
                     
-                    if (result.IsLockedOut)
-                    {
-                        return StatusCode(StatusCodes.Status423Locked, new 
-                        { 
-                            error = result.ErrorMessage, 
-                            isLockedOut = true, 
-                            retryAfterMinutes = result.LockoutMinutesRemaining 
-                        });
-                    }
-
                     return Unauthorized(new { error = result.ErrorMessage ?? "Invalid credentials." });
                 }
 
                 var loginResponse = result.Response!;
 
-                var cookieOptions = new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true, 
-                    SameSite = SameSiteMode.None,
-                    Expires = DateTime.UtcNow.AddDays(7) 
-                };
-
-                if (_environment.IsDevelopment())
-                {
-                    cookieOptions.SameSite = SameSiteMode.Lax;
-                    cookieOptions.Secure = false; 
-                }
-
-                Response.Cookies.Append("auth_session", loginResponse.Token, cookieOptions);
+                string csrfToken = CreateCsrfToken();
+                SetSessionCookies(loginResponse.Token, csrfToken);
+                loginResponse.CsrfToken = csrfToken;
 
                 _logger.LogInformation("Login succeeded. UserId={UserId}, Username={Username}, Ip={Ip}", loginResponse.User.Id, loginResponse.User.Username, ip);
-                return Ok(loginResponse);
+                return cookieMode
+                    ? Ok(new { user = loginResponse.User, csrfToken })
+                    : Ok(loginResponse);
             }
             catch (Exception ex)
             {
@@ -103,35 +91,48 @@ namespace FlowCus.Controllers
         }
 
         [Authorize]
+        [HttpGet("csrf")]
+        public IActionResult GetCsrfToken()
+        {
+            string? csrfToken = Request.Cookies["XSRF-TOKEN"];
+            if (string.IsNullOrWhiteSpace(csrfToken))
+            {
+                csrfToken = CreateCsrfToken();
+                SetCsrfCookie(csrfToken);
+            }
+            return Ok(new { csrfToken });
+        }
+
+        [Authorize(Roles = "Admin")]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int currentUserId)) return Unauthorized();
 
-            bool isAdmin = await _dbHelper.ExecuteScalarAsync<bool>(
-                "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE",
-                new { Id = currentUserId });
-            if (!isAdmin) return StatusCode(403, new ErrorResponse { Error = "Only admins can register new users." });
-
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest(new ErrorResponse { Error = "Username and password are required." });
+            if (!PasswordPolicy.IsValid(request.Password))
+                return BadRequest(new ErrorResponse { Error = $"Password must be at least {PasswordPolicy.MinimumLength} characters long." });
 
             try
             {
-                string bcryptHash = BCrypt.Net.BCrypt.HashPassword(request.Password, _bcryptWorkFactor);
-                string sql = @"INSERT INTO userlist (username, password_hash, name, created_on) 
-                               VALUES (@Username, @Hash, @Name, now()) 
-                               RETURNING id;";
-
-                int newId = await _dbHelper.ExecuteScalarAsync<int>(sql, new { Username = request.Username, Hash = bcryptHash, Name = request.Name });
-
-                _logger.LogInformation("User registered. ActorUserId={ActorUserId}, NewUserId={NewUserId}, Username={Username}", currentUserId, newId, request.Username);
-                return Ok(new { message = "User registered successfully", userId = newId });
+                var user = await _userService.CreateUserAsync(new UserCreateRequest
+                {
+                    Username = request.Username,
+                    Password = request.Password,
+                    Name = request.Name
+                });
+                _logger.LogInformation("User registered. ActorUserId={ActorUserId}, NewUserId={NewUserId}", currentUserId, user?.Id);
+                return Ok(new { message = "User registered successfully", userId = user?.Id });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new ErrorResponse { Error = ex.Message });
             }
             catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23505")
             {
-                _logger.LogWarning("User registration conflict. ActorUserId={ActorUserId}, Username={Username}", currentUserId, request.Username);
+                _logger.LogWarning("User registration conflict. ActorUserId={ActorUserId}", currentUserId);
                 return Conflict(new ErrorResponse { Error = "Username already exists." });
             }
             catch (Exception ex)
@@ -148,8 +149,8 @@ namespace FlowCus.Controllers
             if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
                 return BadRequest(new ErrorResponse { Error = "Current password and new password are required." });
 
-            if (request.NewPassword.Length < 6)
-                return BadRequest(new ErrorResponse { Error = "New password must be at least 6 characters long." });
+            if (!PasswordPolicy.IsValid(request.NewPassword))
+                return BadRequest(new ErrorResponse { Error = $"New password must be at least {PasswordPolicy.MinimumLength} characters long." });
 
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(userIdClaim, out int userId)) return Unauthorized();
@@ -165,13 +166,18 @@ namespace FlowCus.Controllers
                 if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, storedHash))
                 {
                     _logger.LogWarning("Password change rejected. UserId={UserId}, Reason=InvalidCurrentPassword", userId);
-                    return Unauthorized(new ErrorResponse { Error = "Current password is incorrect." });
+                    return BadRequest(new ErrorResponse { Error = "Current password is incorrect." });
                 }
 
                 string newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, _bcryptWorkFactor);
 
-                await _dbHelper.ExecuteAsync("UPDATE userlist SET password_hash = @Hash, updated_on = now() WHERE id = @Id",
-                    new { Hash = newHash, Id = userId });
+                int updated = await _dbHelper.ExecuteAsync(@"
+                    UPDATE userlist
+                    SET password_hash = @Hash, token_version = token_version + 1, updated_on = now()
+                    WHERE id = @Id AND is_deleted = FALSE AND password_hash = @CurrentHash",
+                    new { Hash = newHash, CurrentHash = storedHash, Id = userId });
+                if (updated == 0)
+                    return Conflict(new ErrorResponse { Error = "Password changed while this request was in progress. Please try again." });
 
                 _logger.LogInformation("Password changed. UserId={UserId}", userId);
                 return Ok(new { message = "Password changed successfully." });
@@ -206,14 +212,21 @@ namespace FlowCus.Controllers
 
         [HttpPost("logout")]
         [AllowAnonymous]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout()
         {
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(idClaim, out int userId))
+            {
+                await _dbHelper.ExecuteAsync(@"UPDATE userlist
+                    SET token_version = token_version + 1, updated_on = now()
+                    WHERE id = @Id AND is_deleted = FALSE", new { Id = userId });
+            }
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.None
+                SameSite = SameSiteMode.None,
+                Path = "/"
             };
 
             if (_environment.IsDevelopment())
@@ -223,68 +236,45 @@ namespace FlowCus.Controllers
             }
 
             Response.Cookies.Delete("auth_session", cookieOptions);
+            cookieOptions.HttpOnly = false;
+            Response.Cookies.Delete("XSRF-TOKEN", cookieOptions);
             _logger.LogInformation("Logout succeeded. UserId={UserId}", idClaim ?? "anonymous");
             return Ok(new { message = "Logged out successfully" });
         }
 
         // --- Helpers ---
-        private bool IncrementAndCheckRateLimits(string username, string ip)
-        {
-            bool ipLimited = IsRateLimited($"ip:{ip}", _ipRateLimitPerMinute, incrementOnly: true);
-            bool userLimited = IsRateLimited($"user:{username}", _userRateLimitPerMinute, incrementOnly: true);
-            
-            return ipLimited || userLimited;
-        }
+        private static string CreateCsrfToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .Replace('+', '-').Replace('/', '_').TrimEnd('=');
 
-        private bool IsRateLimited(string key, int limitPerMinute, bool incrementOnly = false)
+        private void SetSessionCookies(string token, string csrfToken)
         {
-            var now = DateTime.UtcNow;
-            string cacheKey = $"ratelimit:{key}";
-
-            lock (s_rateLimitLock)
+            var expires = DateTimeOffset.UtcNow.AddDays(7);
+            Response.Cookies.Append("auth_session", token, new CookieOptions
             {
-                var entry = _cache.Get<RateLimitBucket>(cacheKey);
-
-                if (entry == null)
-                {
-                    _cache.Set(cacheKey, new RateLimitBucket { Count = 1, WindowStart = now },
-                        new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
-                    return false;
-                }
-
-                if ((now - entry.WindowStart).TotalMinutes >= 1.0)
-                {
-                    entry.Count = 1;
-                    entry.WindowStart = now;
-                    _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
-                    return false;
-                }
-
-                entry.Count++;
-                _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
-
-                return entry.Count > limitPerMinute;
-            }
+                HttpOnly = true,
+                Secure = !_environment.IsDevelopment(),
+                SameSite = _environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None,
+                Expires = expires,
+                Path = "/"
+            });
+            SetCsrfCookie(csrfToken, expires);
         }
 
-        private class RateLimitBucket { public int Count { get; set; } public DateTime WindowStart { get; set; } }
+        private void SetCsrfCookie(string csrfToken, DateTimeOffset? expires = null)
+        {
+            Response.Cookies.Append("XSRF-TOKEN", csrfToken, new CookieOptions
+            {
+                HttpOnly = false,
+                Secure = !_environment.IsDevelopment(),
+                SameSite = _environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None,
+                Expires = expires ?? DateTimeOffset.UtcNow.AddDays(7),
+                Path = "/"
+            });
+        }
     }
 
     public class LoginRequest { public string Username { get; set; } = ""; public string Password { get; set; } = ""; }
     public class RegisterRequest { public string Username { get; set; } = ""; public string Password { get; set; } = ""; public string? Name { get; set; } }
     public class ChangePasswordRequest { public string CurrentPassword { get; set; } = ""; public string NewPassword { get; set; } = ""; }
     public class ErrorResponse { public string Error { get; set; } = ""; }
-    public class LoginResponse
-    {
-        public string Token { get; set; } = "";
-        public UserDto User { get; set; } = new UserDto();
-    }
-
-    public class UserDto 
-    { 
-        public int Id { get; set; } 
-        public string Username { get; set; } = ""; 
-        public string? Name { get; set; } 
-        public bool IsAdmin { get; set; }
-    }
 }

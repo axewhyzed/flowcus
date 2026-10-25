@@ -42,7 +42,7 @@ namespace FlowCus.Services
             if (referenceCount > 0)
                 throw new InvalidOperationException("Category is still used by tasks, subcategories, or timetable items.");
 
-            string sql = "UPDATE task_category SET is_deleted = TRUE WHERE id = @Id";
+            string sql = "UPDATE task_category SET is_deleted = TRUE, updated_on = now() WHERE id = @Id AND is_deleted = FALSE";
             int rows = await _db.ExecuteAsync(sql, new { Id = id });
             return rows > 0;
         }

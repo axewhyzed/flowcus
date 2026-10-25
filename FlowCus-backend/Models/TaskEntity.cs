@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace FlowCus.Models
 {
@@ -37,6 +38,9 @@ namespace FlowCus.Models
         [Column("updated_on")]
         public DateTime? UpdatedOn { get; set; }
 
+        [Column("completed_on")]
+        public DateTime? CompletedOn { get; set; }
+
         [Column("start_time")]
         public DateTime? StartTime { get; set; }
 
@@ -51,5 +55,13 @@ namespace FlowCus.Models
 
         [Column("is_deleted")]
         public bool IsDeleted { get; set; }
+
+        [Column("idempotency_key")]
+        [JsonIgnore]
+        public string? IdempotencyKey { get; set; }
+
+        [Column("request_hash")]
+        [JsonIgnore]
+        public string? RequestHash { get; set; }
     }
 }

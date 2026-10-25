@@ -18,9 +18,9 @@ stages:
       vmImage: ubuntu-latest
     steps:
     - task: UseDotNet@2
-      displayName: 'Install .NET Core SDK'
+      displayName: 'Install .NET SDK 10'
       inputs:
-        version: '8.x'
+        version: '10.x'
 
     - task: DotNetCoreCLI@2
       displayName: 'Run Unit Tests'

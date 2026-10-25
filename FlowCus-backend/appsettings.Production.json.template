@@ -6,6 +6,12 @@
     }
   },
   "AllowedHosts": "*",
+  "ForwardedHeaders": {
+    "Enabled": false,
+    "ForwardLimit": 1,
+    "KnownProxies": [],
+    "KnownNetworks": []
+  },
   "ConnectionStrings": {
     "DefaultConnection": "Host=your-db-host;Port=5432;Database=flowcus;Username=your-db-user;Password=your-db-password;"
   },

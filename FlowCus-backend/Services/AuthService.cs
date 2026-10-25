@@ -1,4 +1,3 @@
-using FlowCus.Controllers;
 using FlowCus.Helpers;
 using FlowCus.Models;
 using FlowCus.Services.Interfaces;
@@ -20,6 +19,7 @@ namespace FlowCus.Services
 
     public class AuthService : IAuthService
     {
+        private static readonly string DummyPasswordHash = BCrypt.Net.BCrypt.HashPassword("FlowCus-invalid-account-timing-padding", 12);
         private readonly IDbHelper _db;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthService> _logger;
@@ -38,112 +38,136 @@ namespace FlowCus.Services
 
             if (user == null)
             {
+                _ = BCrypt.Net.BCrypt.Verify(password, DummyPasswordHash);
                 return new AuthResult { Success = false, ErrorMessage = "Invalid credentials." };
             }
 
-            // Check if currently locked out
             if (user.LockoutUntil.HasValue && user.LockoutUntil.Value > DateTime.UtcNow)
             {
                 int minutesRemaining = (int)Math.Ceiling((user.LockoutUntil.Value - DateTime.UtcNow).TotalMinutes);
                 if (minutesRemaining < 1) minutesRemaining = 1;
 
-                _logger.LogWarning("Login attempt for locked account: {Username}. Remaining: {Remaining} min", username, minutesRemaining);
+                _logger.LogWarning("Login attempt rejected for locked account. UserId={UserId}, RemainingMinutes={Remaining}", user.Id, minutesRemaining);
                 return new AuthResult
                 {
                     Success = false,
                     IsLockedOut = true,
                     LockoutMinutesRemaining = minutesRemaining,
-                    ErrorMessage = $"Account is temporarily locked due to multiple failed login attempts. Please try again in {minutesRemaining} minute{(minutesRemaining == 1 ? "" : "s")}."
+                    ErrorMessage = "Invalid credentials."
                 };
             }
-
-            // If a previous lockout period has expired, start a fresh 3-attempt cycle for this tier
-            int currentFailed = (user.LockoutUntil.HasValue && user.LockoutUntil.Value <= DateTime.UtcNow) ? 0 : user.FailedAttempts;
 
             bool passwordValid = !string.IsNullOrEmpty(user.PasswordHash) && BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
 
             if (!passwordValid)
             {
-                int newFailedAttempts = currentFailed + 1;
-
-                // 3 failed attempts triggers progressive lockout: 1st time 5m, 2nd time 15m, 3rd+ times 60m
-                if (newFailedAttempts >= 3)
+                var state = await IncrementFailedAttemptAsync(user.Id);
+                _logger.LogWarning("Login rejected. UserId={UserId}, FailedAttempts={FailedAttempts}, Locked={Locked}",
+                    user.Id, state.FailedAttempts, state.LockoutUntil.HasValue);
+                return new AuthResult
                 {
-                    int newLockoutCount = user.LockoutCount + 1;
-                    int lockoutMinutes = newLockoutCount switch
-                    {
-                        1 => 5,
-                        2 => 15,
-                        _ => 60
-                    };
-
-                    DateTime newLockoutUntil = DateTime.UtcNow.AddMinutes(lockoutMinutes);
-
-                    string lockoutSql = @"
-                        UPDATE userlist 
-                        SET failed_attempts = 0, 
-                            lockout_until = @LockoutUntil,
-                            lockout_count = @LockoutCount,
-                            updated_on = now()
-                        WHERE id = @UserId";
-
-                    await _db.ExecuteAsync(lockoutSql, new
-                    {
-                        UserId = user.Id,
-                        LockoutUntil = newLockoutUntil,
-                        LockoutCount = newLockoutCount
-                    });
-
-                    _logger.LogWarning("User {Username} locked out. Tier: {Tier}, Duration: {Minutes} min", username, newLockoutCount, lockoutMinutes);
-
-                    return new AuthResult
-                    {
-                        Success = false,
-                        IsLockedOut = true,
-                        LockoutMinutesRemaining = lockoutMinutes,
-                        ErrorMessage = $"Account is temporarily locked due to multiple failed login attempts. Please try again in {lockoutMinutes} minutes."
-                    };
-                }
-                else
-                {
-                    string updateSql = @"
-                        UPDATE userlist 
-                        SET failed_attempts = @FailedAttempts, 
-                            lockout_until = NULL,
-                            updated_on = now()
-                        WHERE id = @UserId";
-
-                    await _db.ExecuteAsync(updateSql, new
-                    {
-                        UserId = user.Id,
-                        FailedAttempts = newFailedAttempts
-                    });
-
-                    int attemptsRemaining = 3 - newFailedAttempts;
-                    _logger.LogWarning("Failed login attempt for user: {Username}. Attempts: {Attempts}/3", username, newFailedAttempts);
-
-                    return new AuthResult
-                    {
-                        Success = false,
-                        ErrorMessage = $"Invalid credentials. You have {attemptsRemaining} attempt{(attemptsRemaining == 1 ? "" : "s")} remaining before lockout."
-                    };
-                }
+                    Success = false,
+                    IsLockedOut = state.LockoutUntil.HasValue,
+                    LockoutMinutesRemaining = state.LockoutUntil.HasValue
+                        ? Math.Max(1, (int)Math.Ceiling((state.LockoutUntil.Value - DateTime.UtcNow).TotalMinutes))
+                        : null,
+                    ErrorMessage = "Invalid credentials."
+                };
             }
 
-            // Successful login: reset failed attempts, lockout window, and lockout tier count completely
-            string resetSql = @"UPDATE userlist 
-                                SET failed_attempts = 0, 
-                                    lockout_until = NULL, 
-                                    lockout_count = 0,
-                                    updated_on = now() 
-                                WHERE id = @UserId";
-            await _db.ExecuteAsync(resetSql, new { UserId = user.Id });
+            int? currentTokenVersion = await _db.ExecuteScalarAsync<int?>(@"
+                UPDATE userlist
+                SET failed_attempts = 0,
+                    lockout_until = NULL,
+                    lockout_count = 0,
+                    updated_on = now()
+                WHERE id = @UserId AND is_deleted = FALSE AND password_hash = @PasswordHash
+                RETURNING token_version",
+                new { UserId = user.Id, PasswordHash = user.PasswordHash });
+            if (!currentTokenVersion.HasValue)
+                return new AuthResult { Success = false, ErrorMessage = "Invalid credentials." };
+
+            user.TokenVersion = currentTokenVersion.Value;
 
             return new AuthResult
             {
                 Success = true,
                 Response = GenerateAuthResponse(user)
             };
+        }
+
+        private async Task<FailedLoginState> IncrementFailedAttemptAsync(int userId)
+        {
+            int threshold = ReadPositiveSetting("AuthSettings:MaxFailedAttempts", 3, 10);
+            int firstLockoutMinutes = ReadPositiveSetting("AuthSettings:FirstLockoutMinutes", 5, 1440);
+            int secondLockoutMinutes = ReadPositiveSetting("AuthSettings:SecondLockoutMinutes", 15, 1440);
+            int maxLockoutMinutes = ReadPositiveSetting("AuthSettings:MaxLockoutMinutes", 60, 10080);
+
+            const string sql = @"
+                WITH locked_user AS MATERIALIZED (
+                    SELECT id, failed_attempts, lockout_count,
+                           lockout_until IS NOT NULL AND lockout_until <= now() AS lockout_expired,
+                           lockout_until IS NOT NULL AND lockout_until > now() AS lockout_active
+                    FROM userlist
+                    WHERE id = @UserId AND is_deleted = FALSE
+                    FOR UPDATE
+                ), next_state AS (
+                    SELECT id,
+                           CASE WHEN lockout_expired THEN 1 ELSE failed_attempts + 1 END AS next_failed_attempts,
+                           lockout_count,
+                           lockout_active
+                    FROM locked_user
+                ), tiered AS (
+                    SELECT id, next_failed_attempts, lockout_active,
+                           CASE WHEN next_failed_attempts >= @Threshold THEN lockout_count + 1 ELSE lockout_count END AS next_lockout_count
+                    FROM next_state
+                ), changed AS (
+                    UPDATE userlist AS u
+                    SET failed_attempts = CASE WHEN t.next_failed_attempts >= @Threshold THEN 0 ELSE t.next_failed_attempts END,
+                        lockout_count = t.next_lockout_count,
+                        lockout_until = CASE WHEN t.next_failed_attempts >= @Threshold THEN
+                            now() + make_interval(mins => CASE
+                                WHEN t.next_lockout_count = 1 THEN @FirstLockoutMinutes
+                                WHEN t.next_lockout_count = 2 THEN @SecondLockoutMinutes
+                                ELSE @MaxLockoutMinutes END)
+                            ELSE NULL END,
+                        updated_on = now()
+                    FROM tiered t
+                    WHERE u.id = t.id AND NOT t.lockout_active
+                    RETURNING u.failed_attempts, u.lockout_until
+                )
+                SELECT failed_attempts AS FailedAttempts, lockout_until AS LockoutUntil FROM changed
+                UNION ALL
+                SELECT failed_attempts AS FailedAttempts, lockout_until AS LockoutUntil
+                FROM locked_user WHERE lockout_active;";
+
+            var state = await _db.QuerySingleAsync<FailedLoginState>(sql, new
+            {
+                UserId = userId,
+                Threshold = threshold,
+                FirstLockoutMinutes = firstLockoutMinutes,
+                SecondLockoutMinutes = secondLockoutMinutes,
+                MaxLockoutMinutes = maxLockoutMinutes
+            });
+            if (state != null) return state;
+
+            return await _db.QuerySingleAsync<FailedLoginState>(@"
+                SELECT failed_attempts AS FailedAttempts, lockout_until AS LockoutUntil
+                FROM userlist WHERE id = @UserId AND is_deleted = FALSE",
+                new { UserId = userId }) ?? new FailedLoginState();
+        }
+
+        private int ReadPositiveSetting(string key, int fallback, int maximum)
+        {
+            return int.TryParse(_configuration[key], out var value) && value > 0
+                ? Math.Min(value, maximum)
+                : fallback;
+        }
+
+        private sealed class FailedLoginState
+        {
+            public int FailedAttempts { get; set; }
+            public DateTime? LockoutUntil { get; set; }
         }
 
         private LoginResponse GenerateAuthResponse(User user)
@@ -155,7 +179,8 @@ namespace FlowCus.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, user.IsAdmin ? "Admin" : "User")
+                new Claim(ClaimTypes.Role, user.IsAdmin ? "Admin" : "User"),
+                new Claim("token_version", user.TokenVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor

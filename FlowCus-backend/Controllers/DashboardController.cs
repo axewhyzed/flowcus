@@ -1,3 +1,4 @@
+using FlowCus.Helpers;
 using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,8 +24,10 @@ namespace FlowCus.Controllers
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
-            int? offset = GetTimezoneOffset(timezoneOffset);
-            var stats = await _dashboardService.GetDashboardStatsAsync(userId, offset);
+            if (!TimezoneHelper.TryResolveRequestTimeZone(Request, out var timeZone, out var error, timezoneOffset))
+                return BadRequest(new { error });
+
+            var stats = await _dashboardService.GetDashboardStatsAsync(userId, timeZone);
             return Ok(stats);
         }
 
@@ -34,8 +37,10 @@ namespace FlowCus.Controllers
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
-            int? offset = GetTimezoneOffset(timezoneOffset);
-            var currentItem = await _dashboardService.GetActiveFocusAsync(userId, offset);
+            if (!TimezoneHelper.TryResolveRequestTimeZone(Request, out var timeZone, out var error, timezoneOffset))
+                return BadRequest(new { error });
+
+            var currentItem = await _dashboardService.GetActiveFocusAsync(userId, timeZone);
 
             if (currentItem == null)
                 return Ok(new { message = "No task scheduled right now. Free time!" });
@@ -43,15 +48,5 @@ namespace FlowCus.Controllers
             return Ok(currentItem);
         }
 
-        private int? GetTimezoneOffset(int? queryOffset)
-        {
-            if (queryOffset.HasValue) return queryOffset;
-            if (Request.Headers.TryGetValue("X-Timezone-Offset", out var headerVal) &&
-                int.TryParse(headerVal.FirstOrDefault(), out int parsedHeaderOffset))
-            {
-                return parsedHeaderOffset;
-            }
-            return null;
-        }
     }
 }

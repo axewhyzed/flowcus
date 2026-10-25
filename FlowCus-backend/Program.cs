@@ -1,8 +1,8 @@
 using FlowCus.Helpers;
+using FlowCus.Models;
 using FlowCus.Services;
 using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Security.Claims;
@@ -10,9 +10,7 @@ using System.Security.Claims;
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. CORS: Ensure Credentials are allowed for Cookies to work
-string[] allowedOrigins = builder.Environment.IsDevelopment()
-    ? new[] { "http://localhost:4200", "http://127.0.0.1:4200", "http://localhost:8081", "http://localhost:3000", "http://10.0.2.2:5000" }
-    : new[] { "https://axewhyzed.github.io", "https://flowcus.axewhyzedlabs.co.in" };
+string[] allowedOrigins = SecurityConfiguration.GetAllowedOrigins(builder.Environment);
 
 builder.Services.AddCors(options =>
 {
@@ -26,33 +24,27 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
+ForwardedHeadersConfiguration.AddServices(builder.Services, builder.Configuration);
 
 // Add Services to the container
 builder.Services.AddScoped<IDbHelper, DbHelper>();
-builder.Services.AddScoped<DbHelper>();
-builder.Services.AddScoped<DBHelper>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IAuthRateLimiter, AuthRateLimiter>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
-builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ITaskCategoryService, TaskCategoryService>();
-builder.Services.AddScoped<TaskCategoryService>();
 builder.Services.AddScoped<ITaskSubtypeService, TaskSubtypeService>();
-builder.Services.AddScoped<TaskSubtypeService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
-builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<ITimetableService, TimetableService>();
-builder.Services.AddScoped<TimetableService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<UserService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
-if (string.IsNullOrWhiteSpace(jwtKey))
+if (!JwtConfigurationValidator.IsValidKey(jwtKey))
 {
-    throw new InvalidOperationException("Configuration error: Jwt:Key is missing.");
+    throw new InvalidOperationException("Configuration error: Jwt:Key must be supplied through secure configuration, must be at least 32 bytes, and must not be the tracked placeholder value.");
 }
 
 builder.Services.AddAuthentication(options =>
@@ -71,7 +63,7 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero,
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!)),
         RoleClaimType = ClaimTypes.Role
     };
 
@@ -92,42 +84,35 @@ builder.Services.AddAuthentication(options =>
         },
         OnTokenValidated = async context =>
         {
-            var cache = context.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
             var dbHelper = context.HttpContext.RequestServices.GetRequiredService<IDbHelper>();
 
             var idClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var roleClaim = context.Principal?.FindFirst(ClaimTypes.Role)?.Value;
+            var tokenVersionClaim = context.Principal?.FindFirst("token_version")?.Value;
 
-            if (!int.TryParse(idClaim, out int userId))
+            if (!int.TryParse(idClaim, out int userId) || !int.TryParse(tokenVersionClaim, out int tokenVersion))
             {
-                context.Fail("Invalid token subject.");
+                context.Fail("Invalid token subject or version.");
                 return;
             }
 
-            string cacheKey = $"user_active_role_{userId}";
-            if (!cache.TryGetValue(cacheKey, out (bool Exists, bool IsAdmin) userInfo))
-            {
-                var user = await dbHelper.QuerySingleAsync<dynamic>(
-                    "SELECT is_admin FROM userlist WHERE id = @Id AND is_deleted = FALSE LIMIT 1",
-                    new { Id = userId });
+            var user = await dbHelper.QuerySingleAsync<TokenValidationState>(
+                "SELECT is_admin AS IsAdmin, token_version AS TokenVersion FROM userlist WHERE id = @Id AND is_deleted = FALSE",
+                new { Id = userId });
 
-                if (user == null)
-                {
-                    cache.Set(cacheKey, (Exists: false, IsAdmin: false), TimeSpan.FromSeconds(30));
-                    context.Fail("User no longer exists.");
-                    return;
-                }
-
-                userInfo = (Exists: true, IsAdmin: (bool)user.is_admin);
-                cache.Set(cacheKey, userInfo, TimeSpan.FromSeconds(120));
-            }
-            else if (!userInfo.Exists)
+            if (user == null)
             {
                 context.Fail("User no longer exists.");
                 return;
             }
 
-            string currentRole = userInfo.IsAdmin ? "Admin" : "User";
+            if (user.TokenVersion != tokenVersion)
+            {
+                context.Fail("Session has been revoked.");
+                return;
+            }
+
+            string currentRole = user.IsAdmin ? "Admin" : "User";
             if (!string.Equals(roleClaim, currentRole, StringComparison.Ordinal))
             {
                 context.Fail("User role is no longer valid.");
@@ -138,7 +123,6 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddMemoryCache();
 builder.Services.AddLogging();
 
 var app = builder.Build();
@@ -159,6 +143,10 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
+// Apply only forwarded headers from explicitly configured proxies/networks before
+// any middleware or endpoint reads the remote address or request scheme.
+app.UseForwardedHeaders();
+
 app.UseHttpsRedirection();
 
 app.UseCors("GlobalPolicy");
@@ -166,6 +154,68 @@ app.UseCors("GlobalPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Cookie-authenticated unsafe requests require a trusted Origin and a matching
+// double-submit CSRF token. Native clients authenticate with Bearer tokens and
+// do not need a browser CSRF token.
+app.Use(async (context, next) =>
+{
+    bool cookieLogin = HttpMethods.IsPost(context.Request.Method) &&
+        string.Equals(context.Request.Path.Value, "/api/auth/login", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(context.Request.Headers["X-Auth-Mode"].ToString(), "cookie", StringComparison.OrdinalIgnoreCase);
+    if (cookieLogin)
+    {
+        if (!CsrfProtection.IsTrustedOrigin(context.Request.Headers["Origin"].FirstOrDefault(), allowedOrigins))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { error = "Untrusted request origin." });
+            return;
+        }
+        await next();
+        return;
+    }
+
+    if (!CsrfProtection.IsUnsafeMethod(context.Request.Method) ||
+        !CsrfProtection.RequiresTokenValidation(
+            context.Request.Cookies.ContainsKey("auth_session"),
+            context.Request.Headers["Authorization"].ToString()))
+    {
+        await next();
+        return;
+    }
+
+    string? origin = context.Request.Headers["Origin"].FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(origin) && context.Request.Headers["Referer"].FirstOrDefault() is string referer &&
+        Uri.TryCreate(referer, UriKind.Absolute, out var refererUri))
+    {
+        origin = refererUri.GetLeftPart(UriPartial.Authority);
+    }
+
+    if (!CsrfProtection.IsTrustedOrigin(origin, allowedOrigins) ||
+        !CsrfProtection.TokensMatch(
+            context.Request.Cookies["XSRF-TOKEN"],
+            context.Request.Headers["X-CSRF-Token"].FirstOrDefault()))
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new { error = "CSRF validation failed." });
+        return;
+    }
+
+    await next();
+});
+
 app.MapControllers();
+
+app.MapGet("/health", async (IDbHelper db) =>
+{
+    try
+    {
+        await db.ExecuteScalarAsync<int>("SELECT 1");
+        return Results.Ok(new { status = "Healthy" });
+    }
+    catch
+    {
+        return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    }
+}).AllowAnonymous();
 
 app.Run();

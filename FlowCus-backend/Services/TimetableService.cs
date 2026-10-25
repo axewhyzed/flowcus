@@ -1,6 +1,7 @@
 using FlowCus.Helpers;
 using FlowCus.Models;
 using FlowCus.Services.Interfaces;
+using Dapper;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -20,36 +21,50 @@ namespace FlowCus.Services
         public async Task<int> CreateAsync(Timetable timetable)
         {
             ValidateTimetableName(timetable.Name);
-
-            string sql = @"
-                INSERT INTO timetables (user_id, name, is_active, created_at, is_deleted) 
-                VALUES (@UserId, @Name, FALSE, now(), FALSE) 
-                RETURNING id";
-            int id = await _db.ExecuteScalarAsync<int>(sql, timetable);
-
-            if (timetable.IsActive)
+            return await _db.ExecuteInTransactionAsync(async (connection, transaction) =>
             {
-                await ActivateTimetableAsync(id, timetable.UserId);
-            }
+                int id = await connection.ExecuteScalarAsync<int>(@"
+                    INSERT INTO timetables (user_id, name, is_active, created_at, is_deleted)
+                    VALUES (@UserId, @Name, FALSE, now(), FALSE)
+                    RETURNING id", new { timetable.UserId, timetable.Name }, transaction);
 
-            return id;
+                if (timetable.IsActive)
+                {
+                    await connection.ExecuteAsync("SELECT pg_advisory_xact_lock(@UserId)", new { timetable.UserId }, transaction);
+                    await connection.ExecuteAsync(@"
+                        UPDATE timetables SET is_active = FALSE, updated_on = now()
+                        WHERE user_id = @UserId AND is_deleted = FALSE AND is_active = TRUE",
+                        new { timetable.UserId }, transaction);
+                    await connection.ExecuteAsync(@"
+                        UPDATE timetables SET is_active = TRUE, updated_on = now()
+                        WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",
+                        new { Id = id, timetable.UserId }, transaction);
+                }
+                return id;
+            });
         }
 
         public async Task<bool> ActivateTimetableAsync(int timetableId, int userId)
         {
-            string checkSql = "SELECT COUNT(*) FROM timetables WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE";
-            long count = await _db.ExecuteScalarAsync<long>(checkSql, new { Id = timetableId, UserId = userId });
+            return await _db.ExecuteInTransactionAsync(async (connection, transaction) =>
+            {
+                await connection.ExecuteAsync("SELECT pg_advisory_xact_lock(@UserId)", new { UserId = userId }, transaction);
+                int exists = await connection.ExecuteScalarAsync<int>(@"
+                    SELECT COUNT(*) FROM timetables
+                    WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",
+                    new { Id = timetableId, UserId = userId }, transaction);
+                if (exists == 0) return false;
 
-            if (count == 0) return false;
-
-            string sql = @"
-                UPDATE timetables
-                SET is_active = CASE WHEN id = @Id THEN TRUE ELSE FALSE END,
-                    updated_on = now()
-                WHERE user_id = @UserId AND is_deleted = FALSE";
-
-            int rows = await _db.ExecuteAsync(sql, new { Id = timetableId, UserId = userId });
-            return rows > 0;
+                await connection.ExecuteAsync(@"
+                    UPDATE timetables SET is_active = FALSE, updated_on = now()
+                    WHERE user_id = @UserId AND is_deleted = FALSE AND is_active = TRUE",
+                    new { UserId = userId }, transaction);
+                int rows = await connection.ExecuteAsync(@"
+                    UPDATE timetables SET is_active = TRUE, updated_on = now()
+                    WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",
+                    new { Id = timetableId, UserId = userId }, transaction);
+                return rows > 0;
+            });
         }
 
         public async Task<Timetable?> GetByIdAsync(int id, int userId)
@@ -71,7 +86,7 @@ namespace FlowCus.Services
                 JOIN timetables t ON i.timetable_id = t.id
                 LEFT JOIN task_category c ON i.task_category_id = c.id
                 LEFT JOIN task_subtypes s ON i.task_subtype_id = s.id
-                WHERE t.id = @TId AND t.user_id = @UserId AND i.is_deleted = FALSE
+                WHERE t.id = @TId AND t.user_id = @UserId AND t.is_deleted = FALSE AND i.is_deleted = FALSE
                 ORDER BY i.day_of_week, i.start_time";
 
             return await _db.QueryAsync<TimetableItem>(sql, new { TId = timetableId, UserId = userId });
@@ -88,6 +103,7 @@ namespace FlowCus.Services
                 WHERE timetable_id = @TimetableId 
                 AND day_of_week = @DayOfWeek 
                 AND is_deleted = FALSE
+                AND (@SpecificDate IS NULL OR specific_date IS NULL OR specific_date = @SpecificDate)
                 AND (
                     (start_time < @EndTime AND end_time > @StartTime)
                 )
@@ -98,7 +114,8 @@ namespace FlowCus.Services
                 TimetableId = item.TimetableId,
                 DayOfWeek = item.DayOfWeek,
                 StartTime = item.StartTime,
-                EndTime = item.EndTime
+                EndTime = item.EndTime,
+                SpecificDate = item.SpecificDate.HasValue ? (DateOnly?)DateOnly.FromDateTime(item.SpecificDate.Value) : null
             });
 
             if (overlapCount > 0)
@@ -141,6 +158,7 @@ namespace FlowCus.Services
                     AND day_of_week = @DayOfWeek 
                     AND id != @Id
                     AND is_deleted = FALSE
+                    AND (@SpecificDate IS NULL OR specific_date IS NULL OR specific_date = @SpecificDate)
                     AND (start_time < @EndTime AND end_time > @StartTime)
                     ";
 
@@ -150,6 +168,7 @@ namespace FlowCus.Services
                 DayOfWeek = item.DayOfWeek,
                 StartTime = item.StartTime,
                 EndTime = item.EndTime,
+                SpecificDate = item.SpecificDate.HasValue ? (DateOnly?)DateOnly.FromDateTime(item.SpecificDate.Value) : null,
                 Id = id
             });
 
@@ -163,11 +182,14 @@ namespace FlowCus.Services
                     day_of_week = @DayOfWeek,
                     start_time = @StartTime, 
                     end_time = @EndTime, 
-                    specific_date = @SpecificDate
+                    specific_date = @SpecificDate,
+                    updated_on = now()
                 FROM timetables t
                 WHERE timetable_items.id = @Id 
                 AND timetable_items.timetable_id = t.id 
-                AND t.user_id = @UserId";
+                AND t.user_id = @UserId
+                AND t.is_deleted = FALSE
+                AND timetable_items.is_deleted = FALSE";
 
             var paramsObj = new
             {
@@ -178,7 +200,7 @@ namespace FlowCus.Services
                 item.DayOfWeek,
                 item.StartTime,
                 item.EndTime,
-                item.SpecificDate
+                SpecificDate = item.SpecificDate.HasValue ? (DateOnly?)DateOnly.FromDateTime(item.SpecificDate.Value) : null
             };
 
             int rows = await _db.ExecuteAsync(sql, paramsObj);
@@ -236,11 +258,13 @@ namespace FlowCus.Services
         {
             string sql = @"
                 UPDATE timetable_items 
-                SET is_deleted = TRUE 
+                SET is_deleted = TRUE, updated_on = now()
                 FROM timetables t
                 WHERE timetable_items.id = @Id 
                 AND timetable_items.timetable_id = t.id 
-                AND t.user_id = @UserId";
+                AND t.user_id = @UserId
+                AND t.is_deleted = FALSE
+                AND timetable_items.is_deleted = FALSE";
 
             int rows = await _db.ExecuteAsync(sql, new { Id = id, UserId = userId });
             return rows > 0;
@@ -282,12 +306,15 @@ namespace FlowCus.Services
             var categories = (await _db.QueryAsync<TaskCategory>(
                 "SELECT * FROM task_category WHERE is_deleted = FALSE")).ToList();
 
+            if (categories.Count == 0)
+                throw new InvalidOperationException("No task categories are available to apply a timetable template.");
+
             int GetCatId(string preferredName, string fallback = "Work")
             {
                 var match = categories.FirstOrDefault(c => c.Name.Equals(preferredName, StringComparison.OrdinalIgnoreCase))
                          ?? categories.FirstOrDefault(c => c.Name.Equals(fallback, StringComparison.OrdinalIgnoreCase))
                          ?? categories.FirstOrDefault();
-                return match != null ? match.Id : 1;
+                return match != null ? match.Id : throw new InvalidOperationException("No compatible task category is available for the selected template.");
             }
 
             int workCat = GetCatId("Work");
@@ -295,28 +322,6 @@ namespace FlowCus.Services
             int fitnessCat = GetCatId("Fitness", "Personal");
             int personalCat = GetCatId("Personal", "Work");
             int meetingCat = GetCatId("Meeting", "Work");
-
-            long currentCount = await _db.ExecuteScalarAsync<long>(
-                "SELECT COUNT(*) FROM timetables WHERE user_id = @UserId AND is_deleted = FALSE", new { UserId = userId });
-
-            if (currentCount >= 5)
-            {
-                await _db.ExecuteAsync(@"
-                    UPDATE timetables 
-                    SET is_deleted = TRUE, is_active = FALSE, updated_on = now() 
-                    WHERE id = (
-                        SELECT id FROM timetables 
-                        WHERE user_id = @UserId AND is_deleted = FALSE AND is_active = FALSE 
-                        ORDER BY created_at ASC LIMIT 1
-                    )", new { UserId = userId });
-            }
-
-            int timetableId = await CreateAsync(new Timetable
-            {
-                UserId = userId,
-                Name = routineName,
-                IsActive = true
-            });
 
             var itemsToInsert = new List<(int day, string start, string end, int catId)>();
             string mode = (templateName ?? "general").Trim().ToLowerInvariant();
@@ -364,13 +369,50 @@ namespace FlowCus.Services
                 }
             }
 
-            foreach (var (day, start, end, catId) in itemsToInsert)
+            int timetableId = await _db.ExecuteInTransactionAsync(async (connection, transaction) =>
             {
-                await _db.ExecuteAsync(@"
-                    INSERT INTO timetable_items (timetable_id, task_category_id, day_of_week, start_time, end_time, created_on, is_deleted)
-                    VALUES (@TId, @CatId, @Day, @Start::time, @End::time, now(), FALSE)",
-                    new { TId = timetableId, CatId = catId, Day = day, Start = start, End = end });
-            }
+                long currentCount = await connection.ExecuteScalarAsync<long>(
+                    "SELECT COUNT(*) FROM timetables WHERE user_id = @UserId AND is_deleted = FALSE",
+                    new { UserId = userId }, transaction);
+
+                if (currentCount >= 5)
+                {
+                    int deleted = await connection.ExecuteAsync(@"
+                        UPDATE timetables
+                        SET is_deleted = TRUE, is_active = FALSE, updated_on = now()
+                        WHERE id = (
+                            SELECT id FROM timetables
+                            WHERE user_id = @UserId AND is_deleted = FALSE AND is_active = FALSE
+                            ORDER BY created_at ASC LIMIT 1
+                        )", new { UserId = userId }, transaction);
+                    if (deleted == 0)
+                        throw new InvalidOperationException("You already have the maximum number of timetables.");
+                }
+
+                int createdId = await connection.ExecuteScalarAsync<int>(@"
+                    INSERT INTO timetables (user_id, name, is_active, created_at, is_deleted)
+                    VALUES (@UserId, @Name, FALSE, now(), FALSE)
+                    RETURNING id", new { UserId = userId, Name = routineName }, transaction);
+
+                await connection.ExecuteAsync(@"
+                    UPDATE timetables SET is_active = FALSE, updated_on = now()
+                    WHERE user_id = @UserId AND is_deleted = FALSE AND is_active = TRUE",
+                    new { UserId = userId }, transaction);
+                await connection.ExecuteAsync(@"
+                    UPDATE timetables SET is_active = TRUE, updated_on = now()
+                    WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",
+                    new { Id = createdId, UserId = userId }, transaction);
+
+                foreach (var (day, start, end, catId) in itemsToInsert)
+                {
+                    await connection.ExecuteAsync(@"
+                        INSERT INTO timetable_items (timetable_id, task_category_id, day_of_week, start_time, end_time, is_deleted)
+                        VALUES (@TId, @CatId, @Day, @Start::time, @End::time, FALSE)",
+                        new { TId = createdId, CatId = catId, Day = day, Start = start, End = end }, transaction);
+                }
+
+                return createdId;
+            });
 
             return new
             {
@@ -381,25 +423,66 @@ namespace FlowCus.Services
             };
         }
 
-        public async Task<int> ShiftTodayAsync(int minutes, int userId, int? dayOfWeek = null)
+        public async Task<int> ShiftTodayAsync(int minutes, int userId, int? dayOfWeek = null, int? timezoneOffsetMinutes = null, int? timetableId = null)
         {
-            var activeTimetable = await _db.QuerySingleOrDefaultAsync<Timetable>(
-                "SELECT * FROM timetables WHERE user_id = @UserId AND is_active = TRUE AND is_deleted = FALSE LIMIT 1",
-                new { UserId = userId });
+            if (minutes < -720 || minutes > 720)
+                throw new InvalidOperationException("Shift minutes must be between -720 and 720.");
+
+            int offset = timezoneOffsetMinutes is >= -840 and <= 840 ? timezoneOffsetMinutes.Value : 0;
+            var localNow = TimezoneHelper.ToLocalTime(DateTime.UtcNow, offset);
+            int day = dayOfWeek ?? (int)localNow.DayOfWeek;
+            if (day < 0 || day > 6)
+                throw new InvalidOperationException("Day of week must be between 0 and 6.");
+
+            var activeTimetable = timetableId.HasValue
+                ? await _db.QuerySingleOrDefaultAsync<Timetable>(
+                    "SELECT * FROM timetables WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",
+                    new { Id = timetableId.Value, UserId = userId })
+                : await _db.QuerySingleOrDefaultAsync<Timetable>(
+                    "SELECT * FROM timetables WHERE user_id = @UserId AND is_active = TRUE AND is_deleted = FALSE LIMIT 1",
+                    new { UserId = userId });
 
             if (activeTimetable == null) return 0;
 
-            int day = dayOfWeek ?? (int)DateTime.UtcNow.DayOfWeek;
+            if (minutes == 0) return 0;
             string sql = @"
-                UPDATE timetable_items
-                SET start_time = LEAST('23:59:59'::time, start_time + (@Minutes || ' minutes')::interval),
-                    end_time = LEAST('23:59:59'::time, end_time + (@Minutes || ' minutes')::interval),
-                    updated_on = now()
-                WHERE timetable_id = @TId 
-                  AND day_of_week = @Day 
-                  AND is_deleted = FALSE;";
+                WITH valid AS (
+                    SELECT COUNT(*) AS item_count,
+                           BOOL_AND(EXTRACT(EPOCH FROM start_time) + @Minutes * 60 >= 0
+                               AND EXTRACT(EPOCH FROM start_time) + @Minutes * 60 < 86400
+                               AND EXTRACT(EPOCH FROM end_time) + @Minutes * 60 > 0
+                               AND EXTRACT(EPOCH FROM end_time) + @Minutes * 60 < 86400) AS all_fit
+                    FROM timetable_items
+                    WHERE timetable_id = @TId AND day_of_week = @Day AND is_deleted = FALSE
+                      AND (specific_date IS NULL OR specific_date = @LocalDate)
+                ), shifted AS (
+                    UPDATE timetable_items i
+                    SET start_time = i.start_time + (@Minutes || ' minutes')::interval,
+                        end_time = i.end_time + (@Minutes || ' minutes')::interval,
+                        updated_on = now()
+                    FROM valid v
+                    WHERE i.timetable_id = @TId AND i.day_of_week = @Day AND i.is_deleted = FALSE
+                      AND (i.specific_date IS NULL OR i.specific_date = @LocalDate)
+                      AND v.all_fit
+                    RETURNING i.id
+                )
+                SELECT CASE
+                    WHEN (SELECT item_count FROM valid) = 0 THEN 0
+                    WHEN NOT (SELECT all_fit FROM valid) THEN -1
+                    ELSE COUNT(*)::int
+                END
+                FROM shifted;";
 
-            return await _db.ExecuteAsync(sql, new { TId = activeTimetable.Id, Day = day, Minutes = minutes });
+            int shifted = await _db.ExecuteScalarAsync<int>(sql, new
+            {
+                TId = activeTimetable.Id,
+                Day = day,
+                Minutes = minutes,
+                LocalDate = DateOnly.FromDateTime(localNow)
+            });
+            if (shifted < 0)
+                throw new InvalidOperationException("The requested shift would move a schedule block outside the day.");
+            return shifted;
         }
 
         private static void ValidateTimetableName(string name)
@@ -418,6 +501,9 @@ namespace FlowCus.Services
 
             if (item.StartTime >= item.EndTime)
                 throw new InvalidOperationException("Start time must be before end time.");
+
+            if (item.SpecificDate.HasValue && (int)item.SpecificDate.Value.DayOfWeek != item.DayOfWeek)
+                throw new InvalidOperationException("Specific date must match the selected day of week.");
         }
     }
 }

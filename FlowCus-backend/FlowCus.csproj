@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,18 +17,30 @@
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Dapper" Version="2.1.66" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
-    <PackageReference Include="Npgsql" Version="8.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.1" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Update="appsettings.Production.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
+
+  <Target Name="RemoveStaleLocalProductionConfigFromGeneratedOutputs" AfterTargets="Build;Publish">
+    <PropertyGroup>
+      <_LocalProductionConfigFile>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/appsettings.Production.json'))</_LocalProductionConfigFile>
+      <_BuildProductionConfigFile>$([System.IO.Path]::GetFullPath('$(TargetDir)/appsettings.Production.json'))</_BuildProductionConfigFile>
+      <_PublishProductionConfigFile Condition="'$(PublishDir)' != ''">$([System.IO.Path]::GetFullPath('$(PublishDir)/appsettings.Production.json'))</_PublishProductionConfigFile>
+    </PropertyGroup>
+    <Delete Files="$(_BuildProductionConfigFile)"
+            Condition="Exists('$(_BuildProductionConfigFile)') and '$(_BuildProductionConfigFile)' != '$(_LocalProductionConfigFile)'" />
+    <Delete Files="$(_PublishProductionConfigFile)"
+            Condition="'$(_PublishProductionConfigFile)' != '' and Exists('$(_PublishProductionConfigFile)') and '$(_PublishProductionConfigFile)' != '$(_LocalProductionConfigFile)'" />
+  </Target>
 
 </Project>

@@ -18,6 +18,6 @@ namespace FlowCus.Services.Interfaces
         Task<bool> DeleteAsync(int id, int userId);
         Task<bool> DeleteItemAsync(int id, int userId);
         Task<object> ApplyTemplateAsync(string templateName, int userId);
-        Task<int> ShiftTodayAsync(int minutes, int userId, int? dayOfWeek = null);
+        Task<int> ShiftTodayAsync(int minutes, int userId, int? dayOfWeek = null, int? timezoneOffsetMinutes = null, int? timetableId = null);
     }
 }

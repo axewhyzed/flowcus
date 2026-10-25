@@ -1,4 +1,5 @@
 using FlowCus.Models;
+using FlowCus.Helpers;
 using FlowCus.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -182,6 +183,11 @@ namespace FlowCus.Controllers
                 _logger.LogWarning(pgEx, "Timetable item create invalid reference. UserId={UserId}, TimetableId={TimetableId}", userId, item.TimetableId);
                 return BadRequest(new { error = "Invalid task category or subtype reference." });
             }
+            catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23P01" || pgEx.SqlState == "23514")
+            {
+                _logger.LogWarning(pgEx, "Timetable item constraint rejected. UserId={UserId}, TimetableId={TimetableId}", userId, item.TimetableId);
+                return BadRequest(new { error = pgEx.MessageText });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating timetable item");
@@ -255,9 +261,23 @@ namespace FlowCus.Controllers
         public async Task<IActionResult> ShiftToday([FromBody] ShiftTodayRequest request)
         {
             if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
-            int shifted = await _timetableService.ShiftTodayAsync(request.Minutes, userId, request.DayOfWeek);
-            _logger.LogInformation("Shift today succeeded. UserId={UserId}, ShiftedCount={Count}", userId, shifted);
-            return Ok(new { shiftedCount = shifted, message = $"Shifted {shifted} schedule blocks by +{request.Minutes} minutes." });
+            if (request.TimetableId.HasValue && await _timetableService.GetByIdAsync(request.TimetableId.Value, userId) == null)
+                return NotFound(new { error = "Timetable not found." });
+            if (!TimezoneHelper.TryResolveRequestTimeZone(Request, out var timeZone, out var timeZoneError))
+                return BadRequest(new { error = timeZoneError });
+
+            int? offset = timeZone.CurrentOffsetMinutes(DateTime.UtcNow);
+            int? dayOfWeek = request.DayOfWeek ?? (int)timeZone.ToLocal(DateTime.UtcNow).DayOfWeek;
+            try
+            {
+                int shifted = await _timetableService.ShiftTodayAsync(request.Minutes, userId, dayOfWeek, offset, request.TimetableId);
+                _logger.LogInformation("Shift today succeeded. UserId={UserId}, ShiftedCount={Count}", userId, shifted);
+                return Ok(new { shiftedCount = shifted, message = $"Shifted {shifted} schedule blocks by {request.Minutes} minutes." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         private bool TryGetCurrentUserId(out int userId)
@@ -282,5 +302,6 @@ namespace FlowCus.Controllers
     {
         public int Minutes { get; set; } = 30;
         public int? DayOfWeek { get; set; }
+        public int? TimetableId { get; set; }
     }
 }

@@ -145,6 +145,14 @@ namespace FlowCus.Controllers
                 _logger.LogError("User create failed without exception. ActorUserId={ActorUserId}, Username={Username}", GetCurrentUserId(), request.Username);
                 return StatusCode(500, new { error = "Failed to create user" });
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
+            {
+                return Conflict(new { error = "Username already exists" });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating user");
@@ -165,11 +173,4 @@ namespace FlowCus.Controllers
     }
 
     public class UpdateProfileRequest { public string Name { get; set; } = ""; }
-    public class UserCreateRequest 
-    { 
-        public string Username { get; set; } = null!;
-        public string Password { get; set; } = null!; // Password is now required for account creation
-        public string? Name { get; set; } 
-        public bool IsAdmin { get; set; } = false; 
-    }
 }

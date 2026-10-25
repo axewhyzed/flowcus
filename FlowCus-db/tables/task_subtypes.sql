@@ -12,7 +12,8 @@ CREATE TABLE task_subtypes (
     icon_name VARCHAR(150), -- e.g. 'fa-solid fa-book' (Font Awesome 6)
     created_on TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_on TIMESTAMPTZ,
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT uq_task_subtypes_id_user_category UNIQUE (id, user_id, category_id)
 );
 
 -- Existing indexes (automatically created)
