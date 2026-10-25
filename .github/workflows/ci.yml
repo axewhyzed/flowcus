@@ -104,6 +104,7 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 10.0.x
+          dotnet-quality: 'preview'
       - name: Run backend unit tests
         # PostgreSQL integration tests stay local and opt-in; do not provision a DB in hosted CI.
         run: dotnet test FlowCus-backend/FlowCus.Tests/FlowCus.Tests.csproj --configuration Release --filter "FullyQualifiedName!~AuthRateLimiterPostgresIntegrationTests"
@@ -164,6 +165,8 @@ jobs:
         run: npm test -- --runInBand
       - name: Run Gradle unit tests
         working-directory: FlowCus-android/android
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m"
         run: |
           chmod +x gradlew
           ./gradlew testDebugUnitTest
