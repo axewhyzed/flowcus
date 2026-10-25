@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { Subject } from 'rxjs';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
+import { firstValueFrom, Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ErrorHandlingService } from './error-handling.service';
 
@@ -9,12 +9,12 @@ import { ErrorHandlingService } from './error-handling.service';
   providedIn: 'root',
 })
 export class ApiService {
-  private axiosInstance: AxiosInstance;
   private csrfToken: string | null = null;
   private sessionExpiredSubject = new Subject<void>();
   readonly sessionExpired$ = this.sessionExpiredSubject.asObservable();
 
   constructor(
+    private http: HttpClient,
     private errorHandler: ErrorHandlingService,
     private router: Router
   ) {
@@ -22,89 +22,116 @@ export class ApiService {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('auth_token');
     }
-    this.axiosInstance = axios.create({
-      baseURL: environment.apiUrl,
-      timeout: 30000,
-      withCredentials: true, // CRITICAL: Sends 'auth_session' cookie automatically
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
+  }
+
+  private buildUrl(path: string): string {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    const base = environment.apiUrl.replace(/\/+$/, '');
+    const cleanPath = path.replace(/^\/+/, '');
+    return `${base}/${cleanPath}`;
+  }
+
+  private buildHeaders(method: string, path: string): HttpHeaders {
+    let headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
     });
 
-    this.axiosInstance.interceptors.request.use((config) => {
-      const method = config.method?.toUpperCase();
-      const isUnsafeMethod = method && !['GET', 'HEAD', 'OPTIONS'].includes(method);
-      const isLoginRequest = (config.url || '').includes('auth/login');
-      if (isLoginRequest) {
-        config.headers['X-Auth-Mode'] = 'cookie';
-      }
-      if (isUnsafeMethod && !isLoginRequest) {
-        const csrfToken = this.csrfToken || this.getCsrfCookie();
-        if (csrfToken) {
-          config.headers['X-CSRF-Token'] = csrfToken;
-        }
-      }
+    const isLoginRequest = path.includes('auth/login');
+    if (isLoginRequest) {
+      headers = headers.set('X-Auth-Mode', 'cookie');
+    }
 
-      // Inject client timezone offset for backend date/time alignment
-      if (typeof window !== 'undefined') {
-        const timezoneId = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if (timezoneId) {
-          config.headers['X-Timezone-Id'] = timezoneId;
-        }
-        // Keep the offset for older servers and as a fallback for invalid/missing IANA IDs.
-        config.headers['X-Timezone-Offset'] = new Date().getTimezoneOffset().toString();
+    const upperMethod = method.toUpperCase();
+    const isUnsafeMethod = !['GET', 'HEAD', 'OPTIONS'].includes(upperMethod);
+    if (isUnsafeMethod && !isLoginRequest) {
+      const csrf = this.csrfToken || this.getCsrfCookie();
+      if (csrf) {
+        headers = headers.set('X-CSRF-Token', csrf);
       }
+    }
 
-      return config;
-    });
-
-    // Response Interceptor: Handle 401 Session Expiry globally
-    this.axiosInstance.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        if (error.response?.status === 401) {
-          const requestUrl = error.config?.url || '';
-          if (!requestUrl.includes('auth/login')) {
-            this.sessionExpiredSubject.next();
-            this.router.navigate(['/login']);
-          }
-        }
-        
-        const requestUrl = error.config?.url || '';
-        if (!requestUrl.includes('auth/login')) {
-          this.errorHandler.handleError(error);
-        }
-        return Promise.reject(error);
+    // Inject client timezone offset for backend date/time alignment
+    if (typeof window !== 'undefined') {
+      const timezoneId = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (timezoneId) {
+        headers = headers.set('X-Timezone-Id', timezoneId);
       }
-    );
+      headers = headers.set('X-Timezone-Offset', new Date().getTimezoneOffset().toString());
+    }
+
+    return headers;
+  }
+
+  private buildParams(params?: Record<string, any>): HttpParams {
+    let httpParams = new HttpParams();
+    if (params) {
+      for (const [key, val] of Object.entries(params)) {
+        if (val !== undefined && val !== null) {
+          httpParams = httpParams.set(key, String(val));
+        }
+      }
+    }
+    return httpParams;
+  }
+
+  private async request<T>(method: string, path: string, body?: any, params?: Record<string, any>): Promise<T> {
+    const url = this.buildUrl(path);
+    const headers = this.buildHeaders(method, path);
+    const httpParams = this.buildParams(params);
+
+    try {
+      const result = await firstValueFrom(
+        this.http.request<T>(method, url, {
+          body,
+          headers,
+          params: httpParams,
+          withCredentials: true,
+        })
+      );
+      return result as T;
+    } catch (err: any) {
+      this.handleHttpError(err, path);
+      throw err;
+    }
+  }
+
+  private handleHttpError(error: any, requestUrl: string): void {
+    const isLogin = requestUrl.includes('auth/login');
+    const status = error instanceof HttpErrorResponse ? error.status : error?.status;
+
+    if (status === 401 && !isLogin) {
+      this.sessionExpiredSubject.next();
+      this.router.navigate(['/login']);
+    }
+
+    if (!isLogin) {
+      this.errorHandler.handleError(error);
+    }
   }
 
   // --- Standard Methods ---
 
-  async get<T>(url: string, params?: any): Promise<T> {
-    const response: AxiosResponse<T> = await this.axiosInstance.get(url, { params });
-    return response.data;
+  get<T>(url: string, params?: Record<string, any>): Promise<T> {
+    return this.request<T>('GET', url, undefined, params);
   }
 
-  async post<T>(url: string, data?: any): Promise<T> {
-    const response: AxiosResponse<T> = await this.axiosInstance.post(url, data);
-    return response.data;
+  post<T>(url: string, data?: any): Promise<T> {
+    return this.request<T>('POST', url, data);
   }
 
-  async put<T>(url: string, data?: any): Promise<T> {
-    const response: AxiosResponse<T> = await this.axiosInstance.put(url, data);
-    return response.data;
+  put<T>(url: string, data?: any): Promise<T> {
+    return this.request<T>('PUT', url, data);
   }
 
-  async patch<T>(url: string, data?: any): Promise<T> {
-    const response: AxiosResponse<T> = await this.axiosInstance.patch(url, data);
-    return response.data;
+  patch<T>(url: string, data?: any): Promise<T> {
+    return this.request<T>('PATCH', url, data);
   }
 
-  async delete<T>(url: string): Promise<T> {
-    const response: AxiosResponse<T> = await this.axiosInstance.delete(url);
-    return response.data;
+  delete<T>(url: string): Promise<T> {
+    return this.request<T>('DELETE', url);
   }
 
   setCsrfToken(token: string | null | undefined): void {

@@ -4,7 +4,6 @@ import { TasksComponent } from './tasks.component';
 import { TaskService } from '../../core/services/task.service';
 import { TaskCategoryService } from '../../core/services/task-category.service';
 import { TaskSubtypeService } from '../../core/services/task-subtype.service';
-import { NlpTaskParserService } from '../../core/services/nlp-task-parser.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 
@@ -15,7 +14,6 @@ describe('TasksComponent', () => {
       taskService,
       {} as TaskCategoryService,
       {} as TaskSubtypeService,
-      {} as NlpTaskParserService,
       { queryParams: of({}) } as unknown as ActivatedRoute,
       toast,
       {} as ConfirmService

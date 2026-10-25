@@ -140,10 +140,13 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.isLoading = false;
     });
-    builder.addCase(restoreSession.rejected, (state) => {
-      state.isAuthenticated = false;
+    builder.addCase(restoreSession.rejected, (state, action) => {
+      const isExplicitAuthFailure = action.payload === 'Session expired' || action.payload === 'No session';
+      if (isExplicitAuthFailure) {
+        state.isAuthenticated = false;
+        state.user = null;
+      }
       state.isLoading = false;
-      state.user = null;
       state.error = null;
     });
 

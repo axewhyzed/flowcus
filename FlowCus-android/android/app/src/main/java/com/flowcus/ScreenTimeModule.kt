@@ -138,6 +138,7 @@ class ScreenTimeModule(private val reactContext: ReactApplicationContext) : Reac
 
         val byteArrayOutputStream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 85, byteArrayOutputStream)
+        bitmap.recycle()
         val byteArray = byteArrayOutputStream.toByteArray()
         return Base64.encodeToString(byteArray, Base64.NO_WRAP)
     }

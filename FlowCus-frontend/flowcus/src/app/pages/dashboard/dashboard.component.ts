@@ -7,9 +7,6 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { ActiveBlockService } from '../../core/services/active-block.service';
-import { DailyRitualService } from '../../core/services/daily-ritual.service';
-import { CommandPaletteService } from '../../core/services/command-palette.service';
-import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
 import { AuthService } from '../../core/services/auth.service';
 import { DashboardData, DashboardTimetableItem } from '../../core/models/dashboard.model';
 
@@ -59,34 +56,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private confirmService: ConfirmService,
     private router: Router,
     public activeBlockService: ActiveBlockService,
-    public ritualService: DailyRitualService,
-    public paletteService: CommandPaletteService,
-    public soundService: SoundFeedbackService,
     private authService: AuthService
   ) { }
 
   openZenFocus(): void {
     this.activeBlockService.openFocusMode();
-  }
-
-  openMorningKickoff(): void {
-    this.ritualService.openMorningKickoff();
-  }
-
-  openEveningShutdown(): void {
-    this.ritualService.openEveningShutdown();
-  }
-
-  openWeeklyReview(): void {
-    this.ritualService.openWeeklyReview();
-  }
-
-  get isMorningDone(): boolean {
-    return this.ritualService.isMorningKickoffCompletedToday();
-  }
-
-  get isEveningDone(): boolean {
-    return this.ritualService.isEveningShutdownCompletedToday();
   }
 
   ngOnInit(): void {

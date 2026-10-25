@@ -11,6 +11,8 @@ import { fetchDashboardStats } from '../redux/slices/dashboard';
 import { clearFocusSession, createFocusSessionId, loadFocusSession, PersistedFocusSession, saveFocusSession, toFocusTaskPayload } from '../services/focusSessionStorage';
 import { usePreferences } from '../components/PreferencesProvider';
 import { FocusSessionScreenProps } from '../navigation/types';
+import { scheduleFocusAlarm, cancelFocusAlarm } from '../native/AlarmModule';
+import { ensureNotificationPermission } from '../services/notificationPermissions';
 
 const PRESETS = [15, 25, 45, 60];
 
@@ -71,6 +73,7 @@ const FocusSession = ({ navigation, route }: FocusSessionScreenProps) => {
     }, [dispatch, navigation]);
 
     const handleSessionComplete = useCallback(async () => {
+        void cancelFocusAlarm();
         const current = activeSessionRef.current;
         if (!current || current.status === 'pendingLog' || completionInProgressRef.current) return;
         completionInProgressRef.current = true;
@@ -146,8 +149,12 @@ const FocusSession = ({ navigation, route }: FocusSessionScreenProps) => {
                     : Math.max(0, Math.ceil(((record.targetEndAt || Date.now()) - Date.now()) / 1000)));
                 setIsRunning(true);
                 setIsPaused(record.status === 'paused');
-                if (record.status === 'running' && (record.targetEndAt || 0) <= Date.now()) {
-                    void handleSessionComplete();
+                if (record.status === 'running') {
+                    if ((record.targetEndAt || 0) <= Date.now()) {
+                        void handleSessionComplete();
+                    } else if (record.targetEndAt) {
+                        void scheduleFocusAlarm(record.targetEndAt, record.title);
+                    }
                 }
             }
         }).catch(() => {
@@ -217,12 +224,17 @@ const FocusSession = ({ navigation, route }: FocusSessionScreenProps) => {
         setIsPaused(false);
         setPendingLog(null);
         setSecondsLeft(totalSecs);
+        void ensureNotificationPermission();
+        if (record.targetEndAt) {
+            void scheduleFocusAlarm(record.targetEndAt, record.title);
+        }
     };
 
     const pauseTimer = async () => {
         if (!isRunning || isPaused) return;
         const current = activeSessionRef.current;
         if (!current?.targetEndAt) return;
+        void cancelFocusAlarm();
         const remainingSeconds = Math.max(0, Math.ceil((current.targetEndAt - Date.now()) / 1000));
         const paused: PersistedFocusSession = { ...current, status: 'paused', targetEndAt: null, remainingSeconds };
         try {
@@ -240,10 +252,11 @@ const FocusSession = ({ navigation, route }: FocusSessionScreenProps) => {
         if (!isRunning || !isPaused) return;
         const current = activeSessionRef.current;
         if (!current) return;
+        const resumedTargetEndAt = Date.now() + current.remainingSeconds * 1000;
         const resumed: PersistedFocusSession = {
             ...current,
             status: 'running',
-            targetEndAt: Date.now() + current.remainingSeconds * 1000,
+            targetEndAt: resumedTargetEndAt,
         };
         try {
             await saveFocusSession(resumed);
@@ -253,6 +266,7 @@ const FocusSession = ({ navigation, route }: FocusSessionScreenProps) => {
         }
         activeSessionRef.current = resumed;
         setIsPaused(false);
+        void scheduleFocusAlarm(resumedTargetEndAt, resumed.title);
     };
 
     const cancelTimer = () => {
@@ -265,6 +279,7 @@ const FocusSession = ({ navigation, route }: FocusSessionScreenProps) => {
                     text: "Stop",
                     style: "destructive",
                     onPress: () => {
+                        void cancelFocusAlarm();
                         if (activeSessionRef.current) void clearFocusSession(activeSessionRef.current.userId);
                         activeSessionRef.current = null;
                         setIsRunning(false);
@@ -285,6 +300,7 @@ const FocusSession = ({ navigation, route }: FocusSessionScreenProps) => {
                 {
                     text: "Complete & Log",
                     onPress: () => {
+                        void cancelFocusAlarm();
                         void handleSessionComplete();
                     }
                 }

@@ -23,6 +23,16 @@ namespace FlowCus.Services
             ValidateTimetableName(timetable.Name);
             return await _db.ExecuteInTransactionAsync(async (connection, transaction) =>
             {
+                int currentCount = await connection.ExecuteScalarAsync<int>(@"
+                    SELECT COUNT(*) FROM timetables
+                    WHERE user_id = @UserId AND is_deleted = FALSE",
+                    new { timetable.UserId }, transaction);
+
+                if (currentCount >= 5)
+                {
+                    throw new InvalidOperationException("You can only have up to 5 timetables.");
+                }
+
                 int id = await connection.ExecuteScalarAsync<int>(@"
                     INSERT INTO timetables (user_id, name, is_active, created_at, is_deleted)
                     VALUES (@UserId, @Name, FALSE, now(), FALSE)
@@ -30,7 +40,6 @@ namespace FlowCus.Services
 
                 if (timetable.IsActive)
                 {
-                    await connection.ExecuteAsync("SELECT pg_advisory_xact_lock(@UserId)", new { timetable.UserId }, transaction);
                     await connection.ExecuteAsync(@"
                         UPDATE timetables SET is_active = FALSE, updated_on = now()
                         WHERE user_id = @UserId AND is_deleted = FALSE AND is_active = TRUE",
@@ -48,7 +57,6 @@ namespace FlowCus.Services
         {
             return await _db.ExecuteInTransactionAsync(async (connection, transaction) =>
             {
-                await connection.ExecuteAsync("SELECT pg_advisory_xact_lock(@UserId)", new { UserId = userId }, transaction);
                 int exists = await connection.ExecuteScalarAsync<int>(@"
                     SELECT COUNT(*) FROM timetables
                     WHERE id = @Id AND user_id = @UserId AND is_deleted = FALSE",

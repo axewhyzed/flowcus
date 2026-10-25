@@ -62,11 +62,10 @@ export class LoginComponent implements OnInit {
       }
 
     } catch (err: any) {
-      // FIX: Handle Axios error structure properly
-      // Axios errors have response.data (not error.message)
-      const errorMsg = err?.response?.data?.error || 
+      const errorMsg = err?.error?.error ||
+                       err?.error?.message ||
+                       err?.response?.data?.error || 
                        err?.response?.data?.message ||
-                       err?.error?.message || 
                        'Invalid username or password. Please try again.';
       this.errorMessage = errorMsg;
       this.toastService.error(errorMsg);

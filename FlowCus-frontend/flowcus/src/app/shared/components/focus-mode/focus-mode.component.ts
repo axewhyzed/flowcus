@@ -2,7 +2,6 @@ import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActiveBlockService, ActiveBlockInfo } from '../../../core/services/active-block.service';
-import { SoundFeedbackService } from '../../../core/services/sound-feedback.service';
 import { TaskService } from '../../../core/services/task.service';
 import { Task } from '../../../core/models/task.model';
 import { ToastService } from '../../../core/services/toast.service';
@@ -42,33 +41,8 @@ import { AuthService } from '../../../core/services/auth.service';
             </div>
           </div>
 
-          <!-- Sound & Window Controls -->
+          <!-- Window Controls -->
           <div class="flex items-center gap-2">
-            <!-- Ambient Noise Selector -->
-            <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1 text-xs">
-              <span class="text-[10px] text-slate-500 px-1 font-mono uppercase">Sound:</span>
-              <button (click)="setAmbient('none')"
-                class="px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer"
-                [ngClass]="activeAmbient === 'none' ? 'bg-slate-800 text-white font-medium' : 'text-slate-400 hover:text-slate-200'">
-                Off
-              </button>
-              <button (click)="setAmbient('brown')"
-                class="px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer"
-                [ngClass]="activeAmbient === 'brown' ? 'bg-amber-950/60 text-amber-300 font-medium' : 'text-slate-400 hover:text-slate-200'">
-                Brown
-              </button>
-              <button (click)="setAmbient('white')"
-                class="px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer"
-                [ngClass]="activeAmbient === 'white' ? 'bg-sky-950/60 text-sky-300 font-medium' : 'text-slate-400 hover:text-slate-200'">
-                Rain
-              </button>
-              <button (click)="setAmbient('binaural')"
-                class="px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer"
-                [ngClass]="activeAmbient === 'binaural' ? 'bg-emerald-950/60 text-emerald-300 font-medium' : 'text-slate-400 hover:text-slate-200'">
-                Alpha
-              </button>
-            </div>
-
             <!-- Fullscreen Button -->
             <button (click)="toggleFullscreen()" title="Toggle Fullscreen"
               class="h-8 w-8 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 flex items-center justify-center text-xs transition-colors cursor-pointer">
@@ -198,7 +172,6 @@ export class FocusModeComponent implements OnInit, OnDestroy {
 
   blockTasks: Task[] = [];
   newTaskTitle = '';
-  activeAmbient: 'none' | 'brown' | 'white' | 'binaural' = 'none';
 
   private subs = new Subscription();
   private timerSub?: Subscription;
@@ -207,7 +180,6 @@ export class FocusModeComponent implements OnInit, OnDestroy {
 
   constructor(
     private activeBlockService: ActiveBlockService,
-    private soundService: SoundFeedbackService,
     private taskService: TaskService,
     private toast: ToastService,
     private authService: AuthService
@@ -222,8 +194,6 @@ export class FocusModeComponent implements OnInit, OnDestroy {
         } else {
           this.persistFocusState();
           this.stopTimer();
-          this.soundService.stopAmbient();
-          this.activeAmbient = 'none';
         }
       })
     );
@@ -289,7 +259,6 @@ export class FocusModeComponent implements OnInit, OnDestroy {
       } else {
         this.stopTimer();
         this.clearFocusState();
-        this.soundService.playCelebration();
         this.toast.success('Focus block finished! Well done.');
       }
     });
@@ -313,11 +282,6 @@ export class FocusModeComponent implements OnInit, OnDestroy {
     const previousStatus = !!task.isCompleted;
     const newStatus = !previousStatus;
     task.isCompleted = newStatus;
-    if (newStatus) {
-      this.soundService.playSuccess();
-    } else {
-      this.soundService.playClick();
-    }
     try {
       await this.taskService.toggleComplete(task.taskId, newStatus);
     } catch {
@@ -339,19 +303,9 @@ export class FocusModeComponent implements OnInit, OnDestroy {
       await this.taskService.create(taskData);
       this.newTaskTitle = '';
       await this.loadBlockTasks();
-      this.soundService.playClick();
       this.toast.success('Task added to session');
     } catch {
       this.toast.error('Could not add the task. Your text is still here; try again.');
-    }
-  }
-
-  public setAmbient(type: 'none' | 'brown' | 'white' | 'binaural'): void {
-    this.activeAmbient = type;
-    if (type === 'none') {
-      this.soundService.stopAmbient();
-    } else {
-      this.soundService.startAmbient(type, 0.4);
     }
   }
 
@@ -367,7 +321,6 @@ export class FocusModeComponent implements OnInit, OnDestroy {
     this.stopTimer();
     this.remainingSeconds = 0;
     this.clearFocusState();
-    this.soundService.playCelebration();
     this.toast.success(`Great focus session! Completed ${this.completedCount} task(s).`);
     this.close();
   }
@@ -384,7 +337,6 @@ export class FocusModeComponent implements OnInit, OnDestroy {
     this.subs.unsubscribe();
     this.persistFocusState();
     this.stopTimer();
-    this.soundService.stopAmbient();
   }
 
   private focusStorageKey(): string {

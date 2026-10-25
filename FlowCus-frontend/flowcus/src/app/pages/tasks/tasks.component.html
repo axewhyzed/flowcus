@@ -257,10 +257,10 @@
     <div class="px-4 sm:px-6 py-2.5 border-b border-slate-100 bg-slate-50/40 shrink-0">
       <div class="flex items-center gap-2">
         <div class="relative flex-1">
-          <i class="fa-solid fa-wand-magic-sparkles text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
-          <input type="text" #quickAddInputEl [(ngModel)]="quickAddText" (input)="onQuickAddInput()" (keydown.enter)="submitQuickAdd()"
+          <i class="fa-solid fa-plus text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
+          <input type="text" #quickAddInputEl [(ngModel)]="quickAddText" (keydown.enter)="submitQuickAdd()"
             aria-label="Quick add a task"
-            placeholder="Quick Add: Type e.g. 'Review proposal tomorrow 3pm #work p1' and press Enter..."
+            placeholder="Quick Add: Type a task title and press Enter..."
             class="w-full pl-8 pr-3 h-8.5 text-xs bg-white border border-slate-200 rounded-md text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900/10 outline-none transition-all" />
         </div>
 
@@ -270,32 +270,6 @@
           <i class="fa-solid fa-arrow-turn-down -rotate-90 text-[10px]"></i>
         </button>
       </div>
-
-      <!-- Real-time NLP Token Extraction Preview -->
-      @if (parsedDraft && parsedDraft.cleanTitle) {
-        <div class="flex flex-wrap items-center gap-1.5 mt-2 pt-1.5 border-t border-slate-200/50 text-xs">
-          <span class="text-slate-400 font-medium text-[11px] mr-1">Preview:</span>
-          <span class="px-2 py-0.5 rounded bg-slate-200/70 text-slate-900 font-medium text-[11px]">
-            {{ parsedDraft.cleanTitle }}
-          </span>
-          @if (parsedDraft.dateDisplayText) {
-            <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-[11px] flex items-center gap-1">
-              <i class="fa-regular fa-clock text-[9px]"></i> {{ parsedDraft.dateDisplayText }}
-            </span>
-          }
-          @if (parsedDraft.categoryTag) {
-            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium text-[11px] border border-slate-200">
-              #{{ parsedDraft.categoryTag }}
-            </span>
-          }
-          @if (parsedDraft.priority) {
-            <span class="px-2 py-0.5 rounded text-[11px] font-mono font-medium border"
-              [ngClass]="getPriorityBadgeClass(parsedDraft.priority)">
-              P{{ parsedDraft.priority }}
-            </span>
-          }
-        </div>
-      }
     </div>
 
     <!-- Task List / Grid Canvas (Fills Remaining Viewport Height with Clean Internal Scroll) -->

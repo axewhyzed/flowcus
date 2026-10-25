@@ -6,8 +6,6 @@ import { Subscription } from 'rxjs';
 import { AdminModeService } from '../../core/services/admin-mode.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ActiveBlockService } from '../../core/services/active-block.service';
-import { DailyRitualService } from '../../core/services/daily-ritual.service';
-import { CommandPaletteService } from '../../core/services/command-palette.service';
 
 @Component({
   selector: 'app-header',
@@ -38,9 +36,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private adminModeService: AdminModeService,
     private toastService: ToastService,
-    private activeBlockService: ActiveBlockService,
-    private ritualService: DailyRitualService,
-    private commandPaletteService: CommandPaletteService
+    private activeBlockService: ActiveBlockService
   ) { }
 
   ngOnInit() {
@@ -76,18 +72,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   openFocusMode(): void {
     this.activeBlockService.openFocusMode();
-  }
-
-  openCommandPalette(): void {
-    this.commandPaletteService.open();
-  }
-
-  openMorningKickoff(): void {
-    this.ritualService.openMorningKickoff();
-  }
-
-  openEveningShutdown(): void {
-    this.ritualService.openEveningShutdown();
   }
 
   toggleMenu() {

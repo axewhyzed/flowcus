@@ -1,6 +1,5 @@
 import { ActiveBlockService } from '../../core/services/active-block.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
 import { TaskCategoryService } from '../../core/services/task-category.service';
 import { TaskService } from '../../core/services/task.service';
 import { TaskSubtypeService } from '../../core/services/task-subtype.service';
@@ -49,8 +48,7 @@ describe('TimetablesComponent date-specific blocks', () => {
       toast,
       {} as ConfirmService,
       {} as TaskService,
-      activeBlockService,
-      jasmine.createSpyObj<SoundFeedbackService>('SoundFeedbackService', ['playClick', 'playSuccess'])
+      activeBlockService
     );
     instance.selectedTimetable = { id: 7, name: 'My timetable', isActive: true } as Timetable;
     instance.timetableItems = items;

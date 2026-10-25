@@ -62,6 +62,13 @@ export class AuthService {
     return this.api.get<any>(API_ENDPOINTS.AUTH.ME);
   }
 
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    return await this.api.post<{ message: string }>(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, {
+      currentPassword,
+      newPassword
+    });
+  }
+
   // Restore Session: Just call /me. 
   // If the browser has a valid cookie, this succeeds. If not, it fails.
   async checkAuthStatus(): Promise<boolean> {

@@ -16,26 +16,39 @@ namespace FlowCus.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IAuthRateLimiter _authRateLimiter;
-        private readonly IDbHelper _dbHelper; 
         private readonly IUserService _userService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
         private readonly IWebHostEnvironment _environment;
         private readonly string[] _allowedOrigins;
-        private readonly int _bcryptWorkFactor;
 
-        public AuthController(IAuthService authService, IAuthRateLimiter authRateLimiter, IUserService userService, IDbHelper dbHelper, IConfiguration configuration, ILogger<AuthController> logger, IWebHostEnvironment environment)
+        public AuthController(
+            IAuthService authService,
+            IAuthRateLimiter authRateLimiter,
+            IUserService userService,
+            IConfiguration configuration,
+            ILogger<AuthController> logger,
+            IWebHostEnvironment environment)
         {
             _authService = authService;
             _authRateLimiter = authRateLimiter;
             _userService = userService;
-            _dbHelper = dbHelper;
             _configuration = configuration;
             _logger = logger;
             _environment = environment;
             _allowedOrigins = SecurityConfiguration.GetAllowedOrigins(environment);
+        }
 
-            _bcryptWorkFactor = int.Parse(_configuration["AuthSettings:BcryptWorkFactor"] ?? "12");
+        public AuthController(
+            IAuthService authService,
+            IAuthRateLimiter authRateLimiter,
+            IUserService userService,
+            IDbHelper? dbHelper,
+            IConfiguration configuration,
+            ILogger<AuthController> logger,
+            IWebHostEnvironment environment)
+            : this(authService, authRateLimiter, userService, configuration, logger, environment)
+        {
         }
 
         [AllowAnonymous]
@@ -157,30 +170,21 @@ namespace FlowCus.Controllers
 
             try
             {
-                string? storedHash = await _dbHelper.QuerySingleAsync<string>(
-                    "SELECT password_hash FROM userlist WHERE id = @Id AND is_deleted = FALSE",
-                    new { Id = userId });
-
-                if (string.IsNullOrEmpty(storedHash)) return NotFound("User not found");
-
-                if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, storedHash))
+                var result = await _userService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+                switch (result)
                 {
-                    _logger.LogWarning("Password change rejected. UserId={UserId}, Reason=InvalidCurrentPassword", userId);
-                    return BadRequest(new ErrorResponse { Error = "Current password is incorrect." });
+                    case ChangePasswordResult.UserNotFound:
+                        return NotFound("User not found");
+                    case ChangePasswordResult.InvalidCurrentPassword:
+                        _logger.LogWarning("Password change rejected. UserId={UserId}, Reason=InvalidCurrentPassword", userId);
+                        return BadRequest(new ErrorResponse { Error = "Current password is incorrect." });
+                    case ChangePasswordResult.ConcurrencyConflict:
+                        return Conflict(new ErrorResponse { Error = "Password changed while this request was in progress. Please try again." });
+                    case ChangePasswordResult.Success:
+                    default:
+                        _logger.LogInformation("Password changed. UserId={UserId}", userId);
+                        return Ok(new { message = "Password changed successfully." });
                 }
-
-                string newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, _bcryptWorkFactor);
-
-                int updated = await _dbHelper.ExecuteAsync(@"
-                    UPDATE userlist
-                    SET password_hash = @Hash, token_version = token_version + 1, updated_on = now()
-                    WHERE id = @Id AND is_deleted = FALSE AND password_hash = @CurrentHash",
-                    new { Hash = newHash, CurrentHash = storedHash, Id = userId });
-                if (updated == 0)
-                    return Conflict(new ErrorResponse { Error = "Password changed while this request was in progress. Please try again." });
-
-                _logger.LogInformation("Password changed. UserId={UserId}", userId);
-                return Ok(new { message = "Password changed successfully." });
             }
             catch (Exception ex)
             {
@@ -196,9 +200,7 @@ namespace FlowCus.Controllers
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(idClaim, out int userId)) return Unauthorized();
 
-            var user = await _dbHelper.QuerySingleAsync<Models.User>(
-                "SELECT * FROM userlist WHERE id = @Id AND is_deleted = FALSE",
-                new { Id = userId });
+            var user = await _userService.GetByIdAsync(userId);
             if (user == null) return NotFound();
 
             return Ok(new UserDto
@@ -217,9 +219,7 @@ namespace FlowCus.Controllers
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (int.TryParse(idClaim, out int userId))
             {
-                await _dbHelper.ExecuteAsync(@"UPDATE userlist
-                    SET token_version = token_version + 1, updated_on = now()
-                    WHERE id = @Id AND is_deleted = FALSE", new { Id = userId });
+                await _userService.RevokeUserTokensAsync(userId);
             }
             var cookieOptions = new CookieOptions
             {

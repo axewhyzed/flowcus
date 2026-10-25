@@ -9,6 +9,10 @@ export const routes: Routes = [
     path: 'login', 
     loadComponent: () => import('./pages/auth/login.component').then(m => m.LoginComponent) 
   },
+  {
+    path: 'not-found',
+    loadComponent: () => import('./shared/components/not-found/not-found.component').then(m => m.NotFoundComponent)
+  },
 
   // 2. Protected Routes (Wrapped in MainLayout)
   {
@@ -46,11 +50,7 @@ export const routes: Routes = [
         path: 'users', 
         loadComponent: () => import('./pages/user-management/user-management.component').then(m => m.UserManagementComponent), 
         canActivate: [AdminGuard] 
-      },
-      {
-        path: 'not-found',
-        loadComponent: () => import('./shared/components/not-found/not-found.component').then(m => m.NotFoundComponent)
-      },
+      }
     ]
   },
 

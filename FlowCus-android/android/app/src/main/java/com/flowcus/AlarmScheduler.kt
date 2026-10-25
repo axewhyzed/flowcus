@@ -47,6 +47,7 @@ data class TimetableAlarm(
 }
 
 object AlarmScheduler {
+    const val FOCUS_SESSION_ALARM_ID = 900000
     private const val PREFS = "flowcus_timetable_alarms"
     private const val SCHEDULES_KEY = "weekly_schedules"
     private const val CONSUMED_ONE_OFFS_KEY = "consumed_one_offs"
@@ -55,6 +56,43 @@ object AlarmScheduler {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
         val manager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         return manager.canScheduleExactAlarms()
+    }
+
+    fun scheduleFocusAlarm(context: Context, triggerAtMillis: Long, title: String): Boolean {
+        if (!canScheduleExactAlarms(context)) return false
+        val manager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra("isFocusSession", true)
+            putExtra("title", "Focus Session Complete!")
+            putExtra("message", "Great job! Your focus on \"$title\" has completed.")
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            FOCUS_SESSION_ALARM_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or immutableFlag(),
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        } else {
+            manager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+        }
+        return true
+    }
+
+    fun cancelFocusAlarm(context: Context) {
+        val manager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra("isFocusSession", true)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            FOCUS_SESSION_ALARM_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or immutableFlag(),
+        )
+        manager.cancel(pendingIntent)
+        pendingIntent.cancel()
     }
 
     fun schedule(context: Context, alarm: TimetableAlarm): Boolean {

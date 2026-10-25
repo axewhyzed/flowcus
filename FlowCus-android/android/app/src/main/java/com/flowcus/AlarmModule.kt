@@ -37,6 +37,26 @@ class AlarmModule(private val reactContext: ReactApplicationContext) : ReactCont
     }
 
     @ReactMethod
+    fun scheduleFocusAlarm(triggerAtMillis: Double, title: String, promise: Promise) {
+        try {
+            val success = AlarmScheduler.scheduleFocusAlarm(reactContext, triggerAtMillis.toLong(), title)
+            promise.resolve(success)
+        } catch (error: Exception) {
+            promise.reject("FOCUS_ALARM_ERROR", error.message, error)
+        }
+    }
+
+    @ReactMethod
+    fun cancelFocusAlarm(promise: Promise) {
+        try {
+            AlarmScheduler.cancelFocusAlarm(reactContext)
+            promise.resolve(true)
+        } catch (error: Exception) {
+            promise.reject("FOCUS_ALARM_CANCEL_ERROR", error.message, error)
+        }
+    }
+
+    @ReactMethod
     fun canScheduleExactAlarms(promise: Promise) {
         promise.resolve(AlarmScheduler.canScheduleExactAlarms(reactContext))
     }

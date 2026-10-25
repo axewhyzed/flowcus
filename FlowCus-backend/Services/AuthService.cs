@@ -103,58 +103,64 @@ namespace FlowCus.Services
             int secondLockoutMinutes = ReadPositiveSetting("AuthSettings:SecondLockoutMinutes", 15, 1440);
             int maxLockoutMinutes = ReadPositiveSetting("AuthSettings:MaxLockoutMinutes", 60, 10080);
 
-            const string sql = @"
-                WITH locked_user AS MATERIALIZED (
-                    SELECT id, failed_attempts, lockout_count,
-                           lockout_until IS NOT NULL AND lockout_until <= now() AS lockout_expired,
-                           lockout_until IS NOT NULL AND lockout_until > now() AS lockout_active
-                    FROM userlist
-                    WHERE id = @UserId AND is_deleted = FALSE
-                    FOR UPDATE
-                ), next_state AS (
-                    SELECT id,
-                           CASE WHEN lockout_expired THEN 1 ELSE failed_attempts + 1 END AS next_failed_attempts,
-                           lockout_count,
-                           lockout_active
-                    FROM locked_user
-                ), tiered AS (
-                    SELECT id, next_failed_attempts, lockout_active,
-                           CASE WHEN next_failed_attempts >= @Threshold THEN lockout_count + 1 ELSE lockout_count END AS next_lockout_count
-                    FROM next_state
-                ), changed AS (
-                    UPDATE userlist AS u
-                    SET failed_attempts = CASE WHEN t.next_failed_attempts >= @Threshold THEN 0 ELSE t.next_failed_attempts END,
-                        lockout_count = t.next_lockout_count,
-                        lockout_until = CASE WHEN t.next_failed_attempts >= @Threshold THEN
-                            now() + make_interval(mins => CASE
-                                WHEN t.next_lockout_count = 1 THEN @FirstLockoutMinutes
-                                WHEN t.next_lockout_count = 2 THEN @SecondLockoutMinutes
-                                ELSE @MaxLockoutMinutes END)
-                            ELSE NULL END,
-                        updated_on = now()
-                    FROM tiered t
-                    WHERE u.id = t.id AND NOT t.lockout_active
-                    RETURNING u.failed_attempts, u.lockout_until
-                )
-                SELECT failed_attempts AS FailedAttempts, lockout_until AS LockoutUntil FROM changed
-                UNION ALL
-                SELECT failed_attempts AS FailedAttempts, lockout_until AS LockoutUntil
-                FROM locked_user WHERE lockout_active;";
+            var userState = await _db.QuerySingleAsync<UserStateRow>(
+                "SELECT failed_attempts AS FailedAttempts, lockout_count AS LockoutCount, lockout_until AS LockoutUntil FROM userlist WHERE id = @UserId AND is_deleted = FALSE",
+                new { UserId = userId });
 
-            var state = await _db.QuerySingleAsync<FailedLoginState>(sql, new
+            if (userState == null)
             {
-                UserId = userId,
-                Threshold = threshold,
-                FirstLockoutMinutes = firstLockoutMinutes,
-                SecondLockoutMinutes = secondLockoutMinutes,
-                MaxLockoutMinutes = maxLockoutMinutes
-            });
-            if (state != null) return state;
+                return new FailedLoginState();
+            }
 
-            return await _db.QuerySingleAsync<FailedLoginState>(@"
-                SELECT failed_attempts AS FailedAttempts, lockout_until AS LockoutUntil
-                FROM userlist WHERE id = @UserId AND is_deleted = FALSE",
-                new { UserId = userId }) ?? new FailedLoginState();
+            if (userState.LockoutUntil.HasValue && userState.LockoutUntil.Value > DateTime.UtcNow)
+            {
+                return new FailedLoginState
+                {
+                    FailedAttempts = userState.FailedAttempts,
+                    LockoutUntil = userState.LockoutUntil
+                };
+            }
+
+            int nextFailedAttempts = (userState.LockoutUntil.HasValue && userState.LockoutUntil.Value <= DateTime.UtcNow)
+                ? 1
+                : userState.FailedAttempts + 1;
+
+            int nextLockoutCount = userState.LockoutCount;
+            DateTime? nextLockoutUntil = null;
+
+            if (nextFailedAttempts >= threshold)
+            {
+                nextLockoutCount++;
+                int lockoutMinutes = nextLockoutCount switch
+                {
+                    1 => firstLockoutMinutes,
+                    2 => secondLockoutMinutes,
+                    _ => maxLockoutMinutes
+                };
+                nextLockoutUntil = DateTime.UtcNow.AddMinutes(lockoutMinutes);
+                nextFailedAttempts = 0;
+            }
+
+            await _db.ExecuteAsync(@"
+                UPDATE userlist
+                SET failed_attempts = @FailedAttempts,
+                    lockout_count = @LockoutCount,
+                    lockout_until = @LockoutUntil,
+                    updated_on = now()
+                WHERE id = @UserId AND is_deleted = FALSE",
+                new
+                {
+                    UserId = userId,
+                    FailedAttempts = nextFailedAttempts,
+                    LockoutCount = nextLockoutCount,
+                    LockoutUntil = nextLockoutUntil
+                });
+
+            return new FailedLoginState
+            {
+                FailedAttempts = nextFailedAttempts,
+                LockoutUntil = nextLockoutUntil
+            };
         }
 
         private int ReadPositiveSetting(string key, int fallback, int maximum)
@@ -162,6 +168,13 @@ namespace FlowCus.Services
             return int.TryParse(_configuration[key], out var value) && value > 0
                 ? Math.Min(value, maximum)
                 : fallback;
+        }
+
+        private sealed class UserStateRow
+        {
+            public int FailedAttempts { get; set; }
+            public int LockoutCount { get; set; }
+            public DateTime? LockoutUntil { get; set; }
         }
 
         private sealed class FailedLoginState

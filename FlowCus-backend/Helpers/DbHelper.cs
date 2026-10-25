@@ -1,11 +1,11 @@
 using Dapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace FlowCus.Helpers
@@ -14,12 +14,10 @@ namespace FlowCus.Helpers
     {
         private readonly string _connectionString;
         private readonly ILogger<DbHelper> _logger;
-        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public DbHelper(IConfiguration configuration, ILogger<DbHelper> logger, IHttpContextAccessor httpContextAccessor)
+        public DbHelper(IConfiguration configuration, ILogger<DbHelper> logger, IHttpContextAccessor? httpContextAccessor = null)
         {
             _logger = logger;
-            _httpContextAccessor = httpContextAccessor;
             Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
             string? connectionString = configuration.GetConnectionString("DefaultConnection");
@@ -45,55 +43,35 @@ namespace FlowCus.Helpers
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
-            using var tx = await conn.BeginTransactionAsync();
-            await SetUserContextAsync(conn, tx);
-            var result = await conn.QueryAsync<T>(sql, param, tx);
-            await tx.CommitAsync();
-            return result;
+            return await conn.QueryAsync<T>(sql, param);
         }
 
         public async Task<T?> QuerySingleAsync<T>(string sql, object? param = null)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
-            using var tx = await conn.BeginTransactionAsync();
-            await SetUserContextAsync(conn, tx);
-            var result = await conn.QuerySingleOrDefaultAsync<T>(sql, param, tx);
-            await tx.CommitAsync();
-            return result;
+            return await conn.QuerySingleOrDefaultAsync<T>(sql, param);
         }
 
         public async Task<T?> QuerySingleOrDefaultAsync<T>(string sql, object? param = null)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
-            using var tx = await conn.BeginTransactionAsync();
-            await SetUserContextAsync(conn, tx);
-            var result = await conn.QuerySingleOrDefaultAsync<T>(sql, param, tx);
-            await tx.CommitAsync();
-            return result;
+            return await conn.QuerySingleOrDefaultAsync<T>(sql, param);
         }
 
         public async Task<int> ExecuteAsync(string sql, object? param = null)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
-            using var tx = await conn.BeginTransactionAsync();
-            await SetUserContextAsync(conn, tx);
-            var result = await conn.ExecuteAsync(sql, param, tx);
-            await tx.CommitAsync();
-            return result;
+            return await conn.ExecuteAsync(sql, param);
         }
 
         public async Task<T?> ExecuteScalarAsync<T>(string sql, object? param = null)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
-            using var tx = await conn.BeginTransactionAsync();
-            await SetUserContextAsync(conn, tx);
-            var result = await conn.ExecuteScalarAsync<T>(sql, param, tx);
-            await tx.CommitAsync();
-            return result;
+            return await conn.ExecuteScalarAsync<T>(sql, param);
         }
 
         public async Task<T> ExecuteInTransactionAsync<T>(Func<IDbConnection, IDbTransaction, Task<T>> operation)
@@ -102,23 +80,9 @@ namespace FlowCus.Helpers
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
             using var tx = await conn.BeginTransactionAsync();
-            await SetUserContextAsync(conn, tx);
             var result = await operation(conn, tx);
             await tx.CommitAsync();
             return result;
-        }
-
-        private async Task SetUserContextAsync(NpgsqlConnection connection, NpgsqlTransaction transaction)
-        {
-            var claimValue = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            string userId = int.TryParse(claimValue, out var parsedUserId)
-                ? parsedUserId.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                : string.Empty;
-            string isAdmin = _httpContextAccessor.HttpContext?.User.IsInRole("Admin") == true ? "true" : "false";
-            await connection.ExecuteAsync(
-                "SELECT set_config('app.user_id', @UserId, true), set_config('app.is_admin', @IsAdmin, true)",
-                new { UserId = userId, IsAdmin = isAdmin },
-                transaction);
         }
     }
 }

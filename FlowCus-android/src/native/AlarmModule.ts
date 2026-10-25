@@ -30,3 +30,23 @@ export async function openExactAlarmSettings(): Promise<boolean> {
   if (Platform.OS !== 'android' || !AlarmModule) return false;
   return await AlarmModule.openExactAlarmSettings();
 }
+
+export async function scheduleFocusAlarm(triggerAtMillis: number, title: string): Promise<boolean> {
+  if (Platform.OS !== 'android' || !AlarmModule) return true;
+  try {
+    return await AlarmModule.scheduleFocusAlarm(triggerAtMillis, title);
+  } catch (err) {
+    console.warn('Failed to schedule focus alarm:', err);
+    return false;
+  }
+}
+
+export async function cancelFocusAlarm(): Promise<boolean> {
+  if (Platform.OS !== 'android' || !AlarmModule) return true;
+  try {
+    return await AlarmModule.cancelFocusAlarm();
+  } catch (err) {
+    console.warn('Failed to cancel focus alarm:', err);
+    return false;
+  }
+}

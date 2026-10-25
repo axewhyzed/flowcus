@@ -1,21 +1,8 @@
--- Trigger function to enforce max 5 subtypes per user
--- Uses pg_advisory_xact_lock to eliminate TOCTOU race conditions under concurrent transactions
+-- Deprecated: Subtype limits are enforced in the application service layer.
+-- This function is retained as a safe no-op for backward compatibility.
 CREATE OR REPLACE FUNCTION enforce_subtype_limit()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Obtain transaction-scoped advisory lock for this user to serialize concurrent checks
-  PERFORM pg_advisory_xact_lock(NEW.user_id);
-
-  -- Count non-deleted subtypes for this user (exclude this row when updating)
-  IF TG_OP = 'INSERT' THEN
-    IF (SELECT COUNT(*) FROM task_subtypes WHERE user_id = NEW.user_id AND is_deleted = FALSE) >= 5 THEN
-      RAISE EXCEPTION 'User % already has the maximum of 5 subtypes', NEW.user_id;
-    END IF;
-  ELSE -- UPDATE
-    IF (SELECT COUNT(*) FROM task_subtypes WHERE user_id = NEW.user_id AND is_deleted = FALSE AND id != NEW.id) >= 5 THEN
-      RAISE EXCEPTION 'User % already has the maximum of 5 subtypes', NEW.user_id;
-    END IF;
-  END IF;
-  RETURN NEW;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

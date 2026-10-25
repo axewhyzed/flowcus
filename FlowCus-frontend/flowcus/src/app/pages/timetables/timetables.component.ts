@@ -12,7 +12,6 @@ import { TaskSubtype } from '../../core/models/task-subtype.model';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { TaskService } from '../../core/services/task.service';
-import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
 import { Task } from '../../core/models/task.model';
 import { ActiveBlockService } from '../../core/services/active-block.service';
 
@@ -82,8 +81,7 @@ export class TimetablesComponent implements OnInit {
     private toastService: ToastService,
     private confirmService: ConfirmService,
     private taskService: TaskService,
-    private activeBlockService: ActiveBlockService,
-    public soundService: SoundFeedbackService
+    private activeBlockService: ActiveBlockService
   ) {
     if (isPlatformBrowser(this.platformId) && typeof window !== 'undefined') {
       this.windowWidth = window.innerWidth;
@@ -123,11 +121,6 @@ export class TimetablesComponent implements OnInit {
   async toggleTaskComplete(task: Task, event: any): Promise<void> {
     event.stopPropagation();
     task.isCompleted = !task.isCompleted;
-    if (task.isCompleted) {
-      this.soundService.playSuccess();
-    } else {
-      this.soundService.playClick();
-    }
     try {
       await this.taskService.toggleComplete(task.taskId, task.isCompleted);
     } catch {

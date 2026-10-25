@@ -13,6 +13,15 @@ namespace FlowCus.Services
         {
             await ValidateAsync(subtype);
 
+            long currentCount = await _db.ExecuteScalarAsync<long>(
+                "SELECT COUNT(*) FROM task_subtypes WHERE user_id = @UserId AND is_deleted = FALSE",
+                new { UserId = subtype.UserId });
+
+            if (currentCount >= 5)
+            {
+                throw new InvalidOperationException("You can only have up to 5 subtypes.");
+            }
+
             string sql = @"
                 INSERT INTO task_subtypes (user_id, category_id, name, color_hex, icon_name, created_on, is_deleted)
                 VALUES (@UserId, @CategoryId, @Name, @ColorHex, @IconName, now(), FALSE)

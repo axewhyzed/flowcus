@@ -5,9 +5,6 @@ import { TimetableService } from '../../core/services/timetable.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { ActiveBlockService } from '../../core/services/active-block.service';
-import { DailyRitualService } from '../../core/services/daily-ritual.service';
-import { CommandPaletteService } from '../../core/services/command-palette.service';
-import { SoundFeedbackService } from '../../core/services/sound-feedback.service';
 import { AuthService } from '../../core/services/auth.service';
 import { DashboardStats } from '../../core/models/dashboard.model';
 
@@ -38,9 +35,6 @@ describe('DashboardComponent', () => {
       {} as ConfirmService,
       {} as any,
       {} as ActiveBlockService,
-      {} as DailyRitualService,
-      {} as CommandPaletteService,
-      {} as SoundFeedbackService,
       authService as unknown as AuthService
     );
   }

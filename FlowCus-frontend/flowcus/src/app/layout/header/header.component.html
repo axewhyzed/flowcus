@@ -61,25 +61,6 @@
           </button>
         }
 
-        <!-- Command Palette Trigger -->
-        <button (click)="openCommandPalette()" title="Command Palette (Ctrl/⌘+K)"
-          class="h-7 px-2 rounded-md border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-1.5 text-xs cursor-pointer">
-          <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
-          <kbd class="text-[10px] font-mono px-1 py-0.2 bg-slate-100 text-slate-400 rounded">⌘K</kbd>
-        </button>
-
-        <!-- Morning Kickoff -->
-        <button (click)="openMorningKickoff()" title="Morning Kickoff Routine"
-          class="h-7 w-7 rounded-md border border-slate-200 text-amber-600 hover:bg-amber-50 transition-colors flex items-center justify-center text-xs cursor-pointer">
-          <i class="fa-regular fa-sun"></i>
-        </button>
-
-        <!-- Evening Shutdown -->
-        <button (click)="openEveningShutdown()" title="Evening Shutdown Ritual"
-          class="h-7 w-7 rounded-md border border-slate-200 text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center justify-center text-xs cursor-pointer">
-          <i class="fa-solid fa-moon text-[11px]"></i>
-        </button>
-
         @if (isAdmin) {
         <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200">
           <span class="text-[11px] font-medium text-slate-600">Admin</span>
@@ -165,21 +146,6 @@
           class="h-8 px-2.5 rounded-md bg-slate-900 text-white text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs">
           <i class="fa-solid fa-bullseye text-[10px]"></i>
           <span>Focus Mode</span>
-        </button>
-        <button (click)="openCommandPalette(); closeMenu()"
-          class="h-8 px-2.5 rounded-md border border-slate-200 text-slate-700 text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-slate-50">
-          <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
-          <span>Palette</span>
-        </button>
-        <button (click)="openMorningKickoff(); closeMenu()"
-          class="h-8 px-2.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center justify-center gap-1.5">
-          <i class="fa-regular fa-sun text-[10px]"></i>
-          <span>Morning</span>
-        </button>
-        <button (click)="openEveningShutdown(); closeMenu()"
-          class="h-8 px-2.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-medium flex items-center justify-center gap-1.5">
-          <i class="fa-solid fa-moon text-[10px]"></i>
-          <span>Shutdown</span>
         </button>
       </div>
 

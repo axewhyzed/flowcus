@@ -11,7 +11,6 @@ import { TaskSubtypeService } from '../../core/services/task-subtype.service';
 import { TaskSubtype } from '../../core/models/task-subtype.model';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmService } from '../../core/services/confirm.service';
-import { NlpTaskParserService, ParsedTaskDraft } from '../../core/services/nlp-task-parser.service';
 import { localDateTimeToIso, toDateTimeLocalValue as formatDateTimeLocalValue } from '../../core/utils/local-date-time';
 
 @Component({
@@ -37,9 +36,8 @@ export class TasksComponent implements OnInit {
   editingTask: Task | null = null;
   showTaskForm = false;
 
-  // NLP Quick Add
+  // Quick Add
   quickAddText: string = '';
-  parsedDraft: ParsedTaskDraft | null = null;
   isSubmittingQuickAdd: boolean = false;
 
   categories: TaskCategory[] = [];
@@ -81,7 +79,6 @@ export class TasksComponent implements OnInit {
     private taskService: TaskService,
     private taskCategoryService: TaskCategoryService,
     private subtypeService: TaskSubtypeService,
-    private nlpParser: NlpTaskParserService,
     private route: ActivatedRoute,
     private toastService: ToastService,
     private confirmService: ConfirmService
@@ -134,7 +131,6 @@ export class TasksComponent implements OnInit {
       if (event.key === 'Escape') {
         if (this.quickAddText) {
           this.quickAddText = '';
-          this.parsedDraft = null;
         }
         (event.target as HTMLElement).blur();
       }
@@ -167,49 +163,24 @@ export class TasksComponent implements OnInit {
     }
   }
 
-  onQuickAddInput() {
-    if (!this.quickAddText.trim()) {
-      this.parsedDraft = null;
-      return;
-    }
-    this.parsedDraft = this.nlpParser.parse(this.quickAddText);
-  }
-
   async submitQuickAdd() {
-    if (!this.quickAddText.trim() || this.isSubmittingQuickAdd) return;
-
-    const draft = this.nlpParser.parse(this.quickAddText);
-    if (!draft.cleanTitle) {
-      this.toastService.warning('Please enter a task title.');
-      return;
-    }
+    const text = this.quickAddText.trim();
+    if (!text || this.isSubmittingQuickAdd) return;
 
     this.isSubmittingQuickAdd = true;
-
-    // Resolve category from #tag, or currently selected category, or default to first
-    let matchedCatId = this.selectedCategoryId || this.categories[0]?.id || 1;
-    if (draft.categoryTag) {
-      const found = this.categories.find(c => 
-        c.name.toLowerCase().includes(draft.categoryTag!) || 
-        draft.categoryTag!.includes(c.name.toLowerCase())
-      );
-      if (found) matchedCatId = found.id;
-    }
+    const matchedCatId = this.selectedCategoryId || this.categories[0]?.id || 1;
 
     const payload: Partial<Task> = {
-      title: draft.cleanTitle,
+      title: text,
       taskCategoryId: matchedCatId,
-      priority: draft.priority || 3,
-      startTime: draft.startTime ? draft.startTime.toISOString() : undefined,
-      endTime: draft.endTime ? draft.endTime.toISOString() : undefined,
+      priority: 3,
       isCompleted: false
     };
 
     try {
       await this.taskService.create(payload);
       this.quickAddText = '';
-      this.parsedDraft = null;
-      this.toastService.success(`✨ Created task: ${payload.title}`);
+      this.toastService.success(`Created task: ${payload.title}`);
       await this.loadTasks();
     } catch (err: any) {
       this.toastService.error(err?.error?.error || 'Failed to create task.');

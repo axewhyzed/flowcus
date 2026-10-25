@@ -30,7 +30,7 @@ ForwardedHeadersConfiguration.AddServices(builder.Services, builder.Configuratio
 // Add Services to the container
 builder.Services.AddScoped<IDbHelper, DbHelper>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IAuthRateLimiter, AuthRateLimiter>();
+builder.Services.AddSingleton<IAuthRateLimiter, AuthRateLimiter>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<ITaskCategoryService, TaskCategoryService>();
 builder.Services.AddScoped<ITaskSubtypeService, TaskSubtypeService>();
