@@ -163,6 +163,7 @@ jobs:
       - name: Run Jest tests
         working-directory: FlowCus-android
         run: npm test -- --runInBand
+      # Allocate 4GB heap to ensure smooth execution on CI runners without memory exhaustion
       - name: Run Gradle unit tests
         working-directory: FlowCus-android/android
         env:
